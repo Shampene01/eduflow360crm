@@ -23,15 +23,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchUserProfile = async (uid: string) => {
-    if (!db) return;
+    if (!db) {
+      setLoading(false);
+      return;
+    }
     try {
-      const userDoc = await getDoc(doc(db, "users", uid));
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Firestore timeout')), 10000)
+      );
+      
+      const userDoc = await Promise.race([
+        getDoc(doc(db, "users", uid)),
+        timeoutPromise
+      ]) as any;
+      
       if (userDoc.exists()) {
-        // Support both legacy and new schema
         const data = userDoc.data();
         setUser({ 
           uid, 
-          userId: uid, // New schema compatibility
+          userId: uid,
           ...data 
         } as User);
       }
