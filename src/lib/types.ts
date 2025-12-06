@@ -5,27 +5,66 @@ export type UserType = "student" | "provider" | "admin";
 export interface User {
   uid: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   phone?: string;
   userType: UserType;
-  studentId?: string;
-  institution?: string;
-  program?: string;
-  yearOfStudy?: string;
   status?: string;
   applicationStatus?: string;
   crmSynced?: boolean;
   createdAt?: Timestamp;
   lastLoginAt?: Timestamp;
+  
   // Provider-specific fields
+  providerName?: string;
+  providerType?: string;
+  yearsInOperation?: number | null;
+  companyRegistrationNumber?: string;
+  vatRegistration?: string;
+  taxNumber?: string;
+  vatNumber?: string;
+  bbbeeExpiry?: string;
+  bbbeeLevel?: number | null;
+  womenOwnershipPercentage?: number | null;
+  disabilityOwnershipPercentage?: number | null;
+  blackOwnershipPercentage?: number | null;
+  youthOwnershipPercentage?: number | null;
+  streetAddress?: string;
+  suburb?: string;
+  city?: string;
+  province?: string;
+  longitude?: string;
+  latitude?: string;
+  primaryContactName?: string;
+  primaryContactPhone?: string;
+  primaryContactPosition?: string;
+  primaryContactEmail?: string;
+  secondaryContactName?: string;
+  secondaryContactPhone?: string;
+  bankName?: string;
+  accountNumber?: string;
+  branchCode?: string;
+  accountType?: string;
+  accountHolder?: string;
+  totalProperties?: number;
+  totalCapacity?: number;
+  accreditationStatus?: string;
+  complianceStatus?: string;
+  nsfasAccreditedSince?: string;
+  accreditationExpiry?: string;
+  
+  // Legacy fields (for backward compatibility)
   companyName?: string;
   companyRegistration?: string;
   nsfasAccredited?: boolean;
   address?: string;
-  city?: string;
-  province?: string;
   postalCode?: string;
+  
+  // Student-specific fields
+  studentId?: string;
+  institution?: string;
+  program?: string;
+  yearOfStudy?: string;
 }
 
 export interface Property {
