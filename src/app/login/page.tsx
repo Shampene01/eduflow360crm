@@ -90,13 +90,14 @@ export default function LoginPage() {
           <div className="absolute -top-1/2 -right-1/4 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl" />
           
           <div className="relative z-10 text-center">
-            <div className="w-28 h-28 mx-auto mb-6 rounded-full bg-amber-500/15 border-2 border-amber-500/30 flex items-center justify-center p-3 backdrop-blur-sm">
+            <div className="mx-auto mb-6 flex items-center justify-center">
               <Image
-                src="/whitelogo.png"
+                src="/logo-white.webp"
                 alt="EduFlow360"
-                width={100}
-                height={100}
-                className="w-full h-full object-contain"
+                width={160}
+                height={50}
+                className="h-12 w-auto"
+                priority
               />
             </div>
             <h1 className="text-2xl font-semibold text-white mb-2">Welcome Back</h1>

@@ -37,11 +37,12 @@ export function DashboardHeader() {
         {/* Brand */}
         <Link href="/" className="flex items-center gap-3">
           <Image
-            src="/whitelogo.png"
+            src="/logo-white.webp"
             alt="EduFlow360"
             width={120}
             height={40}
-            className="h-10 w-auto"
+            className="h-8 w-auto"
+            priority
           />
         </Link>
 

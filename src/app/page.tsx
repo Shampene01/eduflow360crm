@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   Building2,
   Users,
@@ -8,10 +9,7 @@ import {
   BarChart3,
   CheckCircle,
   ArrowRight,
-  PlayCircle,
-  Clock,
-  Zap,
-  Award,
+  Sparkles,
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -19,135 +17,111 @@ import { Button } from "@/components/ui/button";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <Navbar />
 
-      {/* Hero Section */}
-      <section className="min-h-screen flex items-center justify-center pt-20 pb-16 px-4 bg-gradient-to-br from-white via-gray-50 to-gray-100 relative overflow-hidden">
-        {/* Background decoration */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 left-1/5 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-1/4 right-1/5 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl" />
-        </div>
+      {/* Hero Section - Clean & Modern */}
+      <section className="relative pt-32 pb-20 px-4 overflow-hidden">
+        {/* Subtle gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-b from-amber-50/50 via-white to-white" />
+        
+        {/* Decorative elements */}
+        <div className="absolute top-20 left-10 w-72 h-72 bg-amber-200/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-10 w-96 h-96 bg-amber-100/30 rounded-full blur-3xl" />
 
-        <div className="max-w-7xl mx-auto relative z-10">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Hero Text */}
-            <div className="max-w-xl">
-              <div className="inline-flex items-center gap-2 bg-amber-100 border border-amber-200 px-4 py-2 rounded-full text-sm text-amber-700 mb-6">
-                <Shield size={14} />
-                NSFAS Accredited Platform
-              </div>
-
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight mb-6">
-                Streamline Your{" "}
-                <span className="bg-gradient-to-r from-amber-500 to-amber-600 bg-clip-text text-transparent">
-                  Student Accommodation
-                </span>{" "}
-                Management
-              </h1>
-
-              <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-                The complete CRM solution for NSFAS-accredited accommodation providers.
-                Manage properties, students, billing, and support tickets all in one
-                powerful platform.
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-4 mb-12">
-                <Button
-                  asChild
-                  size="lg"
-                  className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-gray-900 shadow-lg shadow-amber-500/30"
-                >
-                  <Link href="/login">
-                    <ArrowRight size={18} className="mr-2" />
-                    Access Dashboard
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="lg"
-                  className="border-amber-600 text-amber-700 hover:bg-amber-50"
-                >
-                  <Link href="#features">
-                    <PlayCircle size={18} className="mr-2" />
-                    Learn More
-                  </Link>
-                </Button>
-              </div>
-
-              {/* Stats */}
-              <div className="flex gap-8 flex-wrap">
-                <div>
-                  <div className="text-3xl font-bold text-amber-600">500+</div>
-                  <div className="text-sm text-gray-500">Properties Managed</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-amber-600">10K+</div>
-                  <div className="text-sm text-gray-500">Students Housed</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-amber-600">99%</div>
-                  <div className="text-sm text-gray-500">Uptime</div>
-                </div>
-              </div>
+        <div className="max-w-6xl mx-auto relative z-10">
+          <div className="text-center max-w-3xl mx-auto">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 px-4 py-2 rounded-full text-sm text-amber-700 font-medium mb-8">
+              <Sparkles size={14} className="text-amber-500" />
+              NSFAS Accredited Platform
             </div>
 
-            {/* Hero Visual */}
-            <div className="hidden lg:block">
-              <div className="bg-gradient-to-br from-amber-100/50 to-amber-50/30 border border-amber-200/50 rounded-2xl p-8">
-                <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
-                  {/* Preview Header */}
-                  <div className="bg-gradient-to-r from-gray-900 to-gray-800 px-6 py-4 flex items-center gap-3">
-                    <div className="flex gap-2">
-                      <div className="w-3 h-3 rounded-full bg-red-500" />
-                      <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                      <div className="w-3 h-3 rounded-full bg-green-500" />
-                    </div>
-                    <span className="text-gray-400 text-sm ml-auto">
-                      EduFlow360 Dashboard
-                    </span>
+            {/* Headline */}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-[1.1] mb-6 tracking-tight">
+              Student Housing
+              <br />
+              <span className="text-amber-500">Made Simple</span>
+            </h1>
+
+            {/* Subheadline */}
+            <p className="text-lg sm:text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
+              The all-in-one platform for NSFAS accommodation providers. 
+              Manage properties, students, and billing effortlessly.
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+              <Button
+                asChild
+                size="lg"
+                className="bg-gray-900 hover:bg-gray-800 text-white px-8 h-12 text-base"
+              >
+                <Link href="/register">
+                  Start Free Trial
+                  <ArrowRight size={18} className="ml-2" />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="border-gray-300 text-gray-700 hover:bg-gray-50 px-8 h-12 text-base"
+              >
+                <Link href="/login">Sign In</Link>
+              </Button>
+            </div>
+
+            {/* Trust indicators */}
+            <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-gray-500">
+              <div className="flex items-center gap-2">
+                <CheckCircle size={16} className="text-green-500" />
+                <span>Free 14-day trial</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle size={16} className="text-green-500" />
+                <span>No credit card required</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle size={16} className="text-green-500" />
+                <span>NSFAS compliant</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Dashboard Preview */}
+          <div className="mt-16 relative">
+            <div className="bg-gradient-to-b from-gray-100 to-gray-50 rounded-2xl p-2 shadow-2xl shadow-gray-200/50 border border-gray-200">
+              <div className="bg-white rounded-xl overflow-hidden">
+                {/* Browser chrome */}
+                <div className="bg-gray-100 px-4 py-3 flex items-center gap-2 border-b border-gray-200">
+                  <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-red-400" />
+                    <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                    <div className="w-3 h-3 rounded-full bg-green-400" />
                   </div>
-
-                  {/* Preview Body */}
-                  <div className="p-6 bg-gray-50">
-                    <div className="grid grid-cols-3 gap-4 mb-4">
-                      {[
-                        { icon: Building2, value: "24", label: "Properties", color: "amber" },
-                        { icon: Users, value: "186", label: "Students", color: "blue" },
-                        { icon: CheckCircle, value: "98%", label: "Occupancy", color: "green" },
-                      ].map((stat, i) => (
-                        <div key={i} className="bg-white p-4 rounded-lg shadow-sm">
-                          <div
-                            className={`w-9 h-9 rounded-lg flex items-center justify-center mb-3 ${
-                              stat.color === "amber"
-                                ? "bg-amber-100 text-amber-600"
-                                : stat.color === "blue"
-                                ? "bg-blue-100 text-blue-600"
-                                : "bg-green-100 text-green-600"
-                            }`}
-                          >
-                            <stat.icon size={18} />
-                          </div>
-                          <div className="text-2xl font-bold text-gray-900">
-                            {stat.value}
-                          </div>
-                          <div className="text-xs text-gray-500">{stat.label}</div>
-                        </div>
-                      ))}
+                  <div className="flex-1 flex justify-center">
+                    <div className="bg-white rounded-md px-4 py-1 text-xs text-gray-500 border border-gray-200">
+                      crm.eduflow360.co.za
                     </div>
-
-                    {/* Chart Preview */}
-                    <div className="bg-white p-4 rounded-lg h-24 flex items-end gap-2">
-                      {[40, 65, 45, 80, 55, 90, 70].map((height, i) => (
-                        <div
-                          key={i}
-                          className="flex-1 bg-gradient-to-t from-amber-500 to-amber-400 rounded-t opacity-80"
-                          style={{ height: `${height}%` }}
-                        />
-                      ))}
-                    </div>
+                  </div>
+                </div>
+                
+                {/* Dashboard content */}
+                <div className="p-6 bg-gray-50">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                      { label: "Properties", value: "24", color: "bg-amber-500" },
+                      { label: "Students", value: "186", color: "bg-blue-500" },
+                      { label: "Occupancy", value: "94%", color: "bg-green-500" },
+                      { label: "Revenue", value: "R2.4M", color: "bg-purple-500" },
+                    ].map((stat, i) => (
+                      <div key={i} className="bg-white rounded-lg p-4 border border-gray-100">
+                        <div className={`w-2 h-2 rounded-full ${stat.color} mb-3`} />
+                        <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
+                        <div className="text-sm text-gray-500">{stat.label}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -157,70 +131,61 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-24 px-4 bg-white">
-        <div className="max-w-7xl mx-auto">
+      <section id="features" className="py-24 px-4 bg-gray-50">
+        <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <span className="inline-block bg-amber-100 text-amber-700 px-4 py-2 rounded-full text-sm font-semibold uppercase tracking-wide mb-4">
-              Features
-            </span>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Everything You Need to Succeed
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              Everything you need
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Powerful tools designed specifically for student accommodation providers
+            <p className="text-lg text-gray-600 max-w-xl mx-auto">
+              Powerful tools built for NSFAS accommodation providers
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               {
                 icon: Building2,
                 title: "Property Management",
-                description:
-                  "Easily manage multiple properties, track room availability, and maintain detailed property records with photos and documentation.",
+                description: "Manage multiple properties, track availability, and maintain records.",
               },
               {
                 icon: Users,
                 title: "Student Allocation",
-                description:
-                  "Streamline student placements with NSFAS verification integration. Track allocations and manage student records efficiently.",
+                description: "Streamline placements with NSFAS verification integration.",
               },
               {
                 icon: FileText,
                 title: "Billing & Invoicing",
-                description:
-                  "Submit monthly invoices, track payment status, and maintain complete billing history all in one secure location.",
+                description: "Submit invoices, track payments, and maintain billing history.",
               },
               {
                 icon: Headset,
-                title: "Support Ticketing",
-                description:
-                  "Create and track support tickets for quick issue resolution. Communicate directly with our support team.",
+                title: "Support Tickets",
+                description: "Create and track tickets for quick issue resolution.",
               },
               {
                 icon: Shield,
                 title: "NSFAS Integration",
-                description:
-                  "Verify student funding status instantly with our NSFAS integration. Ensure compliance and reduce administrative burden.",
+                description: "Verify funding status instantly and ensure compliance.",
               },
               {
                 icon: BarChart3,
-                title: "Analytics Dashboard",
-                description:
-                  "Get insights into occupancy rates, revenue trends, and performance metrics with our comprehensive analytics.",
+                title: "Analytics",
+                description: "Get insights into occupancy, revenue, and performance.",
               },
             ].map((feature, i) => (
               <div
                 key={i}
-                className="bg-gray-50 border border-gray-200 rounded-2xl p-8 hover:-translate-y-1 hover:border-amber-500 hover:shadow-xl hover:shadow-amber-500/10 transition-all"
+                className="bg-white rounded-xl p-6 border border-gray-200 hover:border-amber-300 hover:shadow-lg transition-all group"
               >
-                <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center text-gray-900 mb-6">
-                  <feature.icon size={24} />
+                <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600 mb-4 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                  <feature.icon size={20} />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   {feature.title}
                 </h3>
-                <p className="text-gray-600 leading-relaxed">
+                <p className="text-gray-600 text-sm leading-relaxed">
                   {feature.description}
                 </p>
               </div>
@@ -229,55 +194,22 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Benefits Section */}
-      <section id="benefits" className="py-24 px-4 bg-gray-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div>
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-                Why Choose <span className="text-amber-600">EduFlow360</span>?
-              </h2>
-              <p className="text-lg text-gray-600 mb-8">
-                Join hundreds of accommodation providers who trust our platform to
-                manage their student housing operations efficiently.
-              </p>
-
-              <ul className="space-y-4">
-                {[
-                  "Reduce administrative workload by up to 60%",
-                  "Real-time NSFAS verification and compliance",
-                  "Automated billing and payment tracking",
-                  "24/7 support and dedicated account management",
-                  "Secure, cloud-based platform with 99.9% uptime",
-                ].map((benefit, i) => (
-                  <li key={i} className="flex items-start gap-3 text-gray-700">
-                    <CheckCircle className="w-6 h-6 text-amber-500 mt-0.5 flex-shrink-0" />
-                    {benefit}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
+      {/* Stats Section */}
+      <section id="benefits" className="py-24 px-4 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="bg-gray-900 rounded-2xl p-8 sm:p-12">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 text-center">
               {[
-                { icon: Clock, value: "60%", label: "Time Saved" },
-                { icon: Zap, value: "3x", label: "Faster Processing" },
-                { icon: Users, value: "10K+", label: "Students Managed" },
-                { icon: Award, value: "99.9%", label: "Uptime Guarantee" },
+                { value: "500+", label: "Properties" },
+                { value: "10K+", label: "Students" },
+                { value: "99.9%", label: "Uptime" },
+                { value: "60%", label: "Time Saved" },
               ].map((stat, i) => (
-                <div
-                  key={i}
-                  className={`bg-white border border-gray-200 rounded-2xl p-6 text-center shadow-sm hover:border-amber-500 hover:-translate-y-1 transition-all ${
-                    i % 2 === 1 ? "mt-8" : ""
-                  }`}
-                >
-                  <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600 mx-auto mb-4">
-                    <stat.icon size={24} />
-                  </div>
-                  <div className="text-3xl font-bold text-gray-900 mb-1">
+                <div key={i}>
+                  <div className="text-3xl sm:text-4xl font-bold text-amber-500 mb-2">
                     {stat.value}
                   </div>
-                  <div className="text-sm text-gray-500">{stat.label}</div>
+                  <div className="text-gray-400">{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -286,25 +218,34 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 px-4 bg-gradient-to-r from-amber-500 to-amber-600">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Ready to Transform Your Operations?
+      <section className="py-24 px-4 bg-amber-50">
+        <div className="max-w-3xl mx-auto text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+            Ready to get started?
           </h2>
-          <p className="text-lg text-gray-800/80 mb-8 max-w-2xl mx-auto">
-            Join the growing community of accommodation providers using EduFlow360 to
-            streamline their student housing management.
+          <p className="text-lg text-gray-600 mb-8">
+            Join hundreds of providers streamlining their operations with EduFlow360.
           </p>
-          <Button
-            asChild
-            size="lg"
-            className="bg-gray-900 text-amber-500 hover:bg-gray-800"
-          >
-            <Link href="/register">
-              Get Started Today
-              <ArrowRight size={18} className="ml-2" />
-            </Link>
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              asChild
+              size="lg"
+              className="bg-gray-900 hover:bg-gray-800 text-white px-8 h-12"
+            >
+              <Link href="/register">
+                Start Free Trial
+                <ArrowRight size={18} className="ml-2" />
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="border-gray-300 px-8 h-12"
+            >
+              <Link href="/login">Sign In</Link>
+            </Button>
+          </div>
         </div>
       </section>
 

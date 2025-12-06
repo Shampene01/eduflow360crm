@@ -26,11 +26,12 @@ export function Navbar({ transparent = false }: NavbarProps) {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3">
             <Image
-              src="/eduflowlogo.png"
+              src="/logo.webp"
               alt="EduFlow360"
-              width={45}
-              height={45}
-              className="h-11 w-auto"
+              width={150}
+              height={30}
+              className="h-8 w-auto"
+              priority
             />
           </Link>
 

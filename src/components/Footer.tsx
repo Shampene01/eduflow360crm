@@ -10,11 +10,11 @@ export function Footer() {
           {/* Brand */}
           <div className="lg:col-span-1">
             <Image
-              src="/whitelogo.png"
+              src="/logo-white.webp"
               alt="EduFlow360"
               width={120}
               height={40}
-              className="h-10 w-auto mb-4"
+              className="h-8 w-auto mb-4"
             />
             <p className="text-gray-400 text-sm leading-relaxed mb-6">
               The complete student accommodation management platform for NSFAS-accredited providers.
