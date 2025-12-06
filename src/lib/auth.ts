@@ -22,16 +22,21 @@ export async function signIn(email: string, password: string): Promise<User> {
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
 
-  // Update last login timestamp
-  await updateDoc(doc(db, "users", user.uid), {
-    lastLoginAt: serverTimestamp(),
-  });
+  // Wait for the auth token to be ready before accessing Firestore
+  await user.getIdToken(true);
 
-  // Get user profile
-  const userDoc = await getDoc(doc(db, "users", user.uid));
+  // Get user profile first
+  const userDocRef = doc(db, "users", user.uid);
+  const userDoc = await getDoc(userDocRef);
+  
   if (!userDoc.exists()) {
     throw new Error("User profile not found");
   }
+
+  // Update last login timestamp (don't await to avoid blocking)
+  updateDoc(userDocRef, {
+    lastLoginAt: serverTimestamp(),
+  }).catch(err => console.warn("Failed to update lastLoginAt:", err));
 
   return { uid: user.uid, ...userDoc.data() } as User;
 }
