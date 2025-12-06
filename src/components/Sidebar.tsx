@@ -10,14 +10,6 @@ import {
   Users,
   FileText,
   Ticket,
-  Settings,
-  HelpCircle,
-  Bell,
-  Heart,
-  Calculator,
-  Calendar,
-  Book,
-  MessageSquare,
   LucideIcon,
 } from "lucide-react";
 
@@ -46,9 +38,7 @@ const providerSections: SidebarSection[] = [
   {
     title: "Account",
     items: [
-      { label: "Settings", href: "/settings", icon: Settings },
-      { label: "Help & Support", href: "/support", icon: HelpCircle },
-      { label: "Notifications", href: "/notifications", icon: Bell },
+      { label: "Support Tickets", href: "/tickets", icon: Ticket },
     ],
   },
 ];
@@ -59,18 +49,7 @@ const studentSections: SidebarSection[] = [
     items: [
       { label: "Home", href: "/dashboard", icon: Home },
       { label: "Browse Properties", href: "/properties", icon: Building2 },
-      { label: "Saved Listings", href: "/saved", icon: Heart },
-      { label: "My Applications", href: "/applications", icon: FileText },
-      { label: "Financial Aid", href: "/financial-aid", icon: Calculator },
-    ],
-  },
-  {
-    title: "Account",
-    items: [
-      { label: "My Profile", href: "/profile", icon: Users },
-      { label: "Settings", href: "/settings", icon: Settings },
-      { label: "Notifications", href: "/notifications", icon: Bell },
-      { label: "Help & Support", href: "/support", icon: HelpCircle },
+      { label: "Support Tickets", href: "/tickets", icon: Ticket },
     ],
   },
 ];
@@ -139,37 +118,6 @@ export function Sidebar({ userType = "provider" }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Quick Links */}
-      {userType === "student" && (
-        <div className="p-6 border-t border-gray-200">
-          <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-            Quick Links
-          </h4>
-          <div className="space-y-2">
-            <Link
-              href="/schedule"
-              className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-50 rounded-lg hover:bg-amber-50 hover:text-amber-600 transition-all"
-            >
-              <Calendar size={16} />
-              Schedule Viewing
-            </Link>
-            <Link
-              href="/guide"
-              className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-50 rounded-lg hover:bg-amber-50 hover:text-amber-600 transition-all"
-            >
-              <Book size={16} />
-              Housing Guide
-            </Link>
-            <Link
-              href="/contact"
-              className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-50 rounded-lg hover:bg-amber-50 hover:text-amber-600 transition-all"
-            >
-              <MessageSquare size={16} />
-              Contact Support
-            </Link>
-          </div>
-        </div>
-      )}
     </aside>
   );
 }
