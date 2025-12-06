@@ -11,7 +11,7 @@ If you see users in **Firebase Authentication** but no data in **Firestore Datab
    - Select your project
 
 2. **Navigate to Firestore Database**
-   - Click on "Firestore Database" in the left sidebar
+   - Click on "Firestore Database" in the left sideba
    - Click on the "Rules" tab
 
 3. **Update the Rules**
