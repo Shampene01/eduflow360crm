@@ -8,7 +8,7 @@ If you see users in **Firebase Authentication** but no data in **Firestore Datab
 
 1. **Go to Firebase Console**
    - Visit [https://console.firebase.google.com](https://console.firebase.google.com)
-   - Select your project: `tym-crm`
+   - Select your project
 
 2. **Navigate to Firestore Database**
    - Click on "Firestore Database" in the left sidebar

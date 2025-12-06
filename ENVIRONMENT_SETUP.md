@@ -16,13 +16,6 @@ NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id
 NEXT_PUBLIC_NSFAS_WEBHOOK_URL=your_webhook_url
 ```
 
-## Current Default Values
-
-The application has fallback values configured in `src/lib/firebase.ts` for the existing Firebase project:
-
-- **Project ID:** tym-crm
-- **Auth Domain:** tym-crm.firebaseapp.com
-
 ## Getting Started
 
 1. Copy the environment variables above to a new `.env.local` file
