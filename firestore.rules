@@ -10,12 +10,14 @@ service cloud.firestore {
       return request.auth != null;
     }
     
+    // Checks if the current user owns a user document
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
+    // Checks if the current user has a specific role in /users/{uid}.roles[]
     function hasRole(role) {
-      return isAuthenticated() && 
+      return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         role in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles;
     }
@@ -28,46 +30,61 @@ service cloud.firestore {
       return hasRole('provider');
     }
     
+    // Checks if the authenticated user owns the provider with this providerId
     function isProviderOwner(providerId) {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
         get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
     }
+
+    // Convenience: check if user is provider or admin
+    function isProviderOrAdmin() {
+      return isProvider() || isAdmin();
+    }
+
+    // Given a propertyId, check whether the authenticated user owns the property
+    function ownsProperty(propertyId) {
+      return exists(/databases/$(database)/documents/properties/$(propertyId)) &&
+        isProviderOwner(get(/databases/$(database)/documents/properties/$(propertyId)).data.providerId);
+    }
+    
     
     // ============================================================================
     // USERS COLLECTION (Natural Persons)
     // ============================================================================
     
     match /users/{userId} {
-      // Users can read their own document
+      // Users can read their own document, admins can read all
       allow read: if isOwner(userId) || isAdmin();
       
       // Users can create their own document during registration
       allow create: if isOwner(userId);
       
-      // Users can update their own document (except roles)
-      allow update: if isOwner(userId) && 
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['roles'])) ||
+      // Users can update their own document (but not roles)
+      allow update: if (isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['roles'])) ||
         isAdmin();
       
       // Only admins can delete users
       allow delete: if isAdmin();
     }
     
+    
     // ============================================================================
-    // ADDRESSES COLLECTION
+    // ADDRESSES COLLECTION (shared for users, providers, properties)
     // ============================================================================
     
     match /addresses/{addressId} {
-      // Anyone authenticated can read addresses (needed for lookups)
+      // Authenticated users can read addresses (for lookups, display, etc.)
       allow read: if isAuthenticated();
       
-      // Authenticated users can create addresses
+      // Any authenticated user may create an address
       allow create: if isAuthenticated();
       
-      // Only the creator or admin can update/delete
+      // Only admins can update or delete addresses
       allow update, delete: if isAdmin();
     }
+    
     
     // ============================================================================
     // ACCOMMODATION PROVIDERS COLLECTION
@@ -77,19 +94,24 @@ service cloud.firestore {
       // Providers can read their own record, admins can read all
       allow read: if isProviderOwner(providerId) || isAdmin();
       
-      // Authenticated users can create a provider application
-      allow create: if isAuthenticated() && 
+      // Authenticated users can create a provider application for themselves
+      allow create: if isAuthenticated() &&
         request.resource.data.userId == request.auth.uid;
       
-      // Provider owners can update their record (except approval fields)
-      allow update: if (isProviderOwner(providerId) && 
-        !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['approvalStatus', 'approvalTimestamp', 'approvedBy', 'rejectionReason'])) ||
+      // Provider owners can update their record (except approval fields),
+      // admins can update anything.
+      allow update: if
+        (
+          isProviderOwner(providerId) &&
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['approvalStatus', 'approvalTimestamp', 'approvedBy', 'rejectionReason'])
+        ) ||
         isAdmin();
       
-      // Only admins can delete
+      // Only admins can delete providers
       allow delete: if isAdmin();
     }
+    
     
     // ============================================================================
     // PROVIDER CONTACT PERSONS COLLECTION
@@ -100,177 +122,190 @@ service cloud.firestore {
       allow read: if isProviderOwner(resource.data.providerId) || isAdmin();
       
       // Provider owners can create contacts for their provider
-      allow create: if isAuthenticated();
+      allow create: if isProviderOwner(request.resource.data.providerId) || isAdmin();
       
-      // Provider owners can update their contacts
-      allow update: if isProviderOwner(resource.data.providerId) || isAdmin();
-      
-      // Provider owners can delete their contacts
-      allow delete: if isProviderOwner(resource.data.providerId) || isAdmin();
+      // Provider owners and admins can update/delete their contacts
+      allow update, delete: if isProviderOwner(resource.data.providerId) || isAdmin();
     }
     
+    
     // ============================================================================
-    // PROVIDER DOCUMENTS COLLECTION
+    // PROVIDER DOCUMENTS COLLECTION (ID copy, COR14.3, bank letter, etc.)
     // ============================================================================
     
     match /providerDocuments/{documentId} {
-      // Provider owners and admins can read
-      allow read: if isAuthenticated();
+      // Only the provider owner and admins can read provider documents
+      allow read: if isProviderOwner(resource.data.providerId) || isAdmin();
       
-      // Provider owners can upload documents
-      allow create: if isAuthenticated();
+      // Provider owners can upload documents for their provider
+      allow create: if isProviderOwner(request.resource.data.providerId) || isAdmin();
       
-      // Only admins can update (for verification)
+      // Only admins can update documents (e.g. verification flags)
       allow update: if isAdmin();
       
-      // Provider owners can delete unverified documents
-      allow delete: if (isProviderOwner(resource.data.providerId) && 
-        resource.data.verified == false) || isAdmin();
+      // Provider owners can delete their own unverified documents, admins can delete any
+      allow delete: if (isProviderOwner(resource.data.providerId) && resource.data.verified == false) || isAdmin();
     }
+    
     
     // ============================================================================
     // PROPERTIES COLLECTION
     // ============================================================================
     
     match /properties/{propertyId} {
-      // Provider owners and admins can read their properties
-      // Public can read active properties
-      allow read: if resource.data.status == 'Active' || 
-        isProviderOwner(resource.data.providerId) || 
+      // Public can read active properties;
+      // provider owners and admins can read their properties regardless of status.
+      allow read: if resource.data.status == 'Active' ||
+        ownsProperty(propertyId) ||
         isAdmin();
       
-      // Provider owners can create properties
-      allow create: if isAuthenticated();
+      // Provider owners can create properties linked to their providerId
+      allow create: if isProviderOwner(request.resource.data.providerId) || isAdmin();
       
-      // Provider owners can update their properties
-      allow update: if isProviderOwner(resource.data.providerId) || isAdmin();
+      // Provider owners and admins can update their properties
+      allow update: if ownsProperty(propertyId) || isAdmin();
       
       // Only admins can delete properties
       allow delete: if isAdmin();
     }
+    
     
     // ============================================================================
     // ROOM CONFIGURATIONS COLLECTION
     // ============================================================================
     
     match /roomConfigurations/{configId} {
+      // Authenticated users can read room configurations (for app display)
       allow read: if isAuthenticated();
       
-      allow create: if isAuthenticated();
+      // Provider owners can create configurations for their properties
+      allow create: if ownsProperty(request.resource.data.propertyId) || isAdmin();
       
-      allow update, delete: if isAdmin() ||
-        (exists(/databases/$(database)/documents/properties/$(resource.data.propertyId)) &&
-        isProviderOwner(get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.providerId));
+      // Provider owners/admins can update/delete their configurations
+      allow update, delete: if ownsProperty(resource.data.propertyId) || isAdmin();
     }
+    
     
     // ============================================================================
     // PROPERTY ROOMS COLLECTION
     // ============================================================================
     
     match /propertyRooms/{roomId} {
+      // Authenticated users (e.g. for listing property details) can read
       allow read: if isAuthenticated();
       
-      allow create, update, delete: if isAdmin() ||
-        (exists(/databases/$(database)/documents/properties/$(resource.data.propertyId)) &&
-        isProviderOwner(get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.providerId));
+      // Provider owners/admins can manage rooms for their properties
+      allow create: if ownsProperty(request.resource.data.propertyId) || isAdmin();
+      allow update, delete: if ownsProperty(resource.data.propertyId) || isAdmin();
     }
+    
     
     // ============================================================================
     // PROPERTY BEDS COLLECTION
     // ============================================================================
     
     match /propertyBeds/{bedId} {
+      // Authenticated users can read bed info if needed for the UI
       allow read: if isAuthenticated();
       
-      allow create, update, delete: if isAdmin() ||
-        (exists(/databases/$(database)/documents/properties/$(resource.data.propertyId)) &&
-        isProviderOwner(get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.providerId));
+      // Provider owners/admins can manage beds
+      allow create: if ownsProperty(request.resource.data.propertyId) || isAdmin();
+      allow update, delete: if ownsProperty(resource.data.propertyId) || isAdmin();
     }
     
+    
     // ============================================================================
-    // PROPERTY DOCUMENTS COLLECTION
+    // PROPERTY DOCUMENTS COLLECTION (e.g. lease, fire certificate, etc.)
     // ============================================================================
     
     match /propertyDocuments/{documentId} {
-      allow read: if isAuthenticated();
-      
-      allow create, update, delete: if isAdmin() ||
+      // Authenticated users can read property documents if the property is active;
+      // provider owner & admins can read regardless of status.
+      allow read: if isAdmin() ||
         (exists(/databases/$(database)/documents/properties/$(resource.data.propertyId)) &&
-        isProviderOwner(get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.providerId));
+          (
+            get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.status == 'Active' ||
+            ownsProperty(resource.data.propertyId)
+          )
+        );
+      
+      // Provider owners/admins can create/update/delete docs for their properties
+      allow create: if ownsProperty(request.resource.data.propertyId) || isAdmin();
+      allow update, delete: if ownsProperty(resource.data.propertyId) || isAdmin();
     }
+    
     
     // ============================================================================
     // PROPERTY IMAGES COLLECTION
     // ============================================================================
     
     match /propertyImages/{imageId} {
-      // Anyone can read property images
+      // Anyone can read property images (for public listings)
       allow read: if true;
       
-      allow create, update, delete: if isAdmin() ||
-        (exists(/databases/$(database)/documents/properties/$(resource.data.propertyId)) &&
-        isProviderOwner(get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.providerId));
+      // Provider owners/admins can manage their property images
+      allow create: if ownsProperty(request.resource.data.propertyId) || isAdmin();
+      allow update, delete: if ownsProperty(resource.data.propertyId) || isAdmin();
     }
+    
     
     // ============================================================================
     // STUDENTS COLLECTION
     // ============================================================================
+    // NOTE: In this version we assume:
+    // - Students are managed by providers and admins.
+    // - There is no direct per-student user account link yet.
+    // If you later add a "createdByUserId" or similar, we can tighten these rules.
     
     match /students/{studentId} {
-      // Students can read their own record, providers and admins can read all
-      allow read: if (resource.data.userId == request.auth.uid) || 
-        isProvider() || 
-        isAdmin();
+      // Providers and admins can read students (for matching & assignment)
+      allow read: if isProviderOrAdmin();
       
-      // Providers and admins can create students
-      allow create: if isProvider() || isAdmin();
+      // Providers and admins can create/update student records
+      allow create, update: if isProviderOrAdmin();
       
-      // Providers and admins can update students
-      allow update: if isProvider() || isAdmin();
-      
-      // Only admins can delete
+      // Only admins can delete student records
       allow delete: if isAdmin();
     }
+    
     
     // ============================================================================
     // STUDENT PROPERTY ASSIGNMENTS COLLECTION
     // ============================================================================
     
     match /studentPropertyAssignments/{assignmentId} {
-      // Providers can read assignments for their properties
+      // Providers can read assignments for their properties; admins can read all
       allow read: if isAdmin() ||
-        (exists(/databases/$(database)/documents/properties/$(resource.data.propertyId)) &&
-        isProviderOwner(get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.providerId));
+        ownsProperty(resource.data.propertyId);
       
-      // Providers can create assignments for their properties
+      // Providers can create assignments for their properties; admins can create any
       allow create: if isAdmin() ||
-        (exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)) &&
-        isProviderOwner(get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.providerId));
+        ownsProperty(request.resource.data.propertyId);
       
-      // Providers can update assignments for their properties
+      // Providers can update assignments for their properties; admins can update any
       allow update: if isAdmin() ||
-        (exists(/databases/$(database)/documents/properties/$(resource.data.propertyId)) &&
-        isProviderOwner(get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.providerId));
+        ownsProperty(resource.data.propertyId);
       
-      // Only admins can delete
+      // Only admins can delete assignments
       allow delete: if isAdmin();
     }
+    
     
     // ============================================================================
     // LEGACY COLLECTIONS (for backward compatibility)
     // ============================================================================
     
     match /invoices/{invoiceId} {
-      allow read: if isOwner(resource.data.providerId) || isAdmin();
+      // Assuming invoice has field providerId linking to accommodationProviders document
+      allow read, update: if isProviderOwner(resource.data.providerId) || isAdmin();
       allow create: if isAuthenticated();
-      allow update: if isOwner(resource.data.providerId) || isAdmin();
       allow delete: if isAdmin();
     }
     
     match /tickets/{ticketId} {
-      allow read: if isOwner(resource.data.userId) || isAdmin();
+      // Tickets tied to a natural user (not provider)
+      allow read, update: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuthenticated();
-      allow update: if isOwner(resource.data.userId) || isAdmin();
       allow delete: if isAdmin();
     }
   }

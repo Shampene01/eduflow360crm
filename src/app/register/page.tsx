@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { createUser, createAddress, generateId } from "@/lib/db";
+import { createUser, createAddress, updateUser } from "@/lib/db";
 import { getAuthErrorMessage } from "@/lib/auth";
 
 interface FormData {
@@ -156,7 +156,22 @@ export default function RegisterPage() {
       );
       const userId = userCredential.user.uid;
 
-      // 2. Create address record
+      // 2. Create user record in Firestore FIRST (required for other writes)
+      await createUser(userId, {
+        email: formData.email,
+        phoneNumber: formData.phoneNumber || undefined,
+        firstNames: formData.firstNames,
+        surname: formData.surname,
+        idNumber: formData.idNumber || undefined,
+        dateOfBirth: formData.dateOfBirth || undefined,
+        gender: formData.gender as "Male" | "Female" | "Other" | undefined,
+        marketingConsent: formData.marketingConsent,
+        roles: [], // No roles yet - will add "provider" when they apply
+        isActive: true,
+        emailVerified: false,
+      });
+
+      // 3. Create address record (now user doc exists for auth checks)
       let addressId: string | undefined;
       if (formData.street || formData.townCity) {
         const address = await createAddress({
@@ -168,23 +183,10 @@ export default function RegisterPage() {
           country: "South Africa",
         });
         addressId = address.addressId;
+        
+        // Update user with addressId
+        await updateUser(userId, { addressId });
       }
-
-      // 3. Create user record in Firestore
-      await createUser(userId, {
-        email: formData.email,
-        phoneNumber: formData.phoneNumber || undefined,
-        firstNames: formData.firstNames,
-        surname: formData.surname,
-        idNumber: formData.idNumber || undefined,
-        dateOfBirth: formData.dateOfBirth || undefined,
-        gender: formData.gender as "Male" | "Female" | "Other" | undefined,
-        addressId,
-        marketingConsent: formData.marketingConsent,
-        roles: [], // No roles yet - will add "provider" when they apply
-        isActive: true,
-        emailVerified: false,
-      });
 
       // Redirect to dashboard
       router.push("/dashboard");
