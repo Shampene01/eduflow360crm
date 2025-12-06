@@ -14,6 +14,12 @@ import {
   MapPin,
   Mail,
   Calendar,
+  Phone,
+  Briefcase,
+  CreditCard,
+  Shield,
+  CheckCircle,
+  Clock,
 } from "lucide-react";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -127,12 +133,12 @@ function ProviderDashboardContent() {
             <div className="absolute -top-1/2 -right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
             <div className="relative z-10 text-white">
               <h1 className="text-2xl font-semibold mb-3">
-                Welcome, {user?.companyName || `${user?.firstName} ${user?.lastName}`}
+                Welcome, {user?.providerName || user?.companyName || user?.primaryContactName || "Provider"}
               </h1>
               <div className="flex flex-wrap gap-6 text-sm opacity-90">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-amber-500" />
-                  {user?.city || "Location not set"}, {user?.province || ""}
+                  {user?.city || "Location not set"}{user?.province ? `, ${user.province}` : ""}
                 </div>
                 <div className="flex items-center gap-2">
                   <Mail className="w-4 h-4 text-amber-500" />
@@ -208,6 +214,13 @@ function ProviderDashboardContent() {
                 >
                   <Ticket className="w-4 h-4 mr-2" />
                   Tickets
+                </TabsTrigger>
+                <TabsTrigger
+                  value="profile"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-amber-50 data-[state=active]:text-amber-600 px-6 py-4"
+                >
+                  <Briefcase className="w-4 h-4 mr-2" />
+                  My Info
                 </TabsTrigger>
               </TabsList>
             </Card>
@@ -412,6 +425,242 @@ function ProviderDashboardContent() {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* My Info Tab */}
+            <TabsContent value="profile" className="space-y-6">
+              <div className="grid lg:grid-cols-2 gap-6">
+                {/* Provider Profile */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="w-5 h-5 text-amber-500" />
+                      Provider Profile
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500">Provider Name</p>
+                        <p className="font-medium">{user?.providerName || "Not set"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Provider Type</p>
+                        <p className="font-medium">{user?.providerType || "Not set"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Years in Operation</p>
+                        <p className="font-medium">{user?.yearsInOperation || "Not set"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Registration Number</p>
+                        <p className="font-medium">{user?.companyRegistrationNumber || "Not set"}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Status & Accreditation */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-amber-500" />
+                      Status & Accreditation
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500">Account Status</p>
+                        <Badge variant={user?.status === "active" ? "default" : "secondary"} className={user?.status === "active" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+                          {user?.status || "Pending"}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Accreditation</p>
+                        <Badge variant={user?.accreditationStatus === "Approved" ? "default" : "secondary"} className={user?.accreditationStatus === "Approved" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+                          {user?.accreditationStatus || "Pending"}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Compliance</p>
+                        <Badge variant={user?.complianceStatus === "Compliant" ? "default" : "secondary"} className={user?.complianceStatus === "Compliant" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+                          {user?.complianceStatus || "Pending"}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">VAT Registered</p>
+                        <p className="font-medium">{user?.vatRegistration || "Not set"}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Location */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapPin className="w-5 h-5 text-amber-500" />
+                      Location
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div>
+                      <p className="text-sm text-gray-500">Street Address</p>
+                      <p className="font-medium">{user?.streetAddress || "Not set"}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500">Suburb</p>
+                        <p className="font-medium">{user?.suburb || "Not set"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">City</p>
+                        <p className="font-medium">{user?.city || "Not set"}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Province</p>
+                      <p className="font-medium">{user?.province || "Not set"}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Contact Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Phone className="w-5 h-5 text-amber-500" />
+                      Contact Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="border-b pb-4">
+                      <p className="text-xs text-amber-600 font-medium mb-2">PRIMARY CONTACT</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-500">Name</p>
+                          <p className="font-medium">{user?.primaryContactName || "Not set"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Position</p>
+                          <p className="font-medium">{user?.primaryContactPosition || "Not set"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Phone</p>
+                          <p className="font-medium">{user?.primaryContactPhone || "Not set"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Email</p>
+                          <p className="font-medium">{user?.primaryContactEmail || user?.email || "Not set"}</p>
+                        </div>
+                      </div>
+                    </div>
+                    {(user?.secondaryContactName || user?.secondaryContactPhone) && (
+                      <div>
+                        <p className="text-xs text-gray-500 font-medium mb-2">SECONDARY CONTACT</p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-500">Name</p>
+                            <p className="font-medium">{user?.secondaryContactName || "Not set"}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Phone</p>
+                            <p className="font-medium">{user?.secondaryContactPhone || "Not set"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Tax & B-BBEE */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-amber-500" />
+                      Tax & B-BBEE Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500">Tax Number</p>
+                        <p className="font-medium">{user?.taxNumber || "Not set"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">VAT Number</p>
+                        <p className="font-medium">{user?.vatNumber || "Not set"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">B-BBEE Level</p>
+                        <p className="font-medium">{user?.bbbeeLevel ? `Level ${user.bbbeeLevel}` : "Not set"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">B-BBEE Expiry</p>
+                        <p className="font-medium">{user?.bbbeeExpiry || "Not set"}</p>
+                      </div>
+                    </div>
+                    {(user?.blackOwnershipPercentage || user?.womenOwnershipPercentage) && (
+                      <div className="border-t pt-4">
+                        <p className="text-xs text-gray-500 font-medium mb-2">OWNERSHIP BREAKDOWN</p>
+                        <div className="grid grid-cols-4 gap-2 text-center">
+                          <div className="bg-gray-50 rounded p-2">
+                            <p className="text-lg font-semibold">{user?.blackOwnershipPercentage || 0}%</p>
+                            <p className="text-xs text-gray-500">Black</p>
+                          </div>
+                          <div className="bg-gray-50 rounded p-2">
+                            <p className="text-lg font-semibold">{user?.womenOwnershipPercentage || 0}%</p>
+                            <p className="text-xs text-gray-500">Women</p>
+                          </div>
+                          <div className="bg-gray-50 rounded p-2">
+                            <p className="text-lg font-semibold">{user?.youthOwnershipPercentage || 0}%</p>
+                            <p className="text-xs text-gray-500">Youth</p>
+                          </div>
+                          <div className="bg-gray-50 rounded p-2">
+                            <p className="text-lg font-semibold">{user?.disabilityOwnershipPercentage || 0}%</p>
+                            <p className="text-xs text-gray-500">Disability</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Bank Details */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="w-5 h-5 text-amber-500" />
+                      Bank Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500">Bank Name</p>
+                        <p className="font-medium">{user?.bankName || "Not set"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Account Type</p>
+                        <p className="font-medium">{user?.accountType || "Not set"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Account Number</p>
+                        <p className="font-medium">{user?.accountNumber ? `****${user.accountNumber.slice(-4)}` : "Not set"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Branch Code</p>
+                        <p className="font-medium">{user?.branchCode || "Not set"}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-sm text-gray-500">Account Holder</p>
+                        <p className="font-medium">{user?.accountHolder || "Not set"}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
         </main>
