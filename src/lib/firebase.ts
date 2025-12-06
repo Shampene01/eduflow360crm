@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -29,10 +29,14 @@ function createFirebaseServices() {
   }
   
   const app = getFirebaseApp();
+  
+  // Connect to the named database 'eduflow360db'
+  const db = initializeFirestore(app, {}, 'eduflow360db');
+  
   return {
     app,
     auth: getAuth(app),
-    db: getFirestore(app),
+    db,
     storage: getStorage(app),
   };
 }
