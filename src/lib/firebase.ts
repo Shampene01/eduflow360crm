@@ -30,8 +30,7 @@ function createFirebaseServices() {
 
   const app = getFirebaseApp();
 
-  // Connect to the named database 'eduflow360db'
-  const db = getFirestore(app, 'eduflow360db');
+  const db = getFirestore(app);
 
   return {
     app,

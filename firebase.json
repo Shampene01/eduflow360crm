@@ -1,7 +1,5 @@
 {
   "firestore": {
-    "database": "eduflow360db",
-    "location": "africa-south1",
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   }
