@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore, initializeFirestore, Firestore } from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -27,19 +27,12 @@ function createFirebaseServices() {
     // Return null services for SSR - they won't be used
     return { app: null, auth: null, db: null, storage: null };
   }
-  
+
   const app = getFirebaseApp();
-  
+
   // Connect to the named database 'eduflow360db'
-  // Use try/catch to handle hot reload where Firestore is already initialized
-  let db: Firestore;
-  try {
-    db = initializeFirestore(app, {}, 'eduflow360db');
-  } catch (e) {
-    // Firestore already initialized, get the existing instance
-    db = getFirestore(app, 'eduflow360db');
-  }
-  
+  const db = getFirestore(app, 'eduflow360db');
+
   return {
     app,
     auth: getAuth(app),
