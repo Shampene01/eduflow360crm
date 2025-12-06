@@ -37,7 +37,7 @@ function PropertyDetailsContent() {
 
   useEffect(() => {
     const fetchProperty = async () => {
-      if (!id) return;
+      if (!id || !db) return;
 
       try {
         const propertyDoc = await getDoc(doc(db, "properties", id as string));

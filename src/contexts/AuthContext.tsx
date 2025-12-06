@@ -23,6 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchUserProfile = async (uid: string) => {
+    if (!db) return;
     try {
       const userDoc = await getDoc(doc(db, "users", uid));
       if (userDoc.exists()) {

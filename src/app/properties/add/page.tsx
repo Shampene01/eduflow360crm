@@ -110,6 +110,11 @@ function AddPropertyContent() {
       return;
     }
 
+    if (!db) {
+      setError("Database not initialized. Please try again.");
+      return;
+    }
+
     setLoading(true);
 
     try {

@@ -1,7 +1,7 @@
-import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import { getAuth, Auth } from "firebase/auth";
-import { getFirestore, Firestore } from "firebase/firestore";
-import { getStorage, FirebaseStorage } from "firebase/storage";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,20 +13,36 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase only on client-side
-let app: FirebaseApp | undefined;
-let auth: Auth | undefined;
-let db: Firestore | undefined;
-let storage: FirebaseStorage | undefined;
-
-if (typeof window !== "undefined") {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
+// Helper to get or initialize Firebase app
+function getFirebaseApp() {
+  if (getApps().length) {
+    return getApp();
+  }
+  return initializeApp(firebaseConfig);
 }
 
-export { auth, db, storage };
+// Lazy initialization - only initialize when accessed on client
+function createFirebaseServices() {
+  if (typeof window === "undefined") {
+    // Return null services for SSR - they won't be used
+    return { app: null, auth: null, db: null, storage: null };
+  }
+  
+  const app = getFirebaseApp();
+  return {
+    app,
+    auth: getAuth(app),
+    db: getFirestore(app),
+    storage: getStorage(app),
+  };
+}
+
+const services = createFirebaseServices();
+
+export const app = services.app;
+export const auth = services.auth;
+export const db = services.db;
+export const storage = services.storage;
 
 // NSFAS Verification Webhook URL
 export const NSFAS_WEBHOOK_URL = process.env.NEXT_PUBLIC_NSFAS_WEBHOOK_URL;

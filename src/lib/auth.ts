@@ -17,6 +17,8 @@ import { auth, db } from "./firebase";
 import { User, UserType } from "./types";
 
 export async function signIn(email: string, password: string): Promise<User> {
+  if (!auth || !db) throw new Error("Firebase not initialized");
+  
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
 
@@ -39,6 +41,8 @@ export async function signUp(
   password: string,
   userData: Partial<User>
 ): Promise<User> {
+  if (!auth || !db) throw new Error("Firebase not initialized");
+  
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   const user = userCredential.user;
 
@@ -56,14 +60,18 @@ export async function signUp(
 }
 
 export async function signOut(): Promise<void> {
+  if (!auth) throw new Error("Firebase not initialized");
   await firebaseSignOut(auth);
 }
 
 export async function resetPassword(email: string): Promise<void> {
+  if (!auth) throw new Error("Firebase not initialized");
   await sendPasswordResetEmail(auth, email);
 }
 
 export async function getCurrentUser(): Promise<User | null> {
+  if (!auth || !db) return null;
+  
   const firebaseUser = auth.currentUser;
   if (!firebaseUser) return null;
 
@@ -74,12 +82,18 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 export async function getUserProfile(uid: string): Promise<User | null> {
+  if (!db) return null;
+  
   const userDoc = await getDoc(doc(db, "users", uid));
   if (!userDoc.exists()) return null;
   return { uid, ...userDoc.data() } as User;
 }
 
 export function onAuthChange(callback: (user: FirebaseUser | null) => void) {
+  if (!auth) {
+    // Return a no-op unsubscribe function if auth is not initialized
+    return () => {};
+  }
   return onAuthStateChanged(auth, callback);
 }
 

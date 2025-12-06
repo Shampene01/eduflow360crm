@@ -42,7 +42,7 @@ function InvoicesContent() {
 
   useEffect(() => {
     const fetchInvoices = async () => {
-      if (!user?.uid) return;
+      if (!user?.uid || !db) return;
 
       try {
         const invoicesQuery = query(

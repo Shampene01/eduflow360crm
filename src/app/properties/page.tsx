@@ -33,7 +33,7 @@ function PropertiesContent() {
 
   useEffect(() => {
     const fetchProperties = async () => {
-      if (!user?.uid) return;
+      if (!user?.uid || !db) return;
 
       try {
         const propertiesQuery = query(

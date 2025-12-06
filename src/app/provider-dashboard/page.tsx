@@ -58,7 +58,7 @@ function ProviderDashboardContent() {
 
   useEffect(() => {
     const fetchStats = async () => {
-      if (!user?.uid) return;
+      if (!user?.uid || !db) return;
 
       try {
         // Fetch properties count

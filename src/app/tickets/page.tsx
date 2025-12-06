@@ -41,7 +41,7 @@ function TicketsContent() {
 
   useEffect(() => {
     const fetchTickets = async () => {
-      if (!user?.uid) return;
+      if (!user?.uid || !db) return;
 
       try {
         const ticketsQuery = query(
