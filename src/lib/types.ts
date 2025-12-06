@@ -1,21 +1,46 @@
 import { Timestamp } from "firebase/firestore";
 
 export type UserType = "student" | "provider" | "admin";
+export type UserRole = "student" | "provider" | "admin";
 
 export interface User {
-  uid: string;
+  // Primary identifiers (support both old and new schema)
+  uid: string;                       // Legacy: Firebase Auth UID
+  userId?: string;                   // New schema: same as uid
   email: string;
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  userType: UserType;
+  
+  // Personal info (support both naming conventions)
+  firstName?: string;                // Legacy
+  lastName?: string;                 // Legacy
+  firstNames?: string;               // New schema
+  surname?: string;                  // New schema
+  phone?: string;                    // Legacy
+  phoneNumber?: string;              // New schema
+  idNumber?: string;
+  dateOfBirth?: string;
+  gender?: "Male" | "Female" | "Other";
+  profilePhotoUrl?: string;
+  
+  // Address reference (new schema)
+  addressId?: string;
+  
+  // Roles and status
+  userType?: UserType;               // Legacy: single type
+  roles?: UserRole[];                // New schema: multiple roles
   status?: string;
   applicationStatus?: string;
-  crmSynced?: boolean;
+  isActive?: boolean;
+  emailVerified?: boolean;
+  marketingConsent?: boolean;
+  
+  // Timestamps
   createdAt?: Timestamp;
   lastLoginAt?: Timestamp;
   
-  // Provider-specific fields
+  // CRM sync
+  crmSynced?: boolean;
+  
+  // Legacy provider fields (kept for backward compatibility)
   providerName?: string;
   providerType?: string;
   yearsInOperation?: number | null;
@@ -52,8 +77,6 @@ export interface User {
   complianceStatus?: string;
   nsfasAccreditedSince?: string;
   accreditationExpiry?: string;
-  
-  // Legacy fields (for backward compatibility)
   companyName?: string;
   companyRegistration?: string;
   nsfasAccredited?: boolean;

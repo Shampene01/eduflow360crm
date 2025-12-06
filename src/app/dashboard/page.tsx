@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Timestamp } from "firebase/firestore";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   User,
   GraduationCap,
@@ -14,6 +16,10 @@ import {
   Calendar,
   HandCoins,
   Headset,
+  Building2,
+  ArrowRight,
+  Clock,
+  Shield,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
@@ -23,6 +29,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { getProviderByUserId } from "@/lib/db";
+import { AccommodationProvider } from "@/lib/schema";
 
 function formatDate(timestamp: Timestamp | Date | undefined): string {
   if (!timestamp) return "N/A";
@@ -46,6 +54,33 @@ const yearMap: Record<string, string> = {
 
 function DashboardContent() {
   const { user } = useAuth();
+  const router = useRouter();
+  const [providerStatus, setProviderStatus] = useState<AccommodationProvider | null>(null);
+  const [loadingProvider, setLoadingProvider] = useState(true);
+
+  // Check if user has a provider application
+  useEffect(() => {
+    const checkProviderStatus = async () => {
+      const uid = user?.userId || user?.uid;
+      if (!uid) {
+        setLoadingProvider(false);
+        return;
+      }
+      try {
+        const provider = await getProviderByUserId(uid);
+        setProviderStatus(provider);
+      } catch (err) {
+        console.error("Error checking provider status:", err);
+      } finally {
+        setLoadingProvider(false);
+      }
+    };
+    checkProviderStatus();
+  }, [user?.userId, user?.uid]);
+
+  // Check if user has provider role or application
+  const hasProviderRole = user?.roles?.includes("provider") || user?.userType === "provider";
+  const isApprovedProvider = providerStatus?.approvalStatus === "Approved";
 
   const quickActions = [
     { icon: Search, title: "Browse Properties", description: "Explore available accommodations near your campus" },
@@ -69,17 +104,94 @@ function DashboardContent() {
 
         <main className="flex-1 p-8 overflow-y-auto">
           {/* Welcome Banner */}
-          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-8 mb-8 relative overflow-hidden">
-            <div className="absolute -top-1/2 -right-1/4 w-72 h-72 bg-white/5 rounded-full" />
+          <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl p-8 mb-8 relative overflow-hidden">
+            <div className="absolute -top-1/2 -right-1/4 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl" />
             <div className="relative z-10">
               <h1 className="text-2xl font-bold text-white mb-2">
-                Welcome back, {user?.firstName || "Student"}! 👋
+                Welcome back, {user?.firstNames || user?.firstName || "User"}! 👋
               </h1>
               <p className="text-white/90">
-                Ready to find your perfect accommodation? Let&apos;s explore your options.
+                Manage your accommodation services with EduFlow360.
               </p>
             </div>
           </div>
+
+          {/* Provider Application Card */}
+          {!loadingProvider && (
+            <Card className="mb-8 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+              <CardContent className="p-6">
+                {!providerStatus ? (
+                  // No application yet
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-xl bg-amber-500 flex items-center justify-center">
+                        <Building2 className="w-7 h-7 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Become an Accommodation Provider</h3>
+                        <p className="text-gray-600">Apply to list your properties and host NSFAS students</p>
+                      </div>
+                    </div>
+                    <Button asChild className="bg-amber-500 hover:bg-amber-600 text-gray-900">
+                      <Link href="/provider-application">
+                        Apply Now <ArrowRight className="ml-2 w-4 h-4" />
+                      </Link>
+                    </Button>
+                  </div>
+                ) : providerStatus.approvalStatus === "Pending" ? (
+                  // Application pending
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-xl bg-yellow-500 flex items-center justify-center">
+                        <Clock className="w-7 h-7 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Application Under Review</h3>
+                        <p className="text-gray-600">Your provider application is being reviewed by our team</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-yellow-100 text-yellow-800 text-sm px-4 py-2">
+                      Pending Approval
+                    </Badge>
+                  </div>
+                ) : providerStatus.approvalStatus === "Approved" ? (
+                  // Approved provider
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-xl bg-green-500 flex items-center justify-center">
+                        <CheckCircle className="w-7 h-7 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Provider Account Active</h3>
+                        <p className="text-gray-600">Access your provider dashboard to manage properties</p>
+                      </div>
+                    </div>
+                    <Button asChild className="bg-green-600 hover:bg-green-700 text-white">
+                      <Link href="/provider-dashboard">
+                        Go to Dashboard <ArrowRight className="ml-2 w-4 h-4" />
+                      </Link>
+                    </Button>
+                  </div>
+                ) : (
+                  // Rejected
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-xl bg-red-500 flex items-center justify-center">
+                        <Shield className="w-7 h-7 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Application Not Approved</h3>
+                        <p className="text-gray-600">{providerStatus.rejectionReason || "Please contact support for more information"}</p>
+                      </div>
+                    </div>
+                    <Button asChild variant="outline">
+                      <Link href="/tickets/create">Contact Support</Link>
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Dashboard Cards Grid */}
           <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
@@ -95,7 +207,7 @@ function DashboardContent() {
                 <div className="flex justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500 text-sm">Full Name</span>
                   <span className="font-medium">
-                    {user ? `${user.firstName} ${user.lastName}` : "-"}
+                    {user ? `${user.firstNames || user.firstName || ""} ${user.surname || user.lastName || ""}`.trim() || "-" : "-"}
                   </span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
@@ -108,7 +220,7 @@ function DashboardContent() {
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-gray-500 text-sm">Phone</span>
-                  <span className="font-medium">{user?.phone || "-"}</span>
+                  <span className="font-medium">{user?.phoneNumber || user?.phone || "-"}</span>
                 </div>
               </CardContent>
             </Card>
@@ -260,7 +372,7 @@ function DashboardContent() {
 
 export default function DashboardPage() {
   return (
-    <ProtectedRoute allowedUserTypes={["student"]}>
+    <ProtectedRoute>
       <DashboardContent />
     </ProtectedRoute>
   );

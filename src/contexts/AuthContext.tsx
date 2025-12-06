@@ -27,7 +27,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const userDoc = await getDoc(doc(db, "users", uid));
       if (userDoc.exists()) {
-        setUser({ uid, ...userDoc.data() } as User);
+        // Support both legacy and new schema
+        const data = userDoc.data();
+        setUser({ 
+          uid, 
+          userId: uid, // New schema compatibility
+          ...data 
+        } as User);
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);

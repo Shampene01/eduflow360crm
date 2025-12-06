@@ -11,6 +11,19 @@ interface ProtectedRouteProps {
   redirectTo?: string;
 }
 
+// Helper to get user's effective type (supports both legacy and new schema)
+function getUserType(user: { userType?: string; roles?: string[] } | null): string | undefined {
+  if (!user) return undefined;
+  // New schema: check roles array
+  if (user.roles && user.roles.length > 0) {
+    if (user.roles.includes("provider")) return "provider";
+    if (user.roles.includes("admin")) return "admin";
+    if (user.roles.includes("student")) return "student";
+  }
+  // Legacy: use userType
+  return user.userType;
+}
+
 export function ProtectedRoute({
   children,
   allowedUserTypes,
@@ -26,9 +39,11 @@ export function ProtectedRoute({
         return;
       }
 
-      if (allowedUserTypes && user && !allowedUserTypes.includes(user.userType)) {
+      const effectiveUserType = getUserType(user);
+      
+      if (allowedUserTypes && effectiveUserType && !allowedUserTypes.includes(effectiveUserType as "student" | "provider" | "admin")) {
         // Redirect to appropriate dashboard based on user type
-        if (user.userType === "provider") {
+        if (effectiveUserType === "provider") {
           router.push("/provider-dashboard");
         } else {
           router.push("/dashboard");
@@ -52,7 +67,8 @@ export function ProtectedRoute({
     return null;
   }
 
-  if (allowedUserTypes && user && !allowedUserTypes.includes(user.userType)) {
+  const effectiveUserType = getUserType(user);
+  if (allowedUserTypes && effectiveUserType && !allowedUserTypes.includes(effectiveUserType as "student" | "provider" | "admin")) {
     return null;
   }
 
