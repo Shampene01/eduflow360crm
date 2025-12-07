@@ -63,6 +63,8 @@ function TicketsContent() {
         setTickets(ticketsData);
       } catch (error) {
         console.error("Error fetching tickets:", error);
+        // If there's an error (like missing index), set empty tickets
+        setTickets([]);
       } finally {
         setLoading(false);
       }

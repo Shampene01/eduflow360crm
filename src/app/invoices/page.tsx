@@ -64,6 +64,8 @@ function InvoicesContent() {
         setInvoices(invoicesData);
       } catch (error) {
         console.error("Error fetching invoices:", error);
+        // If there's an error (like missing index), set empty invoices
+        setInvoices([]);
       } finally {
         setLoading(false);
       }
