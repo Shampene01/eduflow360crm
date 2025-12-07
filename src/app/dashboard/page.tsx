@@ -158,7 +158,7 @@ function DashboardContent() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardHeader />
 
       <div className="flex">
@@ -180,7 +180,7 @@ function DashboardContent() {
 
           {/* Provider Application Card */}
           {!loadingProvider && (
-            <Card className="mb-8 border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+            <Card className="mb-8 border-amber-200 dark:border-amber-900 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/50 dark:to-orange-950/50">
               <CardContent className="p-6">
                 {!providerStatus ? (
                   // No application yet
@@ -190,8 +190,8 @@ function DashboardContent() {
                         <Building2 className="w-7 h-7 text-white" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Become an Accommodation Provider</h3>
-                        <p className="text-gray-600">Apply to list your properties and host NSFAS students</p>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Become an Accommodation Provider</h3>
+                        <p className="text-gray-600 dark:text-gray-400">Apply to list your properties and host NSFAS students</p>
                       </div>
                     </div>
                     <Button asChild className="bg-amber-500 hover:bg-amber-600 text-gray-900">
@@ -208,8 +208,8 @@ function DashboardContent() {
                         <Clock className="w-7 h-7 text-white" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Application Under Review</h3>
-                        <p className="text-gray-600">Your provider application is being reviewed by our team</p>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Application Under Review</h3>
+                        <p className="text-gray-600 dark:text-gray-400">Your provider application is being reviewed by our team</p>
                       </div>
                     </div>
                     <Badge className="bg-yellow-100 text-yellow-800 text-sm px-4 py-2">

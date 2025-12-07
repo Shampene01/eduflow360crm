@@ -17,6 +17,7 @@ export interface UserPresence {
 }
 
 let presenceUnsubscribe: (() => void) | null = null;
+let presenceInitialized = false;
 
 /**
  * Initialize presence tracking for a user.
@@ -24,36 +25,55 @@ let presenceUnsubscribe: (() => void) | null = null;
  */
 export function initPresence(uid: string): void {
   if (typeof window === "undefined") return;  // Server-side guard
+  if (presenceInitialized) return;  // Already initialized
   
-  const userStatusRef = ref(rtdb, `/status/${uid}`);
-  const connectedRef = ref(rtdb, ".info/connected");
+  try {
+    const userStatusRef = ref(rtdb, `/status/${uid}`);
+    const connectedRef = ref(rtdb, ".info/connected");
 
-  const handleConnection = (snapshot: any) => {
-    if (snapshot.val() === false) {
-      return;
-    }
+    const handleConnection = (snapshot: any) => {
+      if (snapshot.val() === false) {
+        return;
+      }
 
-    // When connected, set up onDisconnect handler first
-    onDisconnect(userStatusRef).set({
-      online: false,
-      lastSeen: rtdbServerTimestamp()
-    }).then(() => {
-      // Then set user as online
-      set(userStatusRef, {
-        online: true,
+      // When connected, set up onDisconnect handler first
+      onDisconnect(userStatusRef).set({
+        online: false,
         lastSeen: rtdbServerTimestamp()
+      }).then(() => {
+        // Then set user as online
+        set(userStatusRef, {
+          online: true,
+          lastSeen: rtdbServerTimestamp()
+        });
+      }).catch((error) => {
+        // Silently fail - Realtime Database might not be set up
+        if (process.env.NODE_ENV === 'development') {
+          console.warn("Presence tracking unavailable:", error.message);
+        }
       });
-    }).catch((error) => {
-      console.error("Error setting up presence:", error);
+    };
+
+    onValue(connectedRef, handleConnection, (error) => {
+      // Silently fail on connection errors
+      if (process.env.NODE_ENV === 'development') {
+        console.warn("Presence connection error:", error.message);
+      }
     });
-  };
 
-  onValue(connectedRef, handleConnection);
+    presenceInitialized = true;
 
-  // Store cleanup function
-  presenceUnsubscribe = () => {
-    off(connectedRef, "value", handleConnection);
-  };
+    // Store cleanup function
+    presenceUnsubscribe = () => {
+      off(connectedRef, "value", handleConnection);
+      presenceInitialized = false;
+    };
+  } catch (error) {
+    // Silently fail if Realtime Database is not configured
+    if (process.env.NODE_ENV === 'development') {
+      console.warn("Presence tracking not available");
+    }
+  }
 }
 
 /**
@@ -90,21 +110,36 @@ export function subscribeToPresence(
   uid: string, 
   callback: (presence: UserPresence | null) => void
 ): () => void {
-  const userStatusRef = ref(rtdb, `/status/${uid}`);
-  
-  const handleValue = (snapshot: any) => {
-    if (snapshot.exists()) {
-      callback(snapshot.val() as UserPresence);
-    } else {
+  try {
+    const userStatusRef = ref(rtdb, `/status/${uid}`);
+    
+    const handleValue = (snapshot: any) => {
+      if (snapshot.exists()) {
+        callback(snapshot.val() as UserPresence);
+      } else {
+        // No presence data yet - assume online if we're checking our own status
+        callback(null);
+      }
+    };
+
+    const handleError = (error: any) => {
+      // Silently fail and return null presence
+      if (process.env.NODE_ENV === 'development') {
+        console.warn("Presence subscription error:", error.message);
+      }
       callback(null);
-    }
-  };
+    };
 
-  onValue(userStatusRef, handleValue);
+    onValue(userStatusRef, handleValue, handleError);
 
-  return () => {
-    off(userStatusRef, "value", handleValue);
-  };
+    return () => {
+      off(userStatusRef, "value", handleValue);
+    };
+  } catch (error) {
+    // Return a no-op unsubscribe if subscription fails
+    callback(null);
+    return () => {};
+  }
 }
 
 /**

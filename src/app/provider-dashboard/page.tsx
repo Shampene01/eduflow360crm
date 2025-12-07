@@ -45,6 +45,7 @@ import {
 import { getProviderByUserId, getAddressById, getProviderContacts } from "@/lib/db";
 import { AccommodationProvider, Address, ProviderContactPerson } from "@/lib/schema";
 import { providerDisplayId } from "@/lib/utils/maskId";
+import { OnlineStatus } from "@/components/OnlineStatus";
 
 interface DashboardStats {
   totalProperties: number;
@@ -179,7 +180,7 @@ function ProviderDashboardContent() {
   const secondaryContact = providerContacts.find(c => !c.isPrimary);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardHeader />
 
       <div className="flex">
@@ -190,9 +191,12 @@ function ProviderDashboardContent() {
           <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-sm p-8 mb-8 relative overflow-hidden">
             <div className="absolute -top-1/2 -right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
             <div className="relative z-10 text-white">
-              <h1 className="text-2xl font-semibold mb-3">
-                Welcome, {providerStatus?.companyName || (primaryContact ? `${primaryContact.firstNames} ${primaryContact.surname}` : "Provider")}
-              </h1>
+              <div className="flex items-center gap-3 mb-3">
+                <h1 className="text-2xl font-semibold">
+                  Welcome, {providerStatus?.companyName || (primaryContact ? `${primaryContact.firstNames} ${primaryContact.surname}` : "Provider")}
+                </h1>
+                <OnlineStatus userId={user?.userId || user?.uid} showLabel size="md" />
+              </div>
               <div className="flex flex-wrap gap-6 text-sm opacity-90">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-amber-500" />
@@ -236,46 +240,46 @@ function ProviderDashboardContent() {
 
           {/* Tabs Section */}
           <Tabs defaultValue="overview" className="space-y-6">
-            <Card className="border-gray-200">
-              <TabsList className="w-full justify-start border-b rounded-none h-auto p-0 bg-transparent">
+            <Card className="border-gray-200 dark:border-gray-700 dark:bg-gray-800">
+              <TabsList className="w-full justify-start border-b dark:border-gray-700 rounded-none h-auto p-0 bg-transparent">
                 <TabsTrigger
                   value="overview"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-amber-50 data-[state=active]:text-amber-600 px-6 py-4"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-amber-50 dark:data-[state=active]:bg-amber-900/30 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400 dark:text-gray-300 px-6 py-4"
                 >
                   <Building2 className="w-4 h-4 mr-2" />
                   Overview
                 </TabsTrigger>
                 <TabsTrigger
                   value="properties"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-amber-50 data-[state=active]:text-amber-600 px-6 py-4"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-amber-50 dark:data-[state=active]:bg-amber-900/30 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400 dark:text-gray-300 px-6 py-4"
                 >
                   <Building2 className="w-4 h-4 mr-2" />
                   Properties
                 </TabsTrigger>
                 <TabsTrigger
                   value="students"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-amber-50 data-[state=active]:text-amber-600 px-6 py-4"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-amber-50 dark:data-[state=active]:bg-amber-900/30 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400 dark:text-gray-300 px-6 py-4"
                 >
                   <Users className="w-4 h-4 mr-2" />
                   Students
                 </TabsTrigger>
                 <TabsTrigger
                   value="invoices"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-amber-50 data-[state=active]:text-amber-600 px-6 py-4"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-amber-50 dark:data-[state=active]:bg-amber-900/30 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400 dark:text-gray-300 px-6 py-4"
                 >
                   <FileText className="w-4 h-4 mr-2" />
                   Invoices
                 </TabsTrigger>
                 <TabsTrigger
                   value="tickets"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-amber-50 data-[state=active]:text-amber-600 px-6 py-4"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-amber-50 dark:data-[state=active]:bg-amber-900/30 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400 dark:text-gray-300 px-6 py-4"
                 >
                   <Ticket className="w-4 h-4 mr-2" />
                   Tickets
                 </TabsTrigger>
                 <TabsTrigger
                   value="profile"
-                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-amber-50 data-[state=active]:text-amber-600 px-6 py-4"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-amber-50 dark:data-[state=active]:bg-amber-900/30 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400 dark:text-gray-300 px-6 py-4"
                 >
                   <Briefcase className="w-4 h-4 mr-2" />
                   My Info
@@ -286,9 +290,9 @@ function ProviderDashboardContent() {
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-6">
               {/* Basic Details Section */}
-              <Card>
+              <Card className="dark:bg-gray-800 dark:border-gray-700">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                     <Building2 className="w-5 h-5 text-amber-500" />
                     Basic Details
                   </CardTitle>
@@ -296,62 +300,62 @@ function ProviderDashboardContent() {
                 <CardContent>
                   <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4">
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Provider ID</p>
-                      <p className="font-medium text-gray-900">{providerDisplayId(providerStatus?.providerId)}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Provider ID</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{providerDisplayId(providerStatus?.providerId)}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Provider Name</p>
-                      <p className="font-medium text-gray-900">{providerStatus?.companyName || "-"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Provider Name</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{providerStatus?.companyName || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Company Registration Number</p>
-                      <p className="font-medium text-gray-900">{providerStatus?.companyRegistrationNumber || "-"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Company Registration Number</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{providerStatus?.companyRegistrationNumber || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Tax Number</p>
-                      <p className="font-medium text-gray-900">{providerStatus?.taxReferenceNumber || "-"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Tax Number</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{providerStatus?.taxReferenceNumber || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Vat Number</p>
-                      <p className="font-medium text-gray-900">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Vat Number</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">
                         {providerStatus?.vatRegistered ? (providerStatus?.vatNumber || "-") : "No"}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">VAT Registration</p>
-                      <p className="font-medium text-gray-900">{providerStatus?.vatRegistered ? "Yes" : "No"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">VAT Registration</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{providerStatus?.vatRegistered ? "Yes" : "No"}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Street Address</p>
-                      <p className="font-medium text-gray-900">{providerAddress?.street || "-"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Street Address</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{providerAddress?.street || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Surburb</p>
-                      <p className="font-medium text-gray-900">{providerAddress?.suburb || "-"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Surburb</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{providerAddress?.suburb || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">City</p>
-                      <p className="font-medium text-gray-900">{providerAddress?.townCity || "-"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">City</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{providerAddress?.townCity || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Province</p>
-                      <p className="font-medium text-gray-900">{providerAddress?.province || "-"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Province</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{providerAddress?.province || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Provider Type</p>
-                      <p className="font-medium text-gray-900">{providerStatus?.legalForm || "-"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Provider Type</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{providerStatus?.legalForm || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Years in Operation</p>
-                      <p className="font-medium text-gray-900">{providerStatus?.yearsInOperation || "-"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Years in Operation</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{providerStatus?.yearsInOperation || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Longitude</p>
-                      <p className="font-medium text-gray-900">{providerAddress?.longitude || "-"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Longitude</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{providerAddress?.longitude || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Latitude</p>
-                      <p className="font-medium text-gray-900">{providerAddress?.latitude || "-"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Latitude</p>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">{providerAddress?.latitude || "-"}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -359,9 +363,9 @@ function ProviderDashboardContent() {
 
               <div className="grid lg:grid-cols-2 gap-6">
                 {/* Quick Actions */}
-                <Card>
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
                   <CardHeader>
-                    <CardTitle>Quick Actions</CardTitle>
+                    <CardTitle className="dark:text-gray-100">Quick Actions</CardTitle>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-4">
                     <Button asChild className="h-auto py-4 flex-col gap-2 bg-amber-500 hover:bg-amber-600 text-gray-900">
@@ -370,19 +374,19 @@ function ProviderDashboardContent() {
                         Add Property
                       </Link>
                     </Button>
-                    <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+                    <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
                       <Link href="/students">
                         <Users className="w-5 h-5" />
                         Manage Students
                       </Link>
                     </Button>
-                    <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+                    <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
                       <Link href="/invoices">
                         <FileText className="w-5 h-5" />
                         Submit Invoice
                       </Link>
                     </Button>
-                    <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2">
+                    <Button asChild variant="outline" className="h-auto py-4 flex-col gap-2 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
                       <Link href="/tickets">
                         <Ticket className="w-5 h-5" />
                         Create Ticket
@@ -392,9 +396,9 @@ function ProviderDashboardContent() {
                 </Card>
 
                 {/* Recent Activity */}
-                <Card>
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
                   <CardHeader>
-                    <CardTitle>Recent Activity</CardTitle>
+                    <CardTitle className="dark:text-gray-100">Recent Activity</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
@@ -403,7 +407,7 @@ function ProviderDashboardContent() {
                         { action: "Invoice #INV-2024-001 submitted", time: "1 day ago", type: "info" },
                         { action: "Property inspection scheduled", time: "2 days ago", type: "warning" },
                       ].map((activity, i) => (
-                        <div key={i} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                        <div key={i} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                           <div
                             className={`w-2 h-2 rounded-full ${
                               activity.type === "success"
@@ -414,8 +418,8 @@ function ProviderDashboardContent() {
                             }`}
                           />
                           <div className="flex-1">
-                            <p className="text-sm font-medium text-gray-900">{activity.action}</p>
-                            <p className="text-xs text-gray-500">{activity.time}</p>
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{activity.action}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{activity.time}</p>
                           </div>
                         </div>
                       ))}
@@ -427,9 +431,9 @@ function ProviderDashboardContent() {
 
             {/* Properties Tab */}
             <TabsContent value="properties">
-              <Card>
+              <Card className="dark:bg-gray-800 dark:border-gray-700">
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>My Properties</CardTitle>
+                  <CardTitle className="dark:text-gray-100">My Properties</CardTitle>
                   <Button asChild className="bg-amber-500 hover:bg-amber-600 text-gray-900">
                     <Link href="/properties/add">
                       <Plus className="w-4 h-4 mr-2" />
@@ -441,13 +445,13 @@ function ProviderDashboardContent() {
                   {loading ? (
                     <div className="text-center py-12">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto mb-4"></div>
-                      <p className="text-gray-500">Loading properties...</p>
+                      <p className="text-gray-500 dark:text-gray-400">Loading properties...</p>
                     </div>
                   ) : stats.totalProperties === 0 ? (
                     <div className="text-center py-12">
-                      <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Properties Captured</h3>
-                      <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                      <Building2 className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">No Properties Captured</h3>
+                      <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
                         You haven't added any properties yet. Start by adding your first accommodation property to begin managing students and bookings.
                       </p>
                       <Button asChild className="bg-amber-500 hover:bg-amber-600 text-gray-900">
@@ -460,19 +464,19 @@ function ProviderDashboardContent() {
                   ) : (
                     <Table>
                       <TableHeader>
-                        <TableRow>
-                          <TableHead>Property Name</TableHead>
-                          <TableHead>Location</TableHead>
-                          <TableHead>Rooms</TableHead>
-                          <TableHead>Occupancy</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Actions</TableHead>
+                        <TableRow className="dark:border-gray-700">
+                          <TableHead className="dark:text-gray-300">Property Name</TableHead>
+                          <TableHead className="dark:text-gray-300">Location</TableHead>
+                          <TableHead className="dark:text-gray-300">Rooms</TableHead>
+                          <TableHead className="dark:text-gray-300">Occupancy</TableHead>
+                          <TableHead className="dark:text-gray-300">Status</TableHead>
+                          <TableHead className="dark:text-gray-300">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {/* Properties will be listed here when available */}
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                        <TableRow className="dark:border-gray-700">
+                          <TableCell colSpan={6} className="text-center text-gray-500 dark:text-gray-400 py-8">
                             Property list functionality coming soon
                           </TableCell>
                         </TableRow>
@@ -485,15 +489,15 @@ function ProviderDashboardContent() {
 
             {/* Students Tab */}
             <TabsContent value="students">
-              <Card>
+              <Card className="dark:bg-gray-800 dark:border-gray-700">
                 <CardHeader>
-                  <CardTitle>Allocated Students</CardTitle>
+                  <CardTitle className="dark:text-gray-100">Allocated Students</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-center py-12">
-                    <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No students allocated</h3>
-                    <p className="text-gray-500">Students will appear here once allocated to your properties</p>
+                    <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No students allocated</h3>
+                    <p className="text-gray-500 dark:text-gray-400">Students will appear here once allocated to your properties</p>
                   </div>
                 </CardContent>
               </Card>
@@ -501,9 +505,9 @@ function ProviderDashboardContent() {
 
             {/* Invoices Tab */}
             <TabsContent value="invoices">
-              <Card>
+              <Card className="dark:bg-gray-800 dark:border-gray-700">
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Invoices</CardTitle>
+                  <CardTitle className="dark:text-gray-100">Invoices</CardTitle>
                   <Button asChild className="bg-amber-500 hover:bg-amber-600 text-gray-900">
                     <Link href="/invoices/create">
                       <Plus className="w-4 h-4 mr-2" />
@@ -513,9 +517,9 @@ function ProviderDashboardContent() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-center py-12">
-                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No invoices yet</h3>
-                    <p className="text-gray-500">Create your first invoice to get started</p>
+                    <FileText className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No invoices yet</h3>
+                    <p className="text-gray-500 dark:text-gray-400">Create your first invoice to get started</p>
                   </div>
                 </CardContent>
               </Card>
@@ -523,9 +527,9 @@ function ProviderDashboardContent() {
 
             {/* Tickets Tab */}
             <TabsContent value="tickets">
-              <Card>
+              <Card className="dark:bg-gray-800 dark:border-gray-700">
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Support Tickets</CardTitle>
+                  <CardTitle className="dark:text-gray-100">Support Tickets</CardTitle>
                   <Button asChild className="bg-amber-500 hover:bg-amber-600 text-gray-900">
                     <Link href="/tickets/create">
                       <Plus className="w-4 h-4 mr-2" />
@@ -536,25 +540,25 @@ function ProviderDashboardContent() {
                 <CardContent>
                   {stats.openTickets === 0 ? (
                     <div className="text-center py-12">
-                      <Ticket className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">No open tickets</h3>
-                      <p className="text-gray-500">Create a ticket if you need assistance</p>
+                      <Ticket className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No open tickets</h3>
+                      <p className="text-gray-500 dark:text-gray-400">Create a ticket if you need assistance</p>
                     </div>
                   ) : (
                     <Table>
                       <TableHeader>
-                        <TableRow>
-                          <TableHead>Ticket ID</TableHead>
-                          <TableHead>Subject</TableHead>
-                          <TableHead>Category</TableHead>
-                          <TableHead>Priority</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Created</TableHead>
+                        <TableRow className="dark:border-gray-700">
+                          <TableHead className="dark:text-gray-300">Ticket ID</TableHead>
+                          <TableHead className="dark:text-gray-300">Subject</TableHead>
+                          <TableHead className="dark:text-gray-300">Category</TableHead>
+                          <TableHead className="dark:text-gray-300">Priority</TableHead>
+                          <TableHead className="dark:text-gray-300">Status</TableHead>
+                          <TableHead className="dark:text-gray-300">Created</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center text-gray-500">
+                        <TableRow className="dark:border-gray-700">
+                          <TableCell colSpan={6} className="text-center text-gray-500 dark:text-gray-400">
                             Loading tickets...
                           </TableCell>
                         </TableRow>
@@ -569,9 +573,9 @@ function ProviderDashboardContent() {
             <TabsContent value="profile" className="space-y-6">
               <div className="grid lg:grid-cols-2 gap-6">
                 {/* Provider Profile */}
-                <Card>
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                       <Building2 className="w-5 h-5 text-amber-500" />
                       Provider Profile
                     </CardTitle>
@@ -579,29 +583,29 @@ function ProviderDashboardContent() {
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-gray-500">Provider Name</p>
-                        <p className="font-medium">{providerStatus?.companyName || "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Provider Name</p>
+                        <p className="font-medium dark:text-gray-100">{providerStatus?.companyName || "Not set"}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Provider Type</p>
-                        <p className="font-medium">{providerStatus?.legalForm || "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Provider Type</p>
+                        <p className="font-medium dark:text-gray-100">{providerStatus?.legalForm || "Not set"}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Years in Operation</p>
-                        <p className="font-medium">{providerStatus?.yearsInOperation || "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Years in Operation</p>
+                        <p className="font-medium dark:text-gray-100">{providerStatus?.yearsInOperation || "Not set"}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Registration Number</p>
-                        <p className="font-medium">{providerStatus?.companyRegistrationNumber || "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Registration Number</p>
+                        <p className="font-medium dark:text-gray-100">{providerStatus?.companyRegistrationNumber || "Not set"}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Status & Accreditation */}
-                <Card>
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                       <Shield className="w-5 h-5 text-amber-500" />
                       Status & Accreditation
                     </CardTitle>
@@ -609,102 +613,102 @@ function ProviderDashboardContent() {
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-gray-500">Account Status</p>
-                        <Badge variant={providerStatus?.approvalStatus === "Approved" ? "default" : "secondary"} className={providerStatus?.approvalStatus === "Approved" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Account Status</p>
+                        <Badge variant={providerStatus?.approvalStatus === "Approved" ? "default" : "secondary"} className={providerStatus?.approvalStatus === "Approved" ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-400" : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-400"}>
                           {providerStatus?.approvalStatus || "Pending"}
                         </Badge>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Accreditation</p>
-                        <Badge variant={providerStatus?.nsfasAccredited ? "default" : "secondary"} className={providerStatus?.nsfasAccredited ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Accreditation</p>
+                        <Badge variant={providerStatus?.nsfasAccredited ? "default" : "secondary"} className={providerStatus?.nsfasAccredited ? "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-400" : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-400"}>
                           {providerStatus?.nsfasAccredited ? "Approved" : "Pending"}
                         </Badge>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Compliance</p>
-                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Compliance</p>
+                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-400">
                           Pending
                         </Badge>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">VAT Registered</p>
-                        <p className="font-medium">{providerStatus?.vatRegistered ? "Yes" : "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">VAT Registered</p>
+                        <p className="font-medium dark:text-gray-100">{providerStatus?.vatRegistered ? "Yes" : "Not set"}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Location */}
-                <Card>
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                       <MapPin className="w-5 h-5 text-amber-500" />
                       Location
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div>
-                      <p className="text-sm text-gray-500">Street Address</p>
-                      <p className="font-medium">{providerAddress?.street || "Not set"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Street Address</p>
+                      <p className="font-medium dark:text-gray-100">{providerAddress?.street || "Not set"}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-gray-500">Suburb</p>
-                        <p className="font-medium">{providerAddress?.suburb || "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Suburb</p>
+                        <p className="font-medium dark:text-gray-100">{providerAddress?.suburb || "Not set"}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">City</p>
-                        <p className="font-medium">{providerAddress?.townCity || "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">City</p>
+                        <p className="font-medium dark:text-gray-100">{providerAddress?.townCity || "Not set"}</p>
                       </div>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Province</p>
-                      <p className="font-medium">{providerAddress?.province || "Not set"}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Province</p>
+                      <p className="font-medium dark:text-gray-100">{providerAddress?.province || "Not set"}</p>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Contact Information */}
-                <Card>
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                       <Phone className="w-5 h-5 text-amber-500" />
                       Contact Information
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="border-b pb-4">
-                      <p className="text-xs text-amber-600 font-medium mb-2">PRIMARY CONTACT</p>
+                    <div className="border-b dark:border-gray-700 pb-4">
+                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-2">PRIMARY CONTACT</p>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <p className="text-sm text-gray-500">Name</p>
-                          <p className="font-medium">{primaryContact ? `${primaryContact.firstNames} ${primaryContact.surname}` : "Not set"}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Name</p>
+                          <p className="font-medium dark:text-gray-100">{primaryContact ? `${primaryContact.firstNames} ${primaryContact.surname}` : "Not set"}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-500">Position</p>
-                          <p className="font-medium">{primaryContact?.position || "Not set"}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Position</p>
+                          <p className="font-medium dark:text-gray-100">{primaryContact?.position || "Not set"}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-500">Phone</p>
-                          <p className="font-medium">{primaryContact?.phoneNumber || "Not set"}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Phone</p>
+                          <p className="font-medium dark:text-gray-100">{primaryContact?.phoneNumber || "Not set"}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-500">Email</p>
-                          <p className="font-medium">{primaryContact?.email || "Not set"}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
+                          <p className="font-medium dark:text-gray-100">{primaryContact?.email || "Not set"}</p>
                         </div>
                       </div>
                     </div>
                     {secondaryContact && (
                       <div>
-                        <p className="text-xs text-gray-500 font-medium mb-2">SECONDARY CONTACT</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-2">SECONDARY CONTACT</p>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <p className="text-sm text-gray-500">Name</p>
-                            <p className="font-medium">{`${secondaryContact.firstNames} ${secondaryContact.surname}`}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Name</p>
+                            <p className="font-medium dark:text-gray-100">{`${secondaryContact.firstNames} ${secondaryContact.surname}`}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-gray-500">Phone</p>
-                            <p className="font-medium">{secondaryContact.phoneNumber}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Phone</p>
+                            <p className="font-medium dark:text-gray-100">{secondaryContact.phoneNumber}</p>
                           </div>
                         </div>
                       </div>
@@ -713,9 +717,9 @@ function ProviderDashboardContent() {
                 </Card>
 
                 {/* Tax & B-BBEE */}
-                <Card>
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                       <FileText className="w-5 h-5 text-amber-500" />
                       Tax & B-BBEE Information
                     </CardTitle>
@@ -723,41 +727,41 @@ function ProviderDashboardContent() {
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-gray-500">Tax Number</p>
-                        <p className="font-medium">{providerStatus?.taxReferenceNumber || "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Tax Number</p>
+                        <p className="font-medium dark:text-gray-100">{providerStatus?.taxReferenceNumber || "Not set"}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">VAT Number</p>
-                        <p className="font-medium">{providerStatus?.vatNumber || "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">VAT Number</p>
+                        <p className="font-medium dark:text-gray-100">{providerStatus?.vatNumber || "Not set"}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">B-BBEE Level</p>
-                        <p className="font-medium">{providerStatus?.bbbeeLevel ? `Level ${providerStatus.bbbeeLevel}` : "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">B-BBEE Level</p>
+                        <p className="font-medium dark:text-gray-100">{providerStatus?.bbbeeLevel ? `Level ${providerStatus.bbbeeLevel}` : "Not set"}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">B-BBEE Expiry</p>
-                        <p className="font-medium">{providerStatus?.bbbeeCertificateExpiry || "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">B-BBEE Expiry</p>
+                        <p className="font-medium dark:text-gray-100">{providerStatus?.bbbeeCertificateExpiry || "Not set"}</p>
                       </div>
                     </div>
                     {(providerStatus?.blackOwnershipPercentage || providerStatus?.blackWomenOwnershipPercentage) && (
-                      <div className="border-t pt-4">
-                        <p className="text-xs text-gray-500 font-medium mb-2">OWNERSHIP BREAKDOWN</p>
+                      <div className="border-t dark:border-gray-700 pt-4">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-2">OWNERSHIP BREAKDOWN</p>
                         <div className="grid grid-cols-4 gap-2 text-center">
-                          <div className="bg-gray-50 rounded p-2">
-                            <p className="text-lg font-semibold">{providerStatus?.blackOwnershipPercentage || 0}%</p>
-                            <p className="text-xs text-gray-500">Black</p>
+                          <div className="bg-gray-50 dark:bg-gray-700 rounded p-2">
+                            <p className="text-lg font-semibold dark:text-gray-100">{providerStatus?.blackOwnershipPercentage || 0}%</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Black</p>
                           </div>
-                          <div className="bg-gray-50 rounded p-2">
-                            <p className="text-lg font-semibold">{providerStatus?.blackWomenOwnershipPercentage || 0}%</p>
-                            <p className="text-xs text-gray-500">Women</p>
+                          <div className="bg-gray-50 dark:bg-gray-700 rounded p-2">
+                            <p className="text-lg font-semibold dark:text-gray-100">{providerStatus?.blackWomenOwnershipPercentage || 0}%</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Women</p>
                           </div>
-                          <div className="bg-gray-50 rounded p-2">
-                            <p className="text-lg font-semibold">{providerStatus?.blackYouthOwnershipPercentage || 0}%</p>
-                            <p className="text-xs text-gray-500">Youth</p>
+                          <div className="bg-gray-50 dark:bg-gray-700 rounded p-2">
+                            <p className="text-lg font-semibold dark:text-gray-100">{providerStatus?.blackYouthOwnershipPercentage || 0}%</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Youth</p>
                           </div>
-                          <div className="bg-gray-50 rounded p-2">
-                            <p className="text-lg font-semibold">{providerStatus?.disabledPersonOwnershipPercentage || 0}%</p>
-                            <p className="text-xs text-gray-500">Disability</p>
+                          <div className="bg-gray-50 dark:bg-gray-700 rounded p-2">
+                            <p className="text-lg font-semibold dark:text-gray-100">{providerStatus?.disabledPersonOwnershipPercentage || 0}%</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Disability</p>
                           </div>
                         </div>
                       </div>
@@ -766,9 +770,9 @@ function ProviderDashboardContent() {
                 </Card>
 
                 {/* Bank Details */}
-                <Card>
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 dark:text-gray-100">
                       <CreditCard className="w-5 h-5 text-amber-500" />
                       Bank Details
                     </CardTitle>
@@ -776,24 +780,24 @@ function ProviderDashboardContent() {
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm text-gray-500">Bank Name</p>
-                        <p className="font-medium">{providerStatus?.bankName || "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Bank Name</p>
+                        <p className="font-medium dark:text-gray-100">{providerStatus?.bankName || "Not set"}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Account Type</p>
-                        <p className="font-medium">{providerStatus?.accountType || "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Account Type</p>
+                        <p className="font-medium dark:text-gray-100">{providerStatus?.accountType || "Not set"}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Account Number</p>
-                        <p className="font-medium">{providerStatus?.accountNumber ? `****${providerStatus.accountNumber.slice(-4)}` : "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Account Number</p>
+                        <p className="font-medium dark:text-gray-100">{providerStatus?.accountNumber ? `****${providerStatus.accountNumber.slice(-4)}` : "Not set"}</p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Branch Code</p>
-                        <p className="font-medium">{providerStatus?.branchCode || "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Branch Code</p>
+                        <p className="font-medium dark:text-gray-100">{providerStatus?.branchCode || "Not set"}</p>
                       </div>
                       <div className="col-span-2">
-                        <p className="text-sm text-gray-500">Account Holder</p>
-                        <p className="font-medium">{providerStatus?.accountHolder || "Not set"}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Account Holder</p>
+                        <p className="font-medium dark:text-gray-100">{providerStatus?.accountHolder || "Not set"}</p>
                       </div>
                     </div>
                   </CardContent>

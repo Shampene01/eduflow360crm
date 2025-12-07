@@ -68,10 +68,10 @@ export function ProtectedRoute({
   // Show loading while auth state OR profile is loading
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
-          <p className="text-gray-600">Loading your profile...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading your profile...</p>
         </div>
       </div>
     );

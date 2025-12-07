@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { getProviderByUserId } from "@/lib/db";
 import { AccommodationProvider } from "@/lib/schema";
+import { OnlineStatus } from "@/components/OnlineStatus";
 import {
   Home,
   Building2,
@@ -155,24 +156,30 @@ export function Sidebar({ userType = "provider" }: SidebarProps) {
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
       {/* User Info */}
-      <div className="p-6 border-b border-gray-200">
-        {user?.profilePhotoUrl ? (
-          <img
-            src={user.profilePhotoUrl}
-            alt="Profile"
-            className="w-14 h-14 rounded-full object-cover border-2 border-amber-200 mb-3"
-          />
-        ) : (
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-gray-900 font-semibold text-xl mb-3 border-2 border-amber-200">
-            {getUserInitials()}
+      <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="relative w-fit mb-3">
+          {user?.profilePhotoUrl ? (
+            <img
+              src={user.profilePhotoUrl}
+              alt="Profile"
+              className="w-14 h-14 rounded-full object-cover border-2 border-amber-200 dark:border-amber-700"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-gray-900 font-semibold text-xl border-2 border-amber-200 dark:border-amber-700">
+              {getUserInitials()}
+            </div>
+          )}
+          {/* Online status indicator on avatar */}
+          <div className="absolute -bottom-0.5 -right-0.5 p-0.5 bg-white dark:bg-gray-800 rounded-full">
+            <OnlineStatus userId={user?.userId || user?.uid} size="md" />
           </div>
-        )}
-        <h3 className="font-semibold text-gray-900">
+        </div>
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100">
           {user ? `${user.firstNames || user.firstName || ""} ${user.surname || user.lastName || ""}`.trim() : "Loading..."}
         </h3>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
           {getRoleLabel()}
         </p>
       </div>
@@ -181,7 +188,7 @@ export function Sidebar({ userType = "provider" }: SidebarProps) {
       <nav className="flex-1 py-6 overflow-y-auto">
         {sections.map((section) => (
           <div key={section.title} className="mb-6">
-            <h4 className="px-6 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            <h4 className="px-6 text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
               {section.title}
             </h4>
             <ul className="space-y-1">
@@ -194,8 +201,8 @@ export function Sidebar({ userType = "provider" }: SidebarProps) {
                       className={cn(
                         "flex items-center gap-3 px-6 py-3 text-sm font-medium transition-all border-l-3",
                         isActive
-                          ? "bg-amber-50 text-amber-600 border-l-amber-500"
-                          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-transparent hover:border-l-amber-500"
+                          ? "bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border-l-amber-500"
+                          : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100 border-l-transparent hover:border-l-amber-500"
                       )}
                     >
                       <item.icon size={20} />

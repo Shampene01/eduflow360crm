@@ -16,31 +16,31 @@ export function StatCard({ title, value, icon: Icon, trend, className }: StatCar
   return (
     <div
       className={cn(
-        "bg-white rounded-sm border border-gray-200 p-6 shadow-sm hover:shadow-md hover:-translate-y-1 hover:border-amber-500 transition-all",
+        "bg-white dark:bg-gray-800 rounded-sm border border-gray-200 dark:border-gray-700 p-6 shadow-sm hover:shadow-md hover:-translate-y-1 hover:border-amber-500 dark:hover:border-amber-500 transition-all",
         className
       )}
     >
       <div className="flex justify-between items-start mb-4">
-        <div className="w-12 h-12 rounded-sm bg-amber-100 flex items-center justify-center">
-          <Icon className="w-6 h-6 text-amber-600" />
+        <div className="w-12 h-12 rounded-sm bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
+          <Icon className="w-6 h-6 text-amber-600 dark:text-amber-400" />
         </div>
         {trend && (
           <span
             className={cn(
               "text-sm font-medium px-2 py-1 rounded",
               trend.isPositive
-                ? "bg-green-100 text-green-700"
-                : "bg-red-100 text-red-700"
+                ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400"
+                : "bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400"
             )}
           >
             {trend.isPositive ? "+" : "-"}{Math.abs(trend.value)}%
           </span>
         )}
       </div>
-      <div className="text-3xl font-bold text-gray-900 mb-1 tracking-tight">
+      <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1 tracking-tight">
         {value}
       </div>
-      <div className="text-sm text-gray-500">{title}</div>
+      <div className="text-sm text-gray-500 dark:text-gray-400">{title}</div>
     </div>
   );
 }
