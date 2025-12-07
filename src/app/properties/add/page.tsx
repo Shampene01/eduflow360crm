@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
@@ -31,6 +31,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { getProviderByUserId } from "@/lib/db";
+import { AccommodationProvider } from "@/lib/schema";
 
 const provinces = [
   "Eastern Cape",
@@ -64,6 +66,23 @@ function AddPropertyContent() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [provider, setProvider] = useState<AccommodationProvider | null>(null);
+
+  // Fetch provider on mount
+  useEffect(() => {
+    const fetchProvider = async () => {
+      const uid = user?.userId || user?.uid;
+      if (!uid) return;
+      
+      try {
+        const providerData = await getProviderByUserId(uid);
+        setProvider(providerData);
+      } catch (err) {
+        console.error("Error fetching provider:", err);
+      }
+    };
+    fetchProvider();
+  }, [user?.userId, user?.uid]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -115,11 +134,16 @@ function AddPropertyContent() {
       return;
     }
 
+    if (!provider) {
+      setError("Provider not found. Please complete your provider application first.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const propertyData = {
-        providerId: user?.uid,
+        providerId: provider.providerId,
         name: formData.name,
         address: formData.address,
         city: formData.city,
