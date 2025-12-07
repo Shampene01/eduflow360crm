@@ -40,6 +40,12 @@ import {
   ProviderWithDetails,
   PropertyWithDetails,
   ApprovalStatus,
+  getPropertiesPath,
+  getPropertyPath,
+  getPropertyRoomsPath,
+  getPropertyBedsPath,
+  getPropertyImagesPath,
+  getPropertyDocumentsPath,
 } from "./schema";
 
 // ============================================================================
@@ -286,7 +292,7 @@ export async function verifyProviderDocument(
 }
 
 // ============================================================================
-// PROPERTY OPERATIONS
+// PROPERTY OPERATIONS (Subcollection: accommodationProviders/{providerId}/properties)
 // ============================================================================
 
 export async function createProperty(
@@ -303,47 +309,52 @@ export async function createProperty(
     createdAt: serverTimestamp() as Timestamp,
   };
   
-  await setDoc(doc(db, COLLECTIONS.PROPERTIES, propertyId), property);
+  // Store in subcollection: accommodationProviders/{providerId}/properties/{propertyId}
+  await setDoc(doc(db, getPropertyPath(propertyData.providerId, propertyId)), property);
   return property;
 }
 
-export async function getPropertyById(propertyId: string): Promise<Property | null> {
+export async function getPropertyById(providerId: string, propertyId: string): Promise<Property | null> {
   if (!db) return null;
-  const docSnap = await getDoc(doc(db, COLLECTIONS.PROPERTIES, propertyId));
+  const docSnap = await getDoc(doc(db, getPropertyPath(providerId, propertyId)));
   return docSnap.exists() ? (docSnap.data() as Property) : null;
 }
 
 export async function getPropertiesByProvider(providerId: string): Promise<Property[]> {
   if (!db) return [];
   const q = query(
-    collection(db, COLLECTIONS.PROPERTIES),
-    where("providerId", "==", providerId),
+    collection(db, getPropertiesPath(providerId)),
     orderBy("createdAt", "desc")
   );
   const snap = await getDocs(q);
   return snap.docs.map(d => d.data() as Property);
 }
 
-export async function updateProperty(propertyId: string, data: Partial<Property>): Promise<void> {
+export async function updateProperty(providerId: string, propertyId: string, data: Partial<Property>): Promise<void> {
   if (!db) throw new Error("Database not initialized");
-  await updateDoc(doc(db, COLLECTIONS.PROPERTIES, propertyId), { 
+  await updateDoc(doc(db, getPropertyPath(providerId, propertyId)), { 
     ...data, 
     updatedAt: serverTimestamp() 
   });
 }
 
-export async function getPropertyWithDetails(propertyId: string): Promise<PropertyWithDetails | null> {
+export async function deleteProperty(providerId: string, propertyId: string): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  await deleteDoc(doc(db, getPropertyPath(providerId, propertyId)));
+}
+
+export async function getPropertyWithDetails(providerId: string, propertyId: string): Promise<PropertyWithDetails | null> {
   if (!db) return null;
   
-  const property = await getPropertyById(propertyId);
+  const property = await getPropertyById(providerId, propertyId);
   if (!property) return null;
   
   const [address, provider, roomConfig, rooms, images] = await Promise.all([
     getAddressById(property.addressId),
-    getProviderById(property.providerId),
+    getProviderById(providerId),
     getRoomConfiguration(propertyId),
-    getPropertyRooms(propertyId),
-    getPropertyImages(propertyId),
+    getPropertyRooms(providerId, propertyId),
+    getPropertyImages(providerId, propertyId),
   ]);
   
   return {
@@ -361,6 +372,7 @@ export async function getPropertyWithDetails(propertyId: string): Promise<Proper
 // ============================================================================
 
 export async function createRoomConfiguration(
+  providerId: string,
   configData: Omit<RoomConfiguration, "configId" | "createdAt" | "totalRooms" | "totalBeds">
 ): Promise<RoomConfiguration> {
   if (!db) throw new Error("Database not initialized");
@@ -397,7 +409,7 @@ export async function createRoomConfiguration(
   await setDoc(doc(db, COLLECTIONS.ROOM_CONFIGURATIONS, configId), config);
   
   // Update property with bed counts
-  await updateProperty(configData.propertyId, { totalBeds, availableBeds: totalBeds });
+  await updateProperty(providerId, configData.propertyId, { totalBeds, availableBeds: totalBeds });
   
   return config;
 }
@@ -422,10 +434,11 @@ export async function updateRoomConfiguration(configId: string, data: Partial<Ro
 }
 
 // ============================================================================
-// PROPERTY ROOM OPERATIONS
+// PROPERTY ROOM OPERATIONS (Subcollection: .../properties/{propertyId}/rooms)
 // ============================================================================
 
 export async function createPropertyRoom(
+  providerId: string,
   roomData: Omit<PropertyRoom, "roomId" | "createdAt">
 ): Promise<PropertyRoom> {
   if (!db) throw new Error("Database not initialized");
@@ -438,26 +451,32 @@ export async function createPropertyRoom(
     createdAt: serverTimestamp() as Timestamp,
   };
   
-  await setDoc(doc(db, COLLECTIONS.PROPERTY_ROOMS, roomId), room);
+  await setDoc(doc(db, `${getPropertyRoomsPath(providerId, roomData.propertyId)}/${roomId}`), room);
   return room;
 }
 
-export async function getPropertyRooms(propertyId: string): Promise<PropertyRoom[]> {
+export async function getPropertyRooms(providerId: string, propertyId: string): Promise<PropertyRoom[]> {
   if (!db) return [];
   const q = query(
-    collection(db, COLLECTIONS.PROPERTY_ROOMS),
-    where("propertyId", "==", propertyId),
+    collection(db, getPropertyRoomsPath(providerId, propertyId)),
     orderBy("roomNumber")
   );
   const snap = await getDocs(q);
   return snap.docs.map(d => d.data() as PropertyRoom);
 }
 
+export async function getPropertyRoomById(providerId: string, propertyId: string, roomId: string): Promise<PropertyRoom | null> {
+  if (!db) return null;
+  const docSnap = await getDoc(doc(db, `${getPropertyRoomsPath(providerId, propertyId)}/${roomId}`));
+  return docSnap.exists() ? (docSnap.data() as PropertyRoom) : null;
+}
+
 // ============================================================================
-// PROPERTY BED OPERATIONS
+// PROPERTY BED OPERATIONS (Subcollection: .../properties/{propertyId}/beds)
 // ============================================================================
 
 export async function createPropertyBed(
+  providerId: string,
   bedData: Omit<PropertyBed, "bedId" | "createdAt">
 ): Promise<PropertyBed> {
   if (!db) throw new Error("Database not initialized");
@@ -470,24 +489,20 @@ export async function createPropertyBed(
     createdAt: serverTimestamp() as Timestamp,
   };
   
-  await setDoc(doc(db, COLLECTIONS.PROPERTY_BEDS, bedId), bed);
+  await setDoc(doc(db, `${getPropertyBedsPath(providerId, bedData.propertyId)}/${bedId}`), bed);
   return bed;
 }
 
-export async function getPropertyBeds(propertyId: string): Promise<PropertyBed[]> {
+export async function getPropertyBeds(providerId: string, propertyId: string): Promise<PropertyBed[]> {
   if (!db) return [];
-  const q = query(
-    collection(db, COLLECTIONS.PROPERTY_BEDS),
-    where("propertyId", "==", propertyId)
-  );
-  const snap = await getDocs(q);
+  const snap = await getDocs(collection(db, getPropertyBedsPath(providerId, propertyId)));
   return snap.docs.map(d => d.data() as PropertyBed);
 }
 
-export async function getRoomBeds(roomId: string): Promise<PropertyBed[]> {
+export async function getRoomBeds(providerId: string, propertyId: string, roomId: string): Promise<PropertyBed[]> {
   if (!db) return [];
   const q = query(
-    collection(db, COLLECTIONS.PROPERTY_BEDS),
+    collection(db, getPropertyBedsPath(providerId, propertyId)),
     where("roomId", "==", roomId),
     orderBy("bedLabel")
   );
@@ -495,9 +510,15 @@ export async function getRoomBeds(roomId: string): Promise<PropertyBed[]> {
   return snap.docs.map(d => d.data() as PropertyBed);
 }
 
-export async function updateBedStatus(bedId: string, status: PropertyBed["status"], studentId?: string): Promise<void> {
+export async function updateBedStatus(
+  providerId: string, 
+  propertyId: string, 
+  bedId: string, 
+  status: PropertyBed["status"], 
+  studentId?: string
+): Promise<void> {
   if (!db) throw new Error("Database not initialized");
-  await updateDoc(doc(db, COLLECTIONS.PROPERTY_BEDS, bedId), {
+  await updateDoc(doc(db, `${getPropertyBedsPath(providerId, propertyId)}/${bedId}`), {
     status,
     currentStudentId: studentId || null,
     updatedAt: serverTimestamp(),
@@ -647,10 +668,11 @@ export async function closeStudentAssignment(
 }
 
 // ============================================================================
-// PROPERTY IMAGE OPERATIONS
+// PROPERTY IMAGE OPERATIONS (Subcollection: .../properties/{propertyId}/images)
 // ============================================================================
 
 export async function createPropertyImage(
+  providerId: string,
   imageData: Omit<PropertyImage, "imageId" | "uploadedAt">
 ): Promise<PropertyImage> {
   if (!db) throw new Error("Database not initialized");
@@ -662,15 +684,14 @@ export async function createPropertyImage(
     uploadedAt: serverTimestamp() as Timestamp,
   };
   
-  await setDoc(doc(db, COLLECTIONS.PROPERTY_IMAGES, imageId), image);
+  await setDoc(doc(db, `${getPropertyImagesPath(providerId, imageData.propertyId)}/${imageId}`), image);
   return image;
 }
 
-export async function getPropertyImages(propertyId: string): Promise<PropertyImage[]> {
+export async function getPropertyImages(providerId: string, propertyId: string): Promise<PropertyImage[]> {
   if (!db) return [];
   const q = query(
-    collection(db, COLLECTIONS.PROPERTY_IMAGES),
-    where("propertyId", "==", propertyId),
+    collection(db, getPropertyImagesPath(providerId, propertyId)),
     orderBy("sortOrder")
   );
   const snap = await getDocs(q);

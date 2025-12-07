@@ -514,23 +514,80 @@ export interface StudentWithAssignment extends Student {
 // ============================================================================
 
 export const COLLECTIONS = {
+  // Top-level collections
   USERS: "users",
   ADDRESSES: "addresses",
   ACCOMMODATION_PROVIDERS: "accommodationProviders",
   PROVIDER_CONTACT_PERSONS: "providerContactPersons",
   PROVIDER_DOCUMENTS: "providerDocuments",
-  PROPERTIES: "properties",
-  ROOM_CONFIGURATIONS: "roomConfigurations",
-  PROPERTY_ROOMS: "propertyRooms",
-  PROPERTY_BEDS: "propertyBeds",
-  PROPERTY_DOCUMENTS: "propertyDocuments",
-  PROPERTY_IMAGES: "propertyImages",
   STUDENTS: "students",
   STUDENT_PROPERTY_ASSIGNMENTS: "studentPropertyAssignments",
+  
+  // Subcollections under providers/{providerId}/
+  // Use SUBCOLLECTIONS helper functions below
+  PROPERTIES: "properties",  // providers/{providerId}/properties
+  
+  // Subcollections under properties (nested under provider)
+  // providers/{providerId}/properties/{propertyId}/rooms
+  // providers/{providerId}/properties/{propertyId}/beds
+  // providers/{providerId}/properties/{propertyId}/images
+  // providers/{providerId}/properties/{propertyId}/documents
+  PROPERTY_ROOMS: "rooms",
+  PROPERTY_BEDS: "beds",
+  PROPERTY_DOCUMENTS: "documents",
+  PROPERTY_IMAGES: "images",
+  ROOM_CONFIGURATIONS: "roomConfigurations",  // Can stay top-level or move to property subcollection
+  
   // Legacy
   INVOICES: "invoices",
   TICKETS: "tickets",
 } as const;
+
+// ============================================================================
+// SUBCOLLECTION PATH HELPERS
+// ============================================================================
+
+/**
+ * Get the path to a provider's properties subcollection
+ */
+export function getPropertiesPath(providerId: string): string {
+  return `${COLLECTIONS.ACCOMMODATION_PROVIDERS}/${providerId}/${COLLECTIONS.PROPERTIES}`;
+}
+
+/**
+ * Get the path to a specific property document
+ */
+export function getPropertyPath(providerId: string, propertyId: string): string {
+  return `${COLLECTIONS.ACCOMMODATION_PROVIDERS}/${providerId}/${COLLECTIONS.PROPERTIES}/${propertyId}`;
+}
+
+/**
+ * Get the path to a property's rooms subcollection
+ */
+export function getPropertyRoomsPath(providerId: string, propertyId: string): string {
+  return `${getPropertyPath(providerId, propertyId)}/${COLLECTIONS.PROPERTY_ROOMS}`;
+}
+
+/**
+ * Get the path to a property's beds subcollection
+ */
+export function getPropertyBedsPath(providerId: string, propertyId: string): string {
+  return `${getPropertyPath(providerId, propertyId)}/${COLLECTIONS.PROPERTY_BEDS}`;
+}
+
+/**
+ * Get the path to a property's images subcollection
+ */
+export function getPropertyImagesPath(providerId: string, propertyId: string): string {
+  return `${getPropertyPath(providerId, propertyId)}/${COLLECTIONS.PROPERTY_IMAGES}`;
+}
+
+/**
+ * Get the path to a property's documents subcollection
+ */
+export function getPropertyDocumentsPath(providerId: string, propertyId: string): string {
+  return `${getPropertyPath(providerId, propertyId)}/${COLLECTIONS.PROPERTY_DOCUMENTS}`;
+}
 
 // ============================================================================
 // LEGACY TYPE MAPPING (for backward compatibility during migration)

@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import {
   Building2,
   Plus,
@@ -20,23 +18,29 @@ import { DashboardFooter } from "@/components/DashboardFooter";
 import { Sidebar } from "@/components/Sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
-import { Property } from "@/lib/types";
+import { Property } from "@/lib/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { getProviderByUserId } from "@/lib/db";
+import { getProviderByUserId, getPropertiesByProvider, getAddressById } from "@/lib/db";
+import { Address } from "@/lib/schema";
+
+// Extended property type with address data for display
+interface PropertyWithAddress extends Property {
+  address?: Address;
+}
 
 function PropertiesContent() {
   const { user } = useAuth();
-  const [properties, setProperties] = useState<Property[]>([]);
+  const [properties, setProperties] = useState<PropertyWithAddress[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const fetchProperties = async () => {
       const uid = user?.userId || user?.uid;
-      if (!uid || !db) {
+      if (!uid) {
         setLoading(false);
         return;
       }
@@ -50,21 +54,20 @@ function PropertiesContent() {
           return;
         }
 
-        // Use provider ID to fetch properties
-        const propertiesQuery = query(
-          collection(db, "properties"),
-          where("providerId", "==", provider.providerId),
-          orderBy("createdAt", "desc")
+        // Use the db function to fetch properties from subcollection
+        const propertiesData = await getPropertiesByProvider(provider.providerId);
+        
+        // Fetch addresses for each property
+        const propertiesWithAddresses = await Promise.all(
+          propertiesData.map(async (property) => {
+            const address = property.addressId ? await getAddressById(property.addressId) : null;
+            return { ...property, address: address || undefined };
+          })
         );
-        const snapshot = await getDocs(propertiesQuery);
-        const propertiesData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Property[];
-        setProperties(propertiesData);
+        
+        setProperties(propertiesWithAddresses);
       } catch (error) {
         console.error("Error fetching properties:", error);
-        // If there's an error (like missing index), set empty properties
         setProperties([]);
       } finally {
         setLoading(false);
@@ -77,7 +80,7 @@ function PropertiesContent() {
   const filteredProperties = properties.filter(
     (property) =>
       property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      property.city.toLowerCase().includes(searchTerm.toLowerCase())
+      (property.address?.townCity || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -162,12 +165,12 @@ function PropertiesContent() {
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredProperties.map((property) => (
-                <Card key={property.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                <Card key={property.propertyId} className="overflow-hidden hover:shadow-lg transition-shadow">
                   {/* Property Image */}
                   <div className="h-48 bg-gradient-to-br from-gray-200 to-gray-300 relative">
-                    {property.images?.[0] ? (
+                    {property.coverImageUrl ? (
                       <img
-                        src={property.images[0]}
+                        src={property.coverImageUrl}
                         alt={property.name}
                         className="w-full h-full object-cover"
                       />
@@ -178,10 +181,12 @@ function PropertiesContent() {
                     )}
                     <Badge
                       className={`absolute top-3 right-3 ${
-                        property.status === "active"
+                        property.status === "Active"
                           ? "bg-green-500"
-                          : property.status === "pending"
+                          : property.status === "Pending"
                           ? "bg-yellow-500"
+                          : property.status === "Draft"
+                          ? "bg-blue-500"
                           : "bg-gray-500"
                       }`}
                     >
@@ -193,30 +198,30 @@ function PropertiesContent() {
                     <h3 className="font-semibold text-gray-900 mb-2">{property.name}</h3>
                     <div className="flex items-center gap-1 text-gray-500 text-sm mb-3">
                       <MapPin className="w-4 h-4" />
-                      {property.city}, {property.province}
+                      {property.address?.townCity || "Location not set"}{property.address?.province ? `, ${property.address.province}` : ""}
                     </div>
 
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-1 text-sm">
                         <Users className="w-4 h-4 text-gray-400" />
                         <span>
-                          {property.totalRooms - property.availableRooms}/{property.totalRooms} occupied
+                          {(property.totalBeds || 0) - (property.availableBeds || 0)}/{property.totalBeds || 0} beds occupied
                         </span>
                       </div>
                       <span className="font-semibold text-amber-600">
-                        R{property.pricePerMonth?.toLocaleString()}/mo
+                        R{property.pricePerBedPerMonth?.toLocaleString() || 0}/mo
                       </span>
                     </div>
 
                     <div className="flex gap-2">
                       <Button asChild variant="outline" size="sm" className="flex-1">
-                        <Link href={`/properties/${property.id}`}>
+                        <Link href={`/properties/${property.propertyId}`}>
                           <Eye className="w-4 h-4 mr-1" />
                           View
                         </Link>
                       </Button>
                       <Button asChild variant="outline" size="sm" className="flex-1">
-                        <Link href={`/properties/${property.id}/edit`}>
+                        <Link href={`/properties/${property.propertyId}/edit`}>
                           <Edit className="w-4 h-4 mr-1" />
                           Edit
                         </Link>

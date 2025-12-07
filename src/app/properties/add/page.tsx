@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import {
   Building2,
   ArrowLeft,
@@ -31,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { getProviderByUserId } from "@/lib/db";
+import { getProviderByUserId, createProperty, createAddress } from "@/lib/db";
 import { AccommodationProvider } from "@/lib/schema";
 
 const provinces = [
@@ -142,26 +140,31 @@ function AddPropertyContent() {
     setLoading(true);
 
     try {
-      const propertyData = {
-        providerId: provider.providerId,
-        name: formData.name,
-        address: formData.address,
-        city: formData.city,
+      // First create the address
+      const address = await createAddress({
+        street: formData.address,
+        townCity: formData.city,
         province: formData.province,
         postalCode: formData.postalCode,
+        country: "South Africa",
+      });
+
+      // Then create the property in the subcollection
+      await createProperty({
+        providerId: provider.providerId,
+        name: formData.name,
+        ownershipType: "Owned",
+        propertyType: "Student Residence",
         description: formData.description,
-        totalRooms: parseInt(formData.totalRooms),
-        availableRooms: parseInt(formData.totalRooms),
-        pricePerMonth: parseFloat(formData.pricePerMonth),
+        addressId: address.addressId,
+        totalBeds: parseInt(formData.totalRooms),
+        availableBeds: parseInt(formData.totalRooms),
+        pricePerBedPerMonth: parseFloat(formData.pricePerMonth),
         amenities: formData.amenities,
         nsfasApproved: formData.nsfasApproved,
-        status: "pending",
-        images: [],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      };
+        status: "Pending",
+      });
 
-      await addDoc(collection(db, "properties"), propertyData);
       toast.success("Property added successfully!");
       router.push("/properties");
     } catch (err: any) {

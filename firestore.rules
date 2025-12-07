@@ -1,11 +1,131 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
     // ============================================================================
-    // TEMPORARY: WIDE OPEN FOR TESTING - REMEMBER TO LOCK DOWN BEFORE PRODUCTION!
+    // HELPER FUNCTIONS
     // ============================================================================
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isProviderOwner(providerId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+        get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
+    }
+    
+    // ============================================================================
+    // USER COLLECTION
+    // ============================================================================
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+    
+    // ============================================================================
+    // ADDRESS COLLECTION
+    // ============================================================================
+    match /addresses/{addressId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ============================================================================
+    // ACCOMMODATION PROVIDERS
+    // ============================================================================
+    match /accommodationProviders/{providerId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isProviderOwner(providerId);
+      
+      // ========================================================================
+      // PROPERTIES SUBCOLLECTION
+      // ========================================================================
+      match /properties/{propertyId} {
+        allow read: if isAuthenticated();
+        allow create: if isProviderOwner(providerId);
+        allow update, delete: if isProviderOwner(providerId);
+        
+        // ======================================================================
+        // PROPERTY SUBCOLLECTIONS (rooms, beds, images, documents)
+        // ======================================================================
+        match /rooms/{roomId} {
+          allow read: if isAuthenticated();
+          allow write: if isProviderOwner(providerId);
+        }
+        
+        match /beds/{bedId} {
+          allow read: if isAuthenticated();
+          allow write: if isProviderOwner(providerId);
+        }
+        
+        match /images/{imageId} {
+          allow read: if isAuthenticated();
+          allow write: if isProviderOwner(providerId);
+        }
+        
+        match /documents/{documentId} {
+          allow read: if isAuthenticated();
+          allow write: if isProviderOwner(providerId);
+        }
+      }
+    }
+    
+    // ============================================================================
+    // PROVIDER CONTACT PERSONS
+    // ============================================================================
+    match /providerContactPersons/{contactId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ============================================================================
+    // PROVIDER DOCUMENTS
+    // ============================================================================
+    match /providerDocuments/{documentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ============================================================================
+    // ROOM CONFIGURATIONS
+    // ============================================================================
+    match /roomConfigurations/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ============================================================================
+    // STUDENTS
+    // ============================================================================
+    match /students/{studentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ============================================================================
+    // STUDENT PROPERTY ASSIGNMENTS
+    // ============================================================================
+    match /studentPropertyAssignments/{assignmentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // ============================================================================
+    // LEGACY COLLECTIONS
+    // ============================================================================
+    match /invoices/{invoiceId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    match /tickets/{ticketId} {
+      allow read, write: if isAuthenticated();
     }
   }
 }
