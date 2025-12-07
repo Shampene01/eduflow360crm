@@ -28,6 +28,7 @@ import {
 import { db } from "./firebase";
 import {
   User,
+  UserRole,
   Address,
   AccommodationProvider,
   ProviderContactPerson,
@@ -186,7 +187,8 @@ export async function migrateLegacyUser(legacyUserId: string): Promise<Migration
       createdAt: legacy.createdAt || serverTimestamp() as Timestamp,
       lastLoginAt: legacy.lastLoginAt,
       marketingConsent: false,
-      roles: [legacy.userType],
+      role: legacy.userType as UserRole,  // Primary role
+      roles: [legacy.userType] as UserRole[],  // Legacy array
       isActive: legacy.status !== "inactive",
       emailVerified: true, // Assume verified if they registered
     };

@@ -115,6 +115,7 @@ export interface User {
   profilePhotoUrl?: string;
   idDocumentUrl?: string;            // URL to uploaded ID document (PDF)
   address?: UserAddress;             // Embedded address object
+  addressId?: string;                // Legacy: FK to Address table
   createdAt: Timestamp;
   updatedAt?: Timestamp;
   lastLoginAt?: Timestamp;
