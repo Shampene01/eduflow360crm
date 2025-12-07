@@ -9,13 +9,14 @@ import {
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { User } from "./types";
+import { initPresence, cleanupPresence } from "./presence";
 
 export async function signIn(email: string, password: string): Promise<User> {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
 
-    // Update last login time
+    // Update last login time in Firestore
     const userRef = doc(db, "users", firebaseUser.uid);
     await setDoc(
       userRef,
@@ -24,6 +25,9 @@ export async function signIn(email: string, password: string): Promise<User> {
       },
       { merge: true }
     );
+
+    // Initialize real-time presence tracking
+    initPresence(firebaseUser.uid);
 
     // Fetch user profile
     const userProfile = await getUserProfile(firebaseUser.uid);
@@ -70,6 +74,23 @@ export async function signUp(
 
 export async function signOut(): Promise<void> {
   try {
+    const currentUser = auth.currentUser;
+    
+    if (currentUser) {
+      // Update last logout time in Firestore
+      const userRef = doc(db, "users", currentUser.uid);
+      await setDoc(
+        userRef,
+        {
+          lastLogoutAt: Timestamp.now(),
+        },
+        { merge: true }
+      );
+
+      // Cleanup presence (set offline in Realtime DB)
+      await cleanupPresence(currentUser.uid);
+    }
+
     await firebaseSignOut(auth);
   } catch (error: any) {
     throw error;

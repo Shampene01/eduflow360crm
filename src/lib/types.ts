@@ -68,6 +68,7 @@ export interface User {
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
   lastLoginAt?: Timestamp;
+  lastLogoutAt?: Timestamp;
   
   // CRM sync
   crmSynced?: boolean;

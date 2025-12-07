@@ -119,6 +119,7 @@ export interface User {
   createdAt: Timestamp;
   updatedAt?: Timestamp;
   lastLoginAt?: Timestamp;
+  lastLogoutAt?: Timestamp;
   marketingConsent: boolean;
   role: UserRole;                    // Single role string
   roleCode?: number;                 // Numeric role code (0-6)

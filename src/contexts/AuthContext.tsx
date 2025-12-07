@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User } from "@/lib/types";
 import { onAuthChange, signOut as authSignOut } from "@/lib/auth";
+import { initPresence } from "@/lib/presence";
 
 interface AuthContextType {
   firebaseUser: any | null;
@@ -50,6 +51,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const { getUserProfile } = await import("@/lib/auth");
           const userProfile = await getUserProfile(fbUser.uid);
           setUser(userProfile);
+          
+          // Initialize presence tracking (for page refresh/session restore)
+          initPresence(fbUser.uid);
         } catch (error) {
           console.error("Error loading user profile:", error);
           setUser(null);
