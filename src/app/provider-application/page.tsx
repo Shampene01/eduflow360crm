@@ -378,10 +378,10 @@ function ProviderApplicationContent() {
       }
 
       // 6. Update user roles to include "provider"
-      const currentRoles = user?.roles || [];
+      const currentRoles = (user?.roles || []) as string[];
       if (!currentRoles.includes("provider")) {
         await updateUser(uid, {
-          roles: [...currentRoles, "provider"],
+          roles: [...currentRoles, "provider"] as ("provider" | "student" | "admin" | "manager" | "supervisor" | "registrar" | "administrator")[],
         });
       }
 
