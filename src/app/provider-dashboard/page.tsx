@@ -112,16 +112,19 @@ function ProviderDashboardContent() {
   useEffect(() => {
     const fetchStats = async () => {
       const uid = user?.userId || user?.uid;
-      if (!uid || !db) {
+      if (!uid || !db || !providerStatus) {
         setLoading(false);
         return;
       }
 
       try {
+        // Use the provider's ID, not the user's ID
+        const providerId = providerStatus.providerId;
+
         // Fetch properties count
         const propertiesQuery = query(
           collection(db, "properties"),
-          where("providerId", "==", uid)
+          where("providerId", "==", providerId)
         );
         const propertiesSnap = await getDocs(propertiesQuery);
         const totalProperties = propertiesSnap.size;
@@ -140,12 +143,12 @@ function ProviderDashboardContent() {
         // Fetch pending invoices
         const invoicesQuery = query(
           collection(db, "invoices"),
-          where("providerId", "==", uid),
+          where("providerId", "==", providerId),
           where("status", "==", "submitted")
         );
         const invoicesSnap = await getDocs(invoicesQuery);
 
-        // Fetch open tickets
+        // Fetch open tickets (still uses userId for ticket ownership)
         const ticketsQuery = query(
           collection(db, "tickets"),
           where("userId", "==", uid),
@@ -169,7 +172,7 @@ function ProviderDashboardContent() {
     };
 
     fetchStats();
-  }, [user?.userId, user?.uid]);
+  }, [user?.userId, user?.uid, providerStatus]);
 
   // Helper variables for contacts
   const primaryContact = providerContacts.find(c => c.isPrimary);

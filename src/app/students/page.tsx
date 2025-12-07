@@ -51,29 +51,47 @@ interface StudentData {
 function StudentsContent() {
   const { user } = useAuth();
   const [students, setStudents] = useState<StudentData[]>([]);
+  const [properties, setProperties] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-    const fetchStudents = async () => {
+    const fetchData = async () => {
       const uid = user?.userId || user?.uid;
-      if (!uid) {
+      if (!uid || !db) {
         setLoading(false);
         return;
       }
 
       try {
+        // Fetch provider's properties
+        const providersQuery = query(
+          collection(db, "accommodationProviders"),
+          where("userId", "==", uid)
+        );
+        const providerSnap = await getDocs(providersQuery);
+        
+        if (!providerSnap.empty) {
+          const providerId = providerSnap.docs[0].id;
+          const propertiesQuery = query(
+            collection(db, "properties"),
+            where("providerId", "==", providerId)
+          );
+          const propertiesSnap = await getDocs(propertiesQuery);
+          setProperties(propertiesSnap.docs.map(doc => doc.id));
+        }
+
         // In a real app, you'd query students allocated to this provider's properties
         // For now, we'll show an empty state
         setStudents([]);
       } catch (error) {
-        console.error("Error fetching students:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStudents();
+    fetchData();
   }, [user?.userId, user?.uid]);
 
   const filteredStudents = students.filter(
@@ -97,7 +115,11 @@ function StudentsContent() {
               <h1 className="text-2xl font-bold text-gray-900">Students</h1>
               <p className="text-gray-500">Manage students allocated to your properties</p>
             </div>
-            <Button className="bg-amber-500 hover:bg-amber-600 text-gray-900">
+            <Button 
+              className="bg-amber-500 hover:bg-amber-600 text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={properties.length === 0}
+              title={properties.length === 0 ? "Add a property first before adding students" : "Add a new student"}
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add Student
             </Button>
