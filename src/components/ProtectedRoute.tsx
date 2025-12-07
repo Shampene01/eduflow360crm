@@ -31,12 +31,15 @@ export function ProtectedRoute({
   redirectTo = "/login",
   requireEmailVerification = true,
 }: ProtectedRouteProps) {
-  const { user, loading, firebaseUser } = useAuth();
+  const { user, loading, profileLoading, firebaseUser } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
+  // Combined loading state: wait for both auth AND profile to be ready
+  const isLoading = loading || profileLoading;
+
   useEffect(() => {
-    if (!loading) {
+    if (!isLoading) {
       // Not logged in - redirect to login
       if (!firebaseUser) {
         router.push(redirectTo);
@@ -60,14 +63,15 @@ export function ProtectedRoute({
         }
       }
     }
-  }, [loading, firebaseUser, user, allowedUserTypes, router, redirectTo, requireEmailVerification, pathname]);
+  }, [isLoading, firebaseUser, user, allowedUserTypes, router, redirectTo, requireEmailVerification, pathname]);
 
-  if (loading) {
+  // Show loading while auth state OR profile is loading
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">Loading your profile...</p>
         </div>
       </div>
     );

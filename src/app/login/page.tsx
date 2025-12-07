@@ -22,11 +22,14 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const router = useRouter();
-  const { user, loading: authLoading, firebaseUser } = useAuth();
+  const { user, loading: authLoading, profileLoading, firebaseUser } = useAuth();
+
+  // Combined loading state
+  const isLoading = authLoading || profileLoading;
 
   // Redirect if already logged in
   useEffect(() => {
-    if (!authLoading && user && firebaseUser) {
+    if (!isLoading && user && firebaseUser) {
       // Check email verification first
       if (!firebaseUser.emailVerified) {
         router.push("/verify-email");
@@ -39,7 +42,7 @@ export default function LoginPage() {
         router.push("/dashboard");
       }
     }
-  }, [user, authLoading, firebaseUser, router]);
+  }, [user, isLoading, firebaseUser, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,19 +64,14 @@ export default function LoginPage() {
 
       setSuccess("Login successful! Redirecting...");
 
-      setTimeout(() => {
-        if (userData.userType === "provider") {
-          router.push("/provider-dashboard");
-        } else {
-          router.push("/dashboard");
-        }
-      }, 1000);
+      // The AuthContext will automatically update and trigger the useEffect redirect
+      // No need for manual setTimeout - the context handles the redirect once profile is loaded
     } catch (err: any) {
       console.error("Login error:", err);
       setError(getAuthErrorMessage(err.code));
-    } finally {
       setLoading(false);
     }
+    // Don't set loading to false on success - let the redirect happen naturally
   };
 
   const handleForgotPassword = async () => {
@@ -91,7 +89,7 @@ export default function LoginPage() {
     }
   };
 
-  if (authLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
