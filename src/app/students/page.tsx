@@ -72,7 +72,8 @@ function StudentsContent() {
         const providerSnap = await getDocs(providersQuery);
         
         if (!providerSnap.empty) {
-          const providerId = providerSnap.docs[0].id;
+          const providerData = providerSnap.docs[0].data();
+          const providerId = providerData.providerId || providerSnap.docs[0].id;
           const propertiesQuery = query(
             collection(db, "properties"),
             where("providerId", "==", providerId)

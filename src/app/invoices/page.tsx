@@ -35,6 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getProviderByUserId } from "@/lib/db";
 
 function InvoicesContent() {
   const { user } = useAuth();
@@ -51,9 +52,18 @@ function InvoicesContent() {
       }
 
       try {
+        // First get the provider for this user
+        const provider = await getProviderByUserId(uid);
+        if (!provider) {
+          setInvoices([]);
+          setLoading(false);
+          return;
+        }
+
+        // Use provider ID to fetch invoices
         const invoicesQuery = query(
           collection(db, "invoices"),
-          where("providerId", "==", uid),
+          where("providerId", "==", provider.providerId),
           orderBy("submittedAt", "desc")
         );
         const snapshot = await getDocs(invoicesQuery);

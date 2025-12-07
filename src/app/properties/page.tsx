@@ -25,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { getProviderByUserId } from "@/lib/db";
 
 function PropertiesContent() {
   const { user } = useAuth();
@@ -41,9 +42,18 @@ function PropertiesContent() {
       }
 
       try {
+        // First get the provider for this user
+        const provider = await getProviderByUserId(uid);
+        if (!provider) {
+          setProperties([]);
+          setLoading(false);
+          return;
+        }
+
+        // Use provider ID to fetch properties
         const propertiesQuery = query(
           collection(db, "properties"),
-          where("providerId", "==", uid),
+          where("providerId", "==", provider.providerId),
           orderBy("createdAt", "desc")
         );
         const snapshot = await getDocs(propertiesQuery);
