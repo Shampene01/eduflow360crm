@@ -2,8 +2,11 @@ import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getDatabase } from "firebase/database";
+import { getDatabase, Database } from "firebase/database";
 import { getAnalytics, isSupported } from "firebase/analytics";
+
+// Check if Realtime Database URL is explicitly configured
+const hasRealtimeDbUrl = !!process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL;
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,7 +16,8 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com`,
+  // Only include databaseURL if explicitly configured
+  ...(hasRealtimeDbUrl && { databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL }),
 };
 
 // Initialize Firebase (only once)
@@ -22,8 +26,18 @@ export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getA
 // Initialize Firebase services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const rtdb = getDatabase(app);  // Realtime Database for presence
 export const storage = getStorage(app);
+
+// Realtime Database for presence - only initialize if URL is configured
+let rtdbInstance: Database | null = null;
+if (hasRealtimeDbUrl) {
+  try {
+    rtdbInstance = getDatabase(app);
+  } catch (error) {
+    console.warn("Realtime Database not available:", error);
+  }
+}
+export const rtdb = rtdbInstance;
 
 // Initialize Analytics (only in browser and if supported)
 let analyticsInstance: ReturnType<typeof getAnalytics> | null = null;

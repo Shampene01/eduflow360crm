@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { subscribeToPresence, UserPresence } from "@/lib/presence";
+import { subscribeToPresence, UserPresence, isPresenceAvailable } from "@/lib/presence";
 import { cn } from "@/lib/utils";
 
 interface OnlineStatusProps {
@@ -19,9 +19,17 @@ export function OnlineStatus({
 }: OnlineStatusProps) {
   const [presence, setPresence] = useState<UserPresence | null>(null);
   const [loading, setLoading] = useState(true);
+  const [available, setAvailable] = useState(true);
 
   useEffect(() => {
     if (!userId) {
+      setLoading(false);
+      return;
+    }
+
+    // Check if presence system is available
+    if (!isPresenceAvailable()) {
+      setAvailable(false);
       setLoading(false);
       return;
     }
@@ -34,8 +42,6 @@ export function OnlineStatus({
     return () => unsubscribe();
   }, [userId]);
 
-  const isOnline = presence?.online ?? false;
-
   const sizeClasses = {
     sm: "w-2 h-2",
     md: "w-2.5 h-2.5",
@@ -47,6 +53,11 @@ export function OnlineStatus({
     md: "text-sm",
     lg: "text-base",
   };
+
+  // Don't render anything if presence system isn't available
+  if (!available) {
+    return null;
+  }
 
   if (loading) {
     return (
@@ -63,6 +74,8 @@ export function OnlineStatus({
       </div>
     );
   }
+
+  const isOnline = presence?.online ?? false;
 
   return (
     <div className={cn("flex items-center gap-1.5", className)}>
@@ -94,13 +107,23 @@ export function OnlineStatusDot({
   className?: string;
 }) {
   const [presence, setPresence] = useState<UserPresence | null>(null);
+  const [available, setAvailable] = useState(true);
 
   useEffect(() => {
     if (!userId) return;
 
+    if (!isPresenceAvailable()) {
+      setAvailable(false);
+      return;
+    }
+
     const unsubscribe = subscribeToPresence(userId, setPresence);
     return () => unsubscribe();
   }, [userId]);
+
+  if (!available) {
+    return null;
+  }
 
   const isOnline = presence?.online ?? false;
 

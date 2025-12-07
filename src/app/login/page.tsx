@@ -22,14 +22,14 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const router = useRouter();
-  const { user, loading: authLoading, profileLoading, firebaseUser } = useAuth();
+  const { user, loading: authLoading, profileLoading, isFullyLoaded, firebaseUser } = useAuth();
 
   // Combined loading state
   const isLoading = authLoading || profileLoading;
 
-  // Redirect if already logged in
+  // Redirect if already logged in AND profile is fully loaded
   useEffect(() => {
-    if (!isLoading && user && firebaseUser) {
+    if (isFullyLoaded && user && firebaseUser) {
       // Check email verification first
       if (!firebaseUser.emailVerified) {
         router.push("/verify-email");
@@ -42,7 +42,7 @@ export default function LoginPage() {
         router.push("/dashboard");
       }
     }
-  }, [user, isLoading, firebaseUser, router]);
+  }, [user, isFullyLoaded, firebaseUser, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

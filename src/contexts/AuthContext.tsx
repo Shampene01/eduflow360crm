@@ -10,6 +10,8 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   profileLoading: boolean;  // True while fetching user profile from Firestore
+  profileError: string | null;  // Error message if profile fetch fails
+  isFullyLoaded: boolean;  // True only when auth AND profile are successfully loaded
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -21,14 +23,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);           // Auth state loading
   const [profileLoading, setProfileLoading] = useState(false);  // Profile fetch loading
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  // Computed: fully loaded only when we have both firebase user AND user profile
+  const isFullyLoaded = !loading && !profileLoading && !!firebaseUser && !!user;
 
   const refreshUser = async () => {
     if (firebaseUser) {
+      setProfileLoading(true);
+      setProfileError(null);
       try {
-        const userRef = await import("@/lib/auth").then(m => m.getUserProfile(firebaseUser.uid));
-        setUser(userRef);
+        const { getUserProfile } = await import("@/lib/auth");
+        const userProfile = await getUserProfile(firebaseUser.uid);
+        if (userProfile) {
+          setUser(userProfile);
+        } else {
+          setProfileError("User profile not found");
+        }
       } catch (error) {
         console.error("Error refreshing user:", error);
+        setProfileError("Failed to load user profile");
+      } finally {
+        setProfileLoading(false);
       }
     }
   };
@@ -41,11 +57,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setUser(null);
     setFirebaseUser(null);
+    setProfileError(null);
   };
 
   useEffect(() => {
     const unsubscribe = onAuthChange(async (fbUser) => {
       setFirebaseUser(fbUser);
+      setProfileError(null);
 
       if (fbUser) {
         // Start fetching user profile from Firestore
@@ -53,13 +71,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const { getUserProfile } = await import("@/lib/auth");
           const userProfile = await getUserProfile(fbUser.uid);
-          setUser(userProfile);
           
-          // Initialize presence tracking (for page refresh/session restore)
-          initPresence(fbUser.uid);
+          if (userProfile) {
+            setUser(userProfile);
+            // Initialize presence tracking (for page refresh/session restore)
+            initPresence(fbUser.uid);
+          } else {
+            // Profile doesn't exist yet - might be a new user
+            console.warn("User profile not found in Firestore");
+            setUser(null);
+            setProfileError("Profile not found. Please complete registration.");
+          }
         } catch (error) {
           console.error("Error loading user profile:", error);
           setUser(null);
+          setProfileError("Failed to load user profile. Please try again.");
         } finally {
           setProfileLoading(false);
         }
@@ -81,6 +107,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         loading,
         profileLoading,
+        profileError,
+        isFullyLoaded,
         signOut,
         refreshUser,
       }}

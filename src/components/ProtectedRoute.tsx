@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -31,9 +32,10 @@ export function ProtectedRoute({
   redirectTo = "/login",
   requireEmailVerification = true,
 }: ProtectedRouteProps) {
-  const { user, loading, profileLoading, firebaseUser } = useAuth();
+  const { user, loading, profileLoading, profileError, isFullyLoaded, firebaseUser, refreshUser, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [retrying, setRetrying] = useState(false);
 
   // Combined loading state: wait for both auth AND profile to be ready
   const isLoading = loading || profileLoading;
@@ -65,6 +67,17 @@ export function ProtectedRoute({
     }
   }, [isLoading, firebaseUser, user, allowedUserTypes, router, redirectTo, requireEmailVerification, pathname]);
 
+  const handleRetry = async () => {
+    setRetrying(true);
+    await refreshUser();
+    setRetrying(false);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/login");
+  };
+
   // Show loading while auth state OR profile is loading
   if (isLoading) {
     return (
@@ -85,6 +98,51 @@ export function ProtectedRoute({
   // Email not verified (and verification is required)
   if (requireEmailVerification && !firebaseUser.emailVerified && pathname !== "/verify-email") {
     return null;
+  }
+
+  // Profile error or user not loaded - show error state with retry option
+  if (profileError || (!user && firebaseUser)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="flex flex-col items-center gap-4 max-w-md text-center px-4">
+          <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+            <AlertCircle className="h-8 w-8 text-red-500" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            Unable to Load Profile
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            {profileError || "We couldn't load your user profile. Please try again."}
+          </p>
+          <div className="flex gap-3 mt-2">
+            <Button 
+              onClick={handleRetry} 
+              disabled={retrying}
+              className="bg-amber-500 hover:bg-amber-600 text-gray-900"
+            >
+              {retrying ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Retrying...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Try Again
+                </>
+              )}
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleSignOut}
+              className="dark:border-gray-600 dark:text-gray-300"
+            >
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const effectiveUserType = getUserType(user);

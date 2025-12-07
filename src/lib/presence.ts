@@ -20,16 +20,24 @@ let presenceUnsubscribe: (() => void) | null = null;
 let presenceInitialized = false;
 
 /**
+ * Check if the Realtime Database is available for presence tracking.
+ */
+export function isPresenceAvailable(): boolean {
+  return rtdb !== null && rtdb !== undefined;
+}
+
+/**
  * Initialize presence tracking for a user.
  * Call this after successful login.
  */
 export function initPresence(uid: string): void {
   if (typeof window === "undefined") return;  // Server-side guard
   if (presenceInitialized) return;  // Already initialized
+  if (!isPresenceAvailable()) return;  // Realtime Database not configured
   
   try {
-    const userStatusRef = ref(rtdb, `/status/${uid}`);
-    const connectedRef = ref(rtdb, ".info/connected");
+    const userStatusRef = ref(rtdb!, `/status/${uid}`);
+    const connectedRef = ref(rtdb!, ".info/connected");
 
     const handleConnection = (snapshot: any) => {
       if (snapshot.val() === false) {
@@ -82,9 +90,10 @@ export function initPresence(uid: string): void {
  */
 export async function cleanupPresence(uid: string): Promise<void> {
   if (typeof window === "undefined") return;
+  if (!isPresenceAvailable()) return;
 
   try {
-    const userStatusRef = ref(rtdb, `/status/${uid}`);
+    const userStatusRef = ref(rtdb!, `/status/${uid}`);
     
     // Set offline status
     await set(userStatusRef, {
@@ -97,6 +106,7 @@ export async function cleanupPresence(uid: string): Promise<void> {
       presenceUnsubscribe();
       presenceUnsubscribe = null;
     }
+    presenceInitialized = false;
   } catch (error) {
     console.error("Error cleaning up presence:", error);
   }
@@ -110,8 +120,13 @@ export function subscribeToPresence(
   uid: string, 
   callback: (presence: UserPresence | null) => void
 ): () => void {
+  if (!isPresenceAvailable()) {
+    callback(null);
+    return () => {};
+  }
+
   try {
-    const userStatusRef = ref(rtdb, `/status/${uid}`);
+    const userStatusRef = ref(rtdb!, `/status/${uid}`);
     
     const handleValue = (snapshot: any) => {
       if (snapshot.exists()) {
