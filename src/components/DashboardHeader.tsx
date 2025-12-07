@@ -26,8 +26,8 @@ export function DashboardHeader() {
 
   const getUserInitials = () => {
     if (!user) return "U";
-    const first = user.firstName?.charAt(0) || "";
-    const last = user.lastName?.charAt(0) || "";
+    const first = user.firstNames?.charAt(0) || user.firstName?.charAt(0) || "";
+    const last = user.surname?.charAt(0) || user.lastName?.charAt(0) || "";
     return (first + last).toUpperCase() || "U";
   };
 
@@ -35,7 +35,7 @@ export function DashboardHeader() {
     <header className="h-[70px] bg-gradient-to-r from-gray-900 to-gray-800 sticky top-0 z-50 shadow-md">
       <div className="h-full px-6 flex items-center justify-between">
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/dashboard" className="flex items-center gap-3">
           <Image
             src="/logo-white.webp"
             alt="EduFlow360"
@@ -61,11 +61,19 @@ export function DashboardHeader() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-gray-900 font-semibold border-2 border-amber-300/30">
-                  {getUserInitials()}
-                </div>
+                {user?.profilePhotoUrl ? (
+                  <img
+                    src={user.profilePhotoUrl}
+                    alt="Profile"
+                    className="w-10 h-10 rounded-full object-cover border-2 border-amber-300/30"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-gray-900 font-semibold border-2 border-amber-300/30">
+                    {getUserInitials()}
+                  </div>
+                )}
                 <span className="text-white text-sm font-medium hidden sm:block">
-                  {user ? `${user.firstName} ${user.lastName}` : "Loading..."}
+                  {user ? `${user.firstNames || user.firstName || ""} ${user.surname || user.lastName || ""}`.trim() : "Loading..."}
                 </span>
                 <ChevronDown size={16} className="text-gray-400" />
               </button>
@@ -74,7 +82,7 @@ export function DashboardHeader() {
               <DropdownMenuLabel>
                 <div className="flex flex-col">
                   <span className="font-semibold">
-                    {user ? `${user.firstName} ${user.lastName}` : "User"}
+                    {user ? `${user.firstNames || user.firstName || ""} ${user.surname || user.lastName || ""}`.trim() : "User"}
                   </span>
                   <span className="text-xs text-gray-500 font-normal">
                     {user?.email}

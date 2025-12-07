@@ -17,7 +17,9 @@ import {
   DollarSign,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
+import { DashboardFooter } from "@/components/DashboardFooter";
 import { Sidebar } from "@/components/Sidebar";
+import { invoiceDisplayId } from "@/lib/utils/maskId";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { Invoice } from "@/lib/types";
@@ -42,12 +44,16 @@ function InvoicesContent() {
 
   useEffect(() => {
     const fetchInvoices = async () => {
-      if (!user?.uid || !db) return;
+      const uid = user?.userId || user?.uid;
+      if (!uid || !db) {
+        setLoading(false);
+        return;
+      }
 
       try {
         const invoicesQuery = query(
           collection(db, "invoices"),
-          where("providerId", "==", user.uid),
+          where("providerId", "==", uid),
           orderBy("submittedAt", "desc")
         );
         const snapshot = await getDocs(invoicesQuery);
@@ -64,7 +70,7 @@ function InvoicesContent() {
     };
 
     fetchInvoices();
-  }, [user?.uid]);
+  }, [user?.userId, user?.uid]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -90,10 +96,10 @@ function InvoicesContent() {
     .reduce((sum, inv) => sum + (inv.amount || 0), 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <DashboardHeader />
 
-      <div className="flex">
+      <div className="flex flex-1">
         <Sidebar userType="provider" />
 
         <main className="flex-1 p-8 overflow-y-auto">
@@ -233,7 +239,7 @@ function InvoicesContent() {
                     {invoices.map((invoice) => (
                       <TableRow key={invoice.id}>
                         <TableCell className="font-medium">
-                          INV-{invoice.id.slice(0, 8).toUpperCase()}
+                          {invoiceDisplayId(invoice.id)}
                         </TableCell>
                         <TableCell>
                           {invoice.month} {invoice.year}
@@ -266,6 +272,7 @@ function InvoicesContent() {
           </Card>
         </main>
       </div>
+      <DashboardFooter />
     </div>
   );
 }

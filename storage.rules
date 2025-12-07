@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Profile photos - users can only upload/read their own photos
+    match /profile-photos/{userId}/{fileName} {
+      allow read: if true; // Anyone can view profile photos
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // ID documents - users can only upload/read their own documents
+    match /id-documents/{userId}/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Provider documents - providers can upload, admins can read
+    match /provider-documents/{providerId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == providerId;
+      allow delete: if request.auth != null && request.auth.uid == providerId;
+    }
+
+    // Property images - providers can upload for their properties
+    match /property-images/{propertyId}/{fileName} {
+      allow read: if true; // Anyone can view property images
+      allow write: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+
+    // Default: deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

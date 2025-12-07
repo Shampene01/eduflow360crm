@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Building2,
   Users,
@@ -24,6 +25,7 @@ import {
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { DashboardHeader } from "@/components/DashboardHeader";
+import { DashboardFooter } from "@/components/DashboardFooter";
 import { Sidebar } from "@/components/Sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { StatCard } from "@/components/StatCard";
@@ -40,6 +42,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getProviderByUserId, getAddressById, getProviderContacts } from "@/lib/db";
+import { AccommodationProvider, Address, ProviderContactPerson } from "@/lib/schema";
+import { providerDisplayId } from "@/lib/utils/maskId";
 
 interface DashboardStats {
   totalProperties: number;
@@ -52,6 +57,11 @@ interface DashboardStats {
 
 function ProviderDashboardContent() {
   const { user } = useAuth();
+  const router = useRouter();
+  const [providerStatus, setProviderStatus] = useState<AccommodationProvider | null>(null);
+  const [providerAddress, setProviderAddress] = useState<Address | null>(null);
+  const [providerContacts, setProviderContacts] = useState<ProviderContactPerson[]>([]);
+  const [loadingProvider, setLoadingProvider] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     totalProperties: 0,
     totalStudents: 0,
@@ -62,15 +72,56 @@ function ProviderDashboardContent() {
   });
   const [loading, setLoading] = useState(true);
 
+  // Check if user has approved provider status and fetch related data
+  useEffect(() => {
+    const checkProviderStatus = async () => {
+      const uid = user?.userId || user?.uid;
+      if (!uid) {
+        setLoadingProvider(false);
+        return;
+      }
+      try {
+        const provider = await getProviderByUserId(uid);
+        setProviderStatus(provider);
+
+        // Redirect to dashboard if no provider or not approved
+        if (!provider || provider.approvalStatus !== "Approved") {
+          router.push("/dashboard");
+          return;
+        }
+
+        // Fetch address if available
+        if (provider.physicalAddressId) {
+          const address = await getAddressById(provider.physicalAddressId);
+          setProviderAddress(address);
+        }
+
+        // Fetch contacts
+        const contacts = await getProviderContacts(provider.providerId);
+        setProviderContacts(contacts);
+      } catch (err) {
+        console.error("Error checking provider status:", err);
+        router.push("/dashboard");
+      } finally {
+        setLoadingProvider(false);
+      }
+    };
+    checkProviderStatus();
+  }, [user?.userId, user?.uid, router]);
+
   useEffect(() => {
     const fetchStats = async () => {
-      if (!user?.uid || !db) return;
+      const uid = user?.userId || user?.uid;
+      if (!uid || !db) {
+        setLoading(false);
+        return;
+      }
 
       try {
         // Fetch properties count
         const propertiesQuery = query(
           collection(db, "properties"),
-          where("providerId", "==", user.uid)
+          where("providerId", "==", uid)
         );
         const propertiesSnap = await getDocs(propertiesQuery);
         const totalProperties = propertiesSnap.size;
@@ -89,7 +140,7 @@ function ProviderDashboardContent() {
         // Fetch pending invoices
         const invoicesQuery = query(
           collection(db, "invoices"),
-          where("providerId", "==", user.uid),
+          where("providerId", "==", uid),
           where("status", "==", "submitted")
         );
         const invoicesSnap = await getDocs(invoicesQuery);
@@ -97,7 +148,7 @@ function ProviderDashboardContent() {
         // Fetch open tickets
         const ticketsQuery = query(
           collection(db, "tickets"),
-          where("userId", "==", user.uid),
+          where("userId", "==", uid),
           where("status", "in", ["open", "in_progress"])
         );
         const ticketsSnap = await getDocs(ticketsQuery);
@@ -118,7 +169,11 @@ function ProviderDashboardContent() {
     };
 
     fetchStats();
-  }, [user?.uid]);
+  }, [user?.userId, user?.uid]);
+
+  // Helper variables for contacts
+  const primaryContact = providerContacts.find(c => c.isPrimary);
+  const secondaryContact = providerContacts.find(c => !c.isPrimary);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -133,20 +188,20 @@ function ProviderDashboardContent() {
             <div className="absolute -top-1/2 -right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
             <div className="relative z-10 text-white">
               <h1 className="text-2xl font-semibold mb-3">
-                Welcome, {user?.providerName || user?.companyName || user?.primaryContactName || "Provider"}
+                Welcome, {providerStatus?.companyName || (primaryContact ? `${primaryContact.firstNames} ${primaryContact.surname}` : "Provider")}
               </h1>
               <div className="flex flex-wrap gap-6 text-sm opacity-90">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-amber-500" />
-                  {user?.city || "Location not set"}{user?.province ? `, ${user.province}` : ""}
+                  {providerAddress?.townCity || "Location not set"}{providerAddress?.province ? `, ${providerAddress.province}` : ""}
                 </div>
                 <div className="flex items-center gap-2">
                   <Mail className="w-4 h-4 text-amber-500" />
-                  {user?.email}
+                  {primaryContact?.email || user?.email || "Email not set"}
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-amber-500" />
-                  Member since {user?.createdAt ? new Date(user.createdAt.toDate()).getFullYear() : "2024"}
+                  Member since {providerStatus?.createdAt ? new Date(providerStatus.createdAt.toDate()).getFullYear() : user?.createdAt ? new Date(user.createdAt.toDate()).getFullYear() : "2024"}
                 </div>
               </div>
             </div>
@@ -227,6 +282,78 @@ function ProviderDashboardContent() {
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-6">
+              {/* Basic Details Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-amber-500" />
+                    Basic Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4">
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Provider ID</p>
+                      <p className="font-medium text-gray-900">{providerDisplayId(providerStatus?.providerId)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Provider Name</p>
+                      <p className="font-medium text-gray-900">{providerStatus?.companyName || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Company Registration Number</p>
+                      <p className="font-medium text-gray-900">{providerStatus?.companyRegistrationNumber || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Tax Number</p>
+                      <p className="font-medium text-gray-900">{providerStatus?.taxReferenceNumber || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Vat Number</p>
+                      <p className="font-medium text-gray-900">
+                        {providerStatus?.vatRegistered ? (providerStatus?.vatNumber || "-") : "No"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">VAT Registration</p>
+                      <p className="font-medium text-gray-900">{providerStatus?.vatRegistered ? "Yes" : "No"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Street Address</p>
+                      <p className="font-medium text-gray-900">{providerAddress?.street || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Surburb</p>
+                      <p className="font-medium text-gray-900">{providerAddress?.suburb || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">City</p>
+                      <p className="font-medium text-gray-900">{providerAddress?.townCity || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Province</p>
+                      <p className="font-medium text-gray-900">{providerAddress?.province || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Provider Type</p>
+                      <p className="font-medium text-gray-900">{providerStatus?.legalForm || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Years in Operation</p>
+                      <p className="font-medium text-gray-900">{providerStatus?.yearsInOperation || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Longitude</p>
+                      <p className="font-medium text-gray-900">{providerAddress?.longitude || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Latitude</p>
+                      <p className="font-medium text-gray-900">{providerAddress?.latitude || "-"}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               <div className="grid lg:grid-cols-2 gap-6">
                 {/* Quick Actions */}
                 <Card>
@@ -308,15 +435,22 @@ function ProviderDashboardContent() {
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  {stats.totalProperties === 0 ? (
+                  {loading ? (
                     <div className="text-center py-12">
-                      <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">No properties yet</h3>
-                      <p className="text-gray-500 mb-4">Add your first property to get started</p>
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto mb-4"></div>
+                      <p className="text-gray-500">Loading properties...</p>
+                    </div>
+                  ) : stats.totalProperties === 0 ? (
+                    <div className="text-center py-12">
+                      <Building2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Properties Captured</h3>
+                      <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                        You haven't added any properties yet. Start by adding your first accommodation property to begin managing students and bookings.
+                      </p>
                       <Button asChild className="bg-amber-500 hover:bg-amber-600 text-gray-900">
                         <Link href="/properties/add">
                           <Plus className="w-4 h-4 mr-2" />
-                          Add Property
+                          Add Your First Property
                         </Link>
                       </Button>
                     </div>
@@ -333,9 +467,10 @@ function ProviderDashboardContent() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
+                        {/* Properties will be listed here when available */}
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center text-gray-500">
-                            Loading properties...
+                          <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                            Property list functionality coming soon
                           </TableCell>
                         </TableRow>
                       </TableBody>
@@ -442,19 +577,19 @@ function ProviderDashboardContent() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-500">Provider Name</p>
-                        <p className="font-medium">{user?.providerName || "Not set"}</p>
+                        <p className="font-medium">{providerStatus?.companyName || "Not set"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Provider Type</p>
-                        <p className="font-medium">{user?.providerType || "Not set"}</p>
+                        <p className="font-medium">{providerStatus?.legalForm || "Not set"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Years in Operation</p>
-                        <p className="font-medium">{user?.yearsInOperation || "Not set"}</p>
+                        <p className="font-medium">{providerStatus?.yearsInOperation || "Not set"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Registration Number</p>
-                        <p className="font-medium">{user?.companyRegistrationNumber || "Not set"}</p>
+                        <p className="font-medium">{providerStatus?.companyRegistrationNumber || "Not set"}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -472,25 +607,25 @@ function ProviderDashboardContent() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-500">Account Status</p>
-                        <Badge variant={user?.status === "active" ? "default" : "secondary"} className={user?.status === "active" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-                          {user?.status || "Pending"}
+                        <Badge variant={providerStatus?.approvalStatus === "Approved" ? "default" : "secondary"} className={providerStatus?.approvalStatus === "Approved" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+                          {providerStatus?.approvalStatus || "Pending"}
                         </Badge>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Accreditation</p>
-                        <Badge variant={user?.accreditationStatus === "Approved" ? "default" : "secondary"} className={user?.accreditationStatus === "Approved" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-                          {user?.accreditationStatus || "Pending"}
+                        <Badge variant={providerStatus?.nsfasAccredited ? "default" : "secondary"} className={providerStatus?.nsfasAccredited ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+                          {providerStatus?.nsfasAccredited ? "Approved" : "Pending"}
                         </Badge>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Compliance</p>
-                        <Badge variant={user?.complianceStatus === "Compliant" ? "default" : "secondary"} className={user?.complianceStatus === "Compliant" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
-                          {user?.complianceStatus || "Pending"}
+                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                          Pending
                         </Badge>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">VAT Registered</p>
-                        <p className="font-medium">{user?.vatRegistration || "Not set"}</p>
+                        <p className="font-medium">{providerStatus?.vatRegistered ? "Yes" : "Not set"}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -507,21 +642,21 @@ function ProviderDashboardContent() {
                   <CardContent className="space-y-3">
                     <div>
                       <p className="text-sm text-gray-500">Street Address</p>
-                      <p className="font-medium">{user?.streetAddress || "Not set"}</p>
+                      <p className="font-medium">{providerAddress?.street || "Not set"}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-500">Suburb</p>
-                        <p className="font-medium">{user?.suburb || "Not set"}</p>
+                        <p className="font-medium">{providerAddress?.suburb || "Not set"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">City</p>
-                        <p className="font-medium">{user?.city || "Not set"}</p>
+                        <p className="font-medium">{providerAddress?.townCity || "Not set"}</p>
                       </div>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Province</p>
-                      <p className="font-medium">{user?.province || "Not set"}</p>
+                      <p className="font-medium">{providerAddress?.province || "Not set"}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -540,33 +675,33 @@ function ProviderDashboardContent() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <p className="text-sm text-gray-500">Name</p>
-                          <p className="font-medium">{user?.primaryContactName || "Not set"}</p>
+                          <p className="font-medium">{primaryContact ? `${primaryContact.firstNames} ${primaryContact.surname}` : "Not set"}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Position</p>
-                          <p className="font-medium">{user?.primaryContactPosition || "Not set"}</p>
+                          <p className="font-medium">{primaryContact?.position || "Not set"}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Phone</p>
-                          <p className="font-medium">{user?.primaryContactPhone || "Not set"}</p>
+                          <p className="font-medium">{primaryContact?.phoneNumber || "Not set"}</p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">Email</p>
-                          <p className="font-medium">{user?.primaryContactEmail || user?.email || "Not set"}</p>
+                          <p className="font-medium">{primaryContact?.email || "Not set"}</p>
                         </div>
                       </div>
                     </div>
-                    {(user?.secondaryContactName || user?.secondaryContactPhone) && (
+                    {secondaryContact && (
                       <div>
                         <p className="text-xs text-gray-500 font-medium mb-2">SECONDARY CONTACT</p>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <p className="text-sm text-gray-500">Name</p>
-                            <p className="font-medium">{user?.secondaryContactName || "Not set"}</p>
+                            <p className="font-medium">{`${secondaryContact.firstNames} ${secondaryContact.surname}`}</p>
                           </div>
                           <div>
                             <p className="text-sm text-gray-500">Phone</p>
-                            <p className="font-medium">{user?.secondaryContactPhone || "Not set"}</p>
+                            <p className="font-medium">{secondaryContact.phoneNumber}</p>
                           </div>
                         </div>
                       </div>
@@ -586,39 +721,39 @@ function ProviderDashboardContent() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-500">Tax Number</p>
-                        <p className="font-medium">{user?.taxNumber || "Not set"}</p>
+                        <p className="font-medium">{providerStatus?.taxReferenceNumber || "Not set"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">VAT Number</p>
-                        <p className="font-medium">{user?.vatNumber || "Not set"}</p>
+                        <p className="font-medium">{providerStatus?.vatNumber || "Not set"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">B-BBEE Level</p>
-                        <p className="font-medium">{user?.bbbeeLevel ? `Level ${user.bbbeeLevel}` : "Not set"}</p>
+                        <p className="font-medium">{providerStatus?.bbbeeLevel ? `Level ${providerStatus.bbbeeLevel}` : "Not set"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">B-BBEE Expiry</p>
-                        <p className="font-medium">{user?.bbbeeExpiry || "Not set"}</p>
+                        <p className="font-medium">{providerStatus?.bbbeeCertificateExpiry || "Not set"}</p>
                       </div>
                     </div>
-                    {(user?.blackOwnershipPercentage || user?.womenOwnershipPercentage) && (
+                    {(providerStatus?.blackOwnershipPercentage || providerStatus?.blackWomenOwnershipPercentage) && (
                       <div className="border-t pt-4">
                         <p className="text-xs text-gray-500 font-medium mb-2">OWNERSHIP BREAKDOWN</p>
                         <div className="grid grid-cols-4 gap-2 text-center">
                           <div className="bg-gray-50 rounded p-2">
-                            <p className="text-lg font-semibold">{user?.blackOwnershipPercentage || 0}%</p>
+                            <p className="text-lg font-semibold">{providerStatus?.blackOwnershipPercentage || 0}%</p>
                             <p className="text-xs text-gray-500">Black</p>
                           </div>
                           <div className="bg-gray-50 rounded p-2">
-                            <p className="text-lg font-semibold">{user?.womenOwnershipPercentage || 0}%</p>
+                            <p className="text-lg font-semibold">{providerStatus?.blackWomenOwnershipPercentage || 0}%</p>
                             <p className="text-xs text-gray-500">Women</p>
                           </div>
                           <div className="bg-gray-50 rounded p-2">
-                            <p className="text-lg font-semibold">{user?.youthOwnershipPercentage || 0}%</p>
+                            <p className="text-lg font-semibold">{providerStatus?.blackYouthOwnershipPercentage || 0}%</p>
                             <p className="text-xs text-gray-500">Youth</p>
                           </div>
                           <div className="bg-gray-50 rounded p-2">
-                            <p className="text-lg font-semibold">{user?.disabilityOwnershipPercentage || 0}%</p>
+                            <p className="text-lg font-semibold">{providerStatus?.disabledPersonOwnershipPercentage || 0}%</p>
                             <p className="text-xs text-gray-500">Disability</p>
                           </div>
                         </div>
@@ -639,23 +774,23 @@ function ProviderDashboardContent() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-500">Bank Name</p>
-                        <p className="font-medium">{user?.bankName || "Not set"}</p>
+                        <p className="font-medium">{providerStatus?.bankName || "Not set"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Account Type</p>
-                        <p className="font-medium">{user?.accountType || "Not set"}</p>
+                        <p className="font-medium">{providerStatus?.accountType || "Not set"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Account Number</p>
-                        <p className="font-medium">{user?.accountNumber ? `****${user.accountNumber.slice(-4)}` : "Not set"}</p>
+                        <p className="font-medium">{providerStatus?.accountNumber ? `****${providerStatus.accountNumber.slice(-4)}` : "Not set"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Branch Code</p>
-                        <p className="font-medium">{user?.branchCode || "Not set"}</p>
+                        <p className="font-medium">{providerStatus?.branchCode || "Not set"}</p>
                       </div>
                       <div className="col-span-2">
                         <p className="text-sm text-gray-500">Account Holder</p>
-                        <p className="font-medium">{user?.accountHolder || "Not set"}</p>
+                        <p className="font-medium">{providerStatus?.accountHolder || "Not set"}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -665,6 +800,7 @@ function ProviderDashboardContent() {
           </Tabs>
         </main>
       </div>
+      <DashboardFooter />
     </div>
   );
 }

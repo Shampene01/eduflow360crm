@@ -82,11 +82,73 @@ function DashboardContent() {
   const hasProviderRole = user?.roles?.includes("provider") || user?.userType === "provider";
   const isApprovedProvider = providerStatus?.approvalStatus === "Approved";
 
+  // Calculate profile completion percentage
+  const calculateProfileCompletion = () => {
+    if (!user) return 0;
+    let completion = 0;
+
+    // Check required fields (5 fields = 90%)
+    const requiredFields = ['firstNames', 'surname', 'email', 'phoneNumber', 'idNumber'];
+    const filledFields = requiredFields.filter(field => {
+      const value = user[field as keyof typeof user];
+      return value !== null && value !== undefined && value !== '';
+    });
+
+    completion = (filledFields.length / requiredFields.length) * 75; // 5 fields = 75%
+
+    // Address adds 15%
+    if (user.address && user.address.street && user.address.townCity && user.address.province) {
+      completion += 15;
+    }
+
+    // Profile photo adds 10%
+    if (user.profilePhotoUrl) {
+      completion += 10;
+    }
+
+    return Math.round(completion);
+  };
+
+  // Calculate document upload percentage
+  const calculateDocumentUpload = () => {
+    // Check if ID document is uploaded
+    if (user?.idDocumentUrl) {
+      return 100;
+    }
+    return 0;
+  };
+
+  // Calculate application progress
+  const calculateApplicationProgress = () => {
+    if (!providerStatus) return 0; // No application yet
+
+    if (providerStatus.approvalStatus === "Approved") {
+      // Check if provider has added at least one property
+      // For now, return 100% after approval
+      // You can add property count check here
+      return 100;
+    }
+
+    if (providerStatus.approvalStatus === "Pending") {
+      return 70; // Application submitted, awaiting approval
+    }
+
+    if (providerStatus.approvalStatus === "Rejected") {
+      return 0; // Rejected, needs to reapply
+    }
+
+    return 0;
+  };
+
+  const profileCompletion = calculateProfileCompletion();
+  const documentUpload = calculateDocumentUpload();
+  const applicationProgress = calculateApplicationProgress();
+
   const quickActions = [
-    { icon: Search, title: "Browse Properties", description: "Explore available accommodations near your campus" },
-    { icon: FileText, title: "Submit Application", description: "Apply for housing with financial aid support" },
-    { icon: Upload, title: "Upload Documents", description: "Submit required verification documents" },
-    { icon: MessageSquare, title: "Get Support", description: "Contact our accommodation advisors" },
+    { icon: Building2, title: "Apply as Provider", description: "Register your accommodation business", href: "/provider-application" },
+    { icon: BarChart3, title: "View Progress", description: "Track your application status", href: "/dashboard" },
+    { icon: FileText, title: "Documentation", description: "View required documents", href: "/dashboard" },
+    { icon: MessageSquare, title: "Get Support", description: "Create a support ticket", href: "/tickets/create" },
   ];
 
   const supportTeam = [
@@ -100,7 +162,7 @@ function DashboardContent() {
       <DashboardHeader />
 
       <div className="flex">
-        <Sidebar userType="student" />
+        <Sidebar userType="provider" />
 
         <main className="flex-1 p-8 overflow-y-auto">
           {/* Welcome Banner */}
@@ -211,48 +273,50 @@ function DashboardContent() {
                   </span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-500 text-sm">Student ID</span>
-                  <span className="font-medium">{user?.studentId || "-"}</span>
+                  <span className="text-gray-500 text-sm">ID Number</span>
+                  <span className="font-medium">{user?.idNumber || "-"}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-500 text-sm">Email</span>
-                  <span className="font-medium">{user?.email || "-"}</span>
+                  <span className="text-gray-500 text-sm">Date of Birth</span>
+                  <span className="font-medium">{user?.dateOfBirth || "-"}</span>
                 </div>
                 <div className="flex justify-between py-2">
-                  <span className="text-gray-500 text-sm">Phone</span>
-                  <span className="font-medium">{user?.phoneNumber || user?.phone || "-"}</span>
+                  <span className="text-gray-500 text-sm">Gender</span>
+                  <span className="font-medium">{user?.gender || "-"}</span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Academic Information */}
+            {/* Contact Details */}
             <Card>
               <CardHeader className="flex flex-row items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <GraduationCap className="w-5 h-5 text-blue-600" />
+                  <User className="w-5 h-5 text-blue-600" />
                 </div>
-                <CardTitle className="text-lg">Academic Information</CardTitle>
+                <CardTitle className="text-lg">Contact Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-500 text-sm">Institution</span>
-                  <span className="font-medium">{user?.institution || "-"}</span>
+                  <span className="text-gray-500 text-sm">Email</span>
+                  <span className="font-medium text-right">{user?.email || "-"}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-500 text-sm">Program</span>
-                  <span className="font-medium">{user?.program || "-"}</span>
+                  <span className="text-gray-500 text-sm">Phone</span>
+                  <span className="font-medium">{user?.phoneNumber || user?.phone || "-"}</span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-500 text-sm">Year of Study</span>
-                  <span className="font-medium">
-                    {user?.yearOfStudy ? yearMap[user.yearOfStudy] || user.yearOfStudy : "-"}
-                  </span>
-                </div>
-                <div className="flex justify-between py-2">
-                  <span className="text-gray-500 text-sm">Status</span>
-                  <Badge variant="default" className="bg-green-100 text-green-700">
-                    {(user?.status || "active").toUpperCase()}
-                  </Badge>
+                <div className="py-2">
+                  <span className="text-gray-500 text-sm block mb-1">Address</span>
+                  {user?.address ? (
+                    <span className="font-medium text-sm text-right block">
+                      {user.address.street}
+                      {user.address.suburb && `, ${user.address.suburb}`}
+                      <br />
+                      {user.address.townCity}, {user.address.province}
+                      {user.address.postalCode && ` ${user.address.postalCode}`}
+                    </span>
+                  ) : (
+                    <span className="font-medium text-sm text-gray-400">Not Added</span>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -301,23 +365,29 @@ function DashboardContent() {
                 <div>
                   <div className="flex justify-between mb-2">
                     <span className="text-sm text-gray-600">Profile Completion</span>
-                    <span className="text-sm font-semibold text-amber-600">100%</span>
+                    <span className={`text-sm font-semibold ${profileCompletion === 100 ? 'text-green-600' : 'text-amber-600'}`}>
+                      {profileCompletion}%
+                    </span>
                   </div>
-                  <Progress value={100} className="h-2" />
+                  <Progress value={profileCompletion} className="h-2" />
                 </div>
                 <div>
                   <div className="flex justify-between mb-2">
                     <span className="text-sm text-gray-600">Document Upload</span>
-                    <span className="text-sm font-semibold">0%</span>
+                    <span className={`text-sm font-semibold ${documentUpload === 100 ? 'text-green-600' : 'text-gray-600'}`}>
+                      {documentUpload}%
+                    </span>
                   </div>
-                  <Progress value={0} className="h-2" />
+                  <Progress value={documentUpload} className="h-2" />
                 </div>
                 <div>
                   <div className="flex justify-between mb-2">
                     <span className="text-sm text-gray-600">Application Progress</span>
-                    <span className="text-sm font-semibold">25%</span>
+                    <span className={`text-sm font-semibold ${applicationProgress === 100 ? 'text-green-600' : applicationProgress > 0 ? 'text-amber-600' : 'text-gray-600'}`}>
+                      {applicationProgress}%
+                    </span>
                   </div>
-                  <Progress value={25} className="h-2" />
+                  <Progress value={applicationProgress} className="h-2" />
                 </div>
               </CardContent>
             </Card>
@@ -327,16 +397,15 @@ function DashboardContent() {
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {quickActions.map((action, i) => (
-              <Card
-                key={i}
-                className="cursor-pointer hover:border-amber-500 hover:shadow-md transition-all"
-              >
-                <CardContent className="p-6">
-                  <action.icon className="w-8 h-8 text-amber-500 mb-4" />
-                  <h3 className="font-semibold text-gray-900 mb-1">{action.title}</h3>
-                  <p className="text-sm text-gray-500">{action.description}</p>
-                </CardContent>
-              </Card>
+              <Link key={i} href={action.href}>
+                <Card className="cursor-pointer hover:border-amber-500 hover:shadow-md transition-all h-full">
+                  <CardContent className="p-6">
+                    <action.icon className="w-8 h-8 text-amber-500 mb-4" />
+                    <h3 className="font-semibold text-gray-900 mb-1">{action.title}</h3>
+                    <p className="text-sm text-gray-500">{action.description}</p>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
 

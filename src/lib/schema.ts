@@ -27,7 +27,18 @@ import { Timestamp } from "firebase/firestore";
 // ENUMS
 // ============================================================================
 
-export type UserRole = "provider" | "student" | "admin";
+export type UserRole = "provider" | "student" | "admin" | "manager" | "supervisor" | "registrar" | "administrator";
+
+/**
+ * Role Code Reference:
+ * - 0: Student
+ * - 1: Manager
+ * - 2: Provider
+ * - 3: Admin
+ * - 4: Supervisor
+ * - 5: Registrar
+ * - 6: Administrator
+ */
 
 export type ApprovalStatus = "Pending" | "Approved" | "Rejected";
 
@@ -80,6 +91,18 @@ export type AccountType = "Current" | "Savings" | "Transmission";
 // 1. USER TABLE (Natural Person Only)
 // ============================================================================
 
+// Address embedded in User document
+export interface UserAddress {
+  street: string;
+  suburb?: string;
+  townCity: string;
+  province: string;
+  postalCode?: string;
+  country: string;                   // Default: "South Africa"
+  latitude?: number;
+  longitude?: number;
+}
+
 export interface User {
   userId: string;                    // UUID, PK (same as Firebase Auth UID)
   email: string;
@@ -90,19 +113,21 @@ export interface User {
   dateOfBirth?: string;              // ISO date string
   gender?: "Male" | "Female" | "Other";
   profilePhotoUrl?: string;
-  addressId?: string;                // FK → Address
+  idDocumentUrl?: string;            // URL to uploaded ID document (PDF)
+  address?: UserAddress;             // Embedded address object
   createdAt: Timestamp;
   lastLoginAt?: Timestamp;
   marketingConsent: boolean;
-  roles: UserRole[];                 // Array: ["provider", "student", "admin"]
-  
+  role: UserRole;                    // Single role string
+  roleCode?: number;                 // Numeric role code (0-6)
+
   // System fields
   isActive: boolean;
   emailVerified: boolean;
 }
 
 // ============================================================================
-// 2. ADDRESS TABLE (Shared)
+// 2. ADDRESS TABLE (Shared - for other entities like providers)
 // ============================================================================
 
 export interface Address {

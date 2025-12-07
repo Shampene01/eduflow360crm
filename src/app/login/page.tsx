@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { signIn, resetPassword, getAuthErrorMessage } from "@/lib/auth";
 import { useAuth } from "@/contexts/AuthContext";
+import { auth } from "@/lib/firebase";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -21,18 +22,24 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, firebaseUser } = useAuth();
 
   // Redirect if already logged in
   useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading && user && firebaseUser) {
+      // Check email verification first
+      if (!firebaseUser.emailVerified) {
+        router.push("/verify-email");
+        return;
+      }
+      
       if (user.userType === "provider") {
         router.push("/provider-dashboard");
       } else {
         router.push("/dashboard");
       }
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, firebaseUser, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +49,16 @@ export default function LoginPage() {
 
     try {
       const userData = await signIn(email, password);
+      
+      // Check if email is verified
+      if (auth.currentUser && !auth.currentUser.emailVerified) {
+        setSuccess("Login successful! Please verify your email.");
+        setTimeout(() => {
+          router.push("/verify-email");
+        }, 1000);
+        return;
+      }
+
       setSuccess("Login successful! Redirecting...");
 
       setTimeout(() => {
@@ -127,7 +144,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="your.email@student.edu"
+                placeholder="your.email@example.com"
                 required
                 className="bg-gray-50 border-gray-200 focus:border-amber-500 focus:ring-amber-500/20"
               />
@@ -168,7 +185,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={handleForgotPassword}
-                className="text-sm text-amber-600 hover:text-amber-700 font-medium"
+                className="text-sm text-amber-600 hover:text-amber-700 font-medium cursor-pointer"
               >
                 Forgot Password?
               </button>

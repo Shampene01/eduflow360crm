@@ -17,6 +17,7 @@ import {
   Clock,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
+import { DashboardFooter } from "@/components/DashboardFooter";
 import { Sidebar } from "@/components/Sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
@@ -55,7 +56,11 @@ function StudentsContent() {
 
   useEffect(() => {
     const fetchStudents = async () => {
-      if (!user?.uid) return;
+      const uid = user?.userId || user?.uid;
+      if (!uid) {
+        setLoading(false);
+        return;
+      }
 
       try {
         // In a real app, you'd query students allocated to this provider's properties
@@ -69,7 +74,7 @@ function StudentsContent() {
     };
 
     fetchStudents();
-  }, [user?.uid]);
+  }, [user?.userId, user?.uid]);
 
   const filteredStudents = students.filter(
     (student) =>
@@ -79,10 +84,10 @@ function StudentsContent() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <DashboardHeader />
 
-      <div className="flex">
+      <div className="flex flex-1">
         <Sidebar userType="provider" />
 
         <main className="flex-1 p-8 overflow-y-auto">
@@ -285,6 +290,7 @@ function StudentsContent() {
           </Card>
         </main>
       </div>
+      <DashboardFooter />
     </div>
   );
 }

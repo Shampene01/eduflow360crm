@@ -1,7 +1,8 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
+import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getAnalytics, isSupported } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,44 +11,33 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Helper to get or initialize Firebase app
-function getFirebaseApp() {
-  if (getApps().length) {
-    return getApp();
-  }
-  return initializeApp(firebaseConfig);
+// Initialize Firebase (only once)
+export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+
+// Initialize Firebase services
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
+
+// Initialize Analytics (only in browser and if supported)
+let analyticsInstance: ReturnType<typeof getAnalytics> | null = null;
+if (typeof window !== "undefined") {
+  isSupported().then((supported) => {
+    if (supported) {
+      analyticsInstance = getAnalytics(app);
+    }
+  });
 }
+export const analytics = analyticsInstance;
 
-// Lazy initialization - only initialize when accessed on client
-function createFirebaseServices() {
-  if (typeof window === "undefined") {
-    // Return null services for SSR - they won't be used
-    return { app: null, auth: null, db: null, storage: null };
-  }
+// Dataverse Sync Webhooks (Power Automate)
+export const DATAVERSE_USER_SYNC_URL = process.env.NEXT_PUBLIC_DATAVERSE_USER_SYNC_URL;
+export const DATAVERSE_SYNC_URL = process.env.NEXT_PUBLIC_DATAVERSE_SYNC_URL;
 
-  const app = getFirebaseApp();
-
-  const db = getFirestore(app);
-
-  return {
-    app,
-    auth: getAuth(app),
-    db,
-    storage: getStorage(app),
-  };
-}
-
-const services = createFirebaseServices();
-
-export const app = services.app;
-export const auth = services.auth;
-export const db = services.db;
-export const storage = services.storage;
-
-// NSFAS Verification Webhook URL
+// Legacy (backward compatibility)
 export const NSFAS_WEBHOOK_URL = process.env.NEXT_PUBLIC_NSFAS_WEBHOOK_URL;
 
 export default app;

@@ -16,6 +16,7 @@ import {
   Filter,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
+import { DashboardFooter } from "@/components/DashboardFooter";
 import { Sidebar } from "@/components/Sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,12 +34,16 @@ function PropertiesContent() {
 
   useEffect(() => {
     const fetchProperties = async () => {
-      if (!user?.uid || !db) return;
+      const uid = user?.userId || user?.uid;
+      if (!uid || !db) {
+        setLoading(false);
+        return;
+      }
 
       try {
         const propertiesQuery = query(
           collection(db, "properties"),
-          where("providerId", "==", user.uid),
+          where("providerId", "==", uid),
           orderBy("createdAt", "desc")
         );
         const snapshot = await getDocs(propertiesQuery);
@@ -49,13 +54,15 @@ function PropertiesContent() {
         setProperties(propertiesData);
       } catch (error) {
         console.error("Error fetching properties:", error);
+        // If there's an error (like missing index), set empty properties
+        setProperties([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchProperties();
-  }, [user?.uid]);
+  }, [user?.userId, user?.uid]);
 
   const filteredProperties = properties.filter(
     (property) =>
@@ -64,10 +71,10 @@ function PropertiesContent() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <DashboardHeader />
 
-      <div className="flex">
+      <div className="flex flex-1">
         <Sidebar userType="provider" />
 
         <main className="flex-1 p-8 overflow-y-auto">
@@ -212,6 +219,7 @@ function PropertiesContent() {
           )}
         </main>
       </div>
+      <DashboardFooter />
     </div>
   );
 }

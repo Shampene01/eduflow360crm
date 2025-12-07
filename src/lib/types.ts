@@ -1,14 +1,39 @@
 import { Timestamp } from "firebase/firestore";
+import { RoleCode, RoleName } from "./roleCodes";
 
 export type UserType = "student" | "provider" | "admin";
-export type UserRole = "student" | "provider" | "admin";
+export type UserRole = "student" | "provider" | "admin" | "manager" | "supervisor" | "registrar" | "administrator" | string;
+
+/**
+ * Role Code Reference:
+ * - 0: Student
+ * - 1: Manager
+ * - 2: Provider
+ * - 3: Admin
+ * - 4: Supervisor
+ * - 5: Registrar
+ * - 6: Administrator
+ */
+export type { RoleCode, RoleName };
+
+// Address embedded in User document
+export interface UserAddress {
+  street: string;
+  suburb?: string;
+  townCity: string;
+  province: string;
+  postalCode?: string;
+  country: string;
+  latitude?: number;
+  longitude?: number;
+}
 
 export interface User {
   // Primary identifiers (support both old and new schema)
   uid: string;                       // Legacy: Firebase Auth UID
   userId?: string;                   // New schema: same as uid
   email: string;
-  
+
   // Personal info (support both naming conventions)
   firstName?: string;                // Legacy
   lastName?: string;                 // Legacy
@@ -20,13 +45,19 @@ export interface User {
   dateOfBirth?: string;
   gender?: "Male" | "Female" | "Other";
   profilePhotoUrl?: string;
-  
-  // Address reference (new schema)
+  idDocumentUrl?: string;            // URL to uploaded ID document (PDF)
+
+  // Address (new schema - embedded object)
+  address?: UserAddress;
+
+  // Legacy address reference (deprecated)
   addressId?: string;
   
   // Roles and status
   userType?: UserType;               // Legacy: single type
-  roles?: UserRole[];                // New schema: multiple roles
+  role?: UserRole;                   // New schema: single role (string)
+  roleCode?: number;                 // New schema: numeric role code (0-6)
+  roles?: UserRole[];                // Deprecated: use role instead
   status?: string;
   applicationStatus?: string;
   isActive?: boolean;
@@ -80,7 +111,7 @@ export interface User {
   companyName?: string;
   companyRegistration?: string;
   nsfasAccredited?: boolean;
-  address?: string;
+  legacyAddress?: string;            // Legacy: string address (use address object instead)
   postalCode?: string;
   
   // Student-specific fields

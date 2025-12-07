@@ -6,39 +6,35 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
 } from "firebase/auth";
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  serverTimestamp,
-} from "firebase/firestore";
+import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "./firebase";
-import { User, UserType } from "./types";
+import { User } from "./types";
 
 export async function signIn(email: string, password: string): Promise<User> {
-  if (!auth || !db) throw new Error("Firebase not initialized");
-  
-  const userCredential = await signInWithEmailAndPassword(auth, email, password);
-  const user = userCredential.user;
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const firebaseUser = userCredential.user;
 
-  // Wait for the auth token to be ready before accessing Firestore
-  await user.getIdToken(true);
+    // Update last login time
+    const userRef = doc(db, "users", firebaseUser.uid);
+    await setDoc(
+      userRef,
+      {
+        lastLoginAt: Timestamp.now(),
+      },
+      { merge: true }
+    );
 
-  // Get user profile first
-  const userDocRef = doc(db, "users", user.uid);
-  const userDoc = await getDoc(userDocRef);
-  
-  if (!userDoc.exists()) {
-    throw new Error("User profile not found");
+    // Fetch user profile
+    const userProfile = await getUserProfile(firebaseUser.uid);
+    if (!userProfile) {
+      throw new Error("User profile not found");
+    }
+
+    return userProfile;
+  } catch (error: any) {
+    throw error;
   }
-
-  // Update last login timestamp (don't await to avoid blocking)
-  updateDoc(userDocRef, {
-    lastLoginAt: serverTimestamp(),
-  }).catch(err => console.warn("Failed to update lastLoginAt:", err));
-
-  return { uid: user.uid, ...userDoc.data() } as User;
 }
 
 export async function signUp(
@@ -46,59 +42,74 @@ export async function signUp(
   password: string,
   userData: Partial<User>
 ): Promise<User> {
-  if (!auth || !db) throw new Error("Firebase not initialized");
-  
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-  const user = userCredential.user;
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const firebaseUser = userCredential.user;
 
-  const newUser: Partial<User> = {
-    uid: user.uid,
-    email: user.email || email,
-    ...userData,
-    createdAt: serverTimestamp() as any,
-    lastLoginAt: serverTimestamp() as any,
-  };
+    // Create user profile in Firestore
+    const userProfile: User = {
+      uid: firebaseUser.uid,
+      userId: firebaseUser.uid,
+      email: firebaseUser.email!,
+      emailVerified: firebaseUser.emailVerified,
+      ...userData,
+      createdAt: Timestamp.now(),
+      lastLoginAt: Timestamp.now(),
+      isActive: true,
+      crmSynced: false,
+    };
 
-  await setDoc(doc(db, "users", user.uid), newUser);
+    const userRef = doc(db, "users", firebaseUser.uid);
+    await setDoc(userRef, userProfile);
 
-  return { uid: user.uid, ...newUser } as User;
+    return userProfile;
+  } catch (error: any) {
+    throw error;
+  }
 }
 
 export async function signOut(): Promise<void> {
-  if (!auth) throw new Error("Firebase not initialized");
-  await firebaseSignOut(auth);
+  try {
+    await firebaseSignOut(auth);
+  } catch (error: any) {
+    throw error;
+  }
 }
 
 export async function resetPassword(email: string): Promise<void> {
-  if (!auth) throw new Error("Firebase not initialized");
-  await sendPasswordResetEmail(auth, email);
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (error: any) {
+    throw error;
+  }
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-  if (!auth || !db) return null;
-  
   const firebaseUser = auth.currentUser;
-  if (!firebaseUser) return null;
+  if (!firebaseUser) {
+    return null;
+  }
 
-  const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-  if (!userDoc.exists()) return null;
-
-  return { uid: firebaseUser.uid, ...userDoc.data() } as User;
+  return getUserProfile(firebaseUser.uid);
 }
 
 export async function getUserProfile(uid: string): Promise<User | null> {
-  if (!db) return null;
-  
-  const userDoc = await getDoc(doc(db, "users", uid));
-  if (!userDoc.exists()) return null;
-  return { uid, ...userDoc.data() } as User;
+  try {
+    const userRef = doc(db, "users", uid);
+    const userSnap = await getDoc(userRef);
+
+    if (userSnap.exists()) {
+      return userSnap.data() as User;
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    return null;
+  }
 }
 
 export function onAuthChange(callback: (user: FirebaseUser | null) => void) {
-  if (!auth) {
-    // Return a no-op unsubscribe function if auth is not initialized
-    return () => {};
-  }
   return onAuthStateChanged(auth, callback);
 }
 

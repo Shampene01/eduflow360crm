@@ -1,14 +1,11 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { User as FirebaseUser } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
 import { User } from "@/lib/types";
 import { onAuthChange, signOut as authSignOut } from "@/lib/auth";
 
 interface AuthContextType {
-  firebaseUser: FirebaseUser | null;
+  firebaseUser: any | null;
   user: User | null;
   loading: boolean;
   signOut: () => Promise<void>;
@@ -18,47 +15,27 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<any | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserProfile = async (uid: string) => {
-    if (!db) {
-      setLoading(false);
-      return;
-    }
-    try {
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Firestore timeout')), 10000)
-      );
-      
-      const userDoc = await Promise.race([
-        getDoc(doc(db, "users", uid)),
-        timeoutPromise
-      ]) as any;
-      
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        setUser({ 
-          uid, 
-          userId: uid,
-          ...data 
-        } as User);
-      }
-    } catch (error) {
-      console.error("Error fetching user profile:", error);
-    }
-  };
-
   const refreshUser = async () => {
     if (firebaseUser) {
-      await fetchUserProfile(firebaseUser.uid);
+      try {
+        const userRef = await import("@/lib/auth").then(m => m.getUserProfile(firebaseUser.uid));
+        setUser(userRef);
+      } catch (error) {
+        console.error("Error refreshing user:", error);
+      }
     }
   };
 
   const signOut = async () => {
-    await authSignOut();
+    try {
+      await authSignOut();
+    } catch (error) {
+      console.error("Sign out error:", error);
+    }
     setUser(null);
     setFirebaseUser(null);
   };
@@ -66,11 +43,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthChange(async (fbUser) => {
       setFirebaseUser(fbUser);
+
       if (fbUser) {
-        await fetchUserProfile(fbUser.uid);
+        // Fetch user profile from Firestore
+        try {
+          const { getUserProfile } = await import("@/lib/auth");
+          const userProfile = await getUserProfile(fbUser.uid);
+          setUser(userProfile);
+        } catch (error) {
+          console.error("Error loading user profile:", error);
+          setUser(null);
+        }
       } else {
         setUser(null);
       }
+
       setLoading(false);
     });
 

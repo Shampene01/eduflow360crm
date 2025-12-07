@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
@@ -9,6 +9,7 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedUserTypes?: ("student" | "provider" | "admin")[];
   redirectTo?: string;
+  requireEmailVerification?: boolean;
 }
 
 // Helper to get user's effective type (supports both legacy and new schema)
@@ -28,14 +29,23 @@ export function ProtectedRoute({
   children,
   allowedUserTypes,
   redirectTo = "/login",
+  requireEmailVerification = true,
 }: ProtectedRouteProps) {
   const { user, loading, firebaseUser } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!loading) {
+      // Not logged in - redirect to login
       if (!firebaseUser) {
         router.push(redirectTo);
+        return;
+      }
+
+      // Check email verification (skip for verify-email page itself)
+      if (requireEmailVerification && !firebaseUser.emailVerified && pathname !== "/verify-email") {
+        router.push("/verify-email");
         return;
       }
 
@@ -50,7 +60,7 @@ export function ProtectedRoute({
         }
       }
     }
-  }, [loading, firebaseUser, user, allowedUserTypes, router, redirectTo]);
+  }, [loading, firebaseUser, user, allowedUserTypes, router, redirectTo, requireEmailVerification, pathname]);
 
   if (loading) {
     return (
@@ -63,7 +73,13 @@ export function ProtectedRoute({
     );
   }
 
+  // Not logged in
   if (!firebaseUser) {
+    return null;
+  }
+
+  // Email not verified (and verification is required)
+  if (requireEmailVerification && !firebaseUser.emailVerified && pathname !== "/verify-email") {
     return null;
   }
 

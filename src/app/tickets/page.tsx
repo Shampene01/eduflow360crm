@@ -16,7 +16,9 @@ import {
   Clock,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
+import { DashboardFooter } from "@/components/DashboardFooter";
 import { Sidebar } from "@/components/Sidebar";
+import { ticketDisplayId } from "@/lib/utils/maskId";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { Ticket as TicketType } from "@/lib/types";
@@ -41,12 +43,16 @@ function TicketsContent() {
 
   useEffect(() => {
     const fetchTickets = async () => {
-      if (!user?.uid || !db) return;
+      const uid = user?.userId || user?.uid;
+      if (!uid || !db) {
+        setLoading(false);
+        return;
+      }
 
       try {
         const ticketsQuery = query(
           collection(db, "tickets"),
-          where("userId", "==", user.uid),
+          where("userId", "==", uid),
           orderBy("createdAt", "desc")
         );
         const snapshot = await getDocs(ticketsQuery);
@@ -63,7 +69,7 @@ function TicketsContent() {
     };
 
     fetchTickets();
-  }, [user?.uid]);
+  }, [user?.userId, user?.uid]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -96,10 +102,10 @@ function TicketsContent() {
   const resolvedTickets = tickets.filter((t) => t.status === "resolved" || t.status === "closed");
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <DashboardHeader />
 
-      <div className="flex">
+      <div className="flex flex-1">
         <Sidebar userType="provider" />
 
         <main className="flex-1 p-8 overflow-y-auto">
@@ -236,7 +242,7 @@ function TicketsContent() {
                     {tickets.map((ticket) => (
                       <TableRow key={ticket.id}>
                         <TableCell className="font-medium">
-                          TKT-{ticket.id.slice(0, 6).toUpperCase()}
+                          {ticketDisplayId(ticket.id)}
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate">
                           {ticket.subject}
@@ -268,6 +274,7 @@ function TicketsContent() {
           </Card>
         </main>
       </div>
+      <DashboardFooter />
     </div>
   );
 }

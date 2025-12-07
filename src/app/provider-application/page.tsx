@@ -193,6 +193,7 @@ function ProviderApplicationContent() {
         primarySurname: user.surname || user.lastName || "",
         primaryEmail: user.email || "",
         primaryPhone: user.phoneNumber || user.phone || "",
+        primaryIdNumber: user.idNumber || "",
       }));
     }
   }, [user]);
@@ -270,7 +271,7 @@ function ProviderApplicationContent() {
     setError("");
 
     try {
-      // 1. Create address
+      // 1. Create address (latitude/longitude will be auto-populated by Google Maps API)
       const address = await createAddress({
         street: formData.street,
         suburb: formData.suburb || undefined,
@@ -278,48 +279,56 @@ function ProviderApplicationContent() {
         province: formData.province,
         postalCode: formData.postalCode || undefined,
         country: "South Africa",
-        latitude: formData.latitude ? parseFloat(formData.latitude) : undefined,
-        longitude: formData.longitude ? parseFloat(formData.longitude) : undefined,
       });
 
-      // 2. Create provider
-      const provider = await createProvider({
+      // 2. Create provider (only include fields with values to avoid Firestore undefined errors)
+      const providerData: any = {
         userId: uid,
         companyName: formData.companyName,
-        tradingName: formData.tradingName || undefined,
         legalForm: formData.legalForm as LegalForm,
-        companyRegistrationNumber: formData.companyRegistrationNumber || undefined,
-        yearsInOperation: formData.yearsInOperation ? parseInt(formData.yearsInOperation) : undefined,
-        taxReferenceNumber: formData.taxReferenceNumber || undefined,
         vatRegistered: formData.vatRegistered === "Yes",
-        vatNumber: formData.vatNumber || undefined,
-        bbbeeLevel: formData.bbbeeLevel ? parseInt(formData.bbbeeLevel) : undefined,
-        bbbeeCertificateExpiry: formData.bbbeeCertificateExpiry || undefined,
-        blackOwnershipPercentage: formData.blackOwnershipPercentage ? parseFloat(formData.blackOwnershipPercentage) : undefined,
-        blackYouthOwnershipPercentage: formData.blackYouthOwnershipPercentage ? parseFloat(formData.blackYouthOwnershipPercentage) : undefined,
-        blackWomenOwnershipPercentage: formData.blackWomenOwnershipPercentage ? parseFloat(formData.blackWomenOwnershipPercentage) : undefined,
-        disabledPersonOwnershipPercentage: formData.disabledPersonOwnershipPercentage ? parseFloat(formData.disabledPersonOwnershipPercentage) : undefined,
         physicalAddressId: address.addressId,
-        bankName: formData.bankName || undefined,
-        accountType: formData.accountType as AccountType || undefined,
-        accountNumber: formData.accountNumber || undefined,
-        branchCode: formData.branchCode || undefined,
-        accountHolder: formData.accountHolder || undefined,
         nsfasAccredited: false,
-      });
+      };
 
-      // 3. Create primary contact
-      await createProviderContact({
+      // Add optional fields only if they have values
+      if (formData.tradingName) providerData.tradingName = formData.tradingName;
+      if (formData.companyRegistrationNumber) providerData.companyRegistrationNumber = formData.companyRegistrationNumber;
+      if (formData.yearsInOperation) providerData.yearsInOperation = parseInt(formData.yearsInOperation);
+      if (formData.taxReferenceNumber) providerData.taxReferenceNumber = formData.taxReferenceNumber;
+      if (formData.vatNumber && formData.vatRegistered === "Yes") providerData.vatNumber = formData.vatNumber;
+
+      // B-BBEE fields
+      if (formData.bbbeeLevel) providerData.bbbeeLevel = parseInt(formData.bbbeeLevel);
+      if (formData.bbbeeCertificateExpiry) providerData.bbbeeCertificateExpiry = formData.bbbeeCertificateExpiry;
+      if (formData.blackOwnershipPercentage) providerData.blackOwnershipPercentage = parseFloat(formData.blackOwnershipPercentage);
+      if (formData.blackYouthOwnershipPercentage) providerData.blackYouthOwnershipPercentage = parseFloat(formData.blackYouthOwnershipPercentage);
+      if (formData.blackWomenOwnershipPercentage) providerData.blackWomenOwnershipPercentage = parseFloat(formData.blackWomenOwnershipPercentage);
+      if (formData.disabledPersonOwnershipPercentage) providerData.disabledPersonOwnershipPercentage = parseFloat(formData.disabledPersonOwnershipPercentage);
+
+      // Banking fields
+      if (formData.bankName) providerData.bankName = formData.bankName;
+      if (formData.accountType) providerData.accountType = formData.accountType as AccountType;
+      if (formData.accountNumber) providerData.accountNumber = formData.accountNumber;
+      if (formData.branchCode) providerData.branchCode = formData.branchCode;
+      if (formData.accountHolder) providerData.accountHolder = formData.accountHolder;
+
+      const provider = await createProvider(providerData);
+
+      // 3. Create primary contact (only include optional fields with values)
+      const primaryContactData: any = {
         providerId: provider.providerId,
         firstNames: formData.primaryFirstNames,
         surname: formData.primarySurname,
-        position: formData.primaryPosition || undefined,
         phoneNumber: formData.primaryPhone,
         email: formData.primaryEmail,
-        idNumber: formData.primaryIdNumber || undefined,
         isPrimary: true,
         isActive: true,
-      });
+      };
+      if (formData.primaryPosition) primaryContactData.position = formData.primaryPosition;
+      if (formData.primaryIdNumber) primaryContactData.idNumber = formData.primaryIdNumber;
+
+      await createProviderContact(primaryContactData);
 
       // 4. Create secondary contact if provided
       if (formData.secondaryFirstNames && formData.secondaryPhone) {
@@ -672,15 +681,16 @@ function ProviderApplicationContent() {
                         <p className="text-sm text-gray-500">Primary and secondary contact details</p>
                       </div>
                       <div className="border rounded-lg p-4 bg-amber-50">
-                        <h4 className="font-medium text-gray-900 mb-4">Primary Contact *</h4>
+                        <h4 className="font-medium text-gray-900 mb-2">Primary Contact *</h4>
+                        <p className="text-xs text-gray-600 mb-4">Auto-filled from your profile (read-only)</p>
                         <div className="grid md:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>First Name(s) *</Label>
-                            <Input value={formData.primaryFirstNames} onChange={(e) => updateFormData("primaryFirstNames", e.target.value)} className="bg-white" />
+                            <Input value={formData.primaryFirstNames} readOnly disabled className="bg-gray-100 cursor-not-allowed" />
                           </div>
                           <div className="space-y-2">
                             <Label>Surname *</Label>
-                            <Input value={formData.primarySurname} onChange={(e) => updateFormData("primarySurname", e.target.value)} className="bg-white" />
+                            <Input value={formData.primarySurname} readOnly disabled className="bg-gray-100 cursor-not-allowed" />
                           </div>
                         </div>
                         <div className="grid md:grid-cols-2 gap-4 mt-4">
@@ -690,17 +700,17 @@ function ProviderApplicationContent() {
                           </div>
                           <div className="space-y-2">
                             <Label>ID Number</Label>
-                            <Input value={formData.primaryIdNumber} onChange={(e) => updateFormData("primaryIdNumber", e.target.value)} className="bg-white" />
+                            <Input value={formData.primaryIdNumber} readOnly disabled className="bg-gray-100 cursor-not-allowed" />
                           </div>
                         </div>
                         <div className="grid md:grid-cols-2 gap-4 mt-4">
                           <div className="space-y-2">
                             <Label>Phone *</Label>
-                            <Input type="tel" value={formData.primaryPhone} onChange={(e) => updateFormData("primaryPhone", e.target.value)} className="bg-white" />
+                            <Input type="tel" value={formData.primaryPhone} readOnly disabled className="bg-gray-100 cursor-not-allowed" />
                           </div>
                           <div className="space-y-2">
                             <Label>Email *</Label>
-                            <Input type="email" value={formData.primaryEmail} onChange={(e) => updateFormData("primaryEmail", e.target.value)} className="bg-white" />
+                            <Input type="email" value={formData.primaryEmail} readOnly disabled className="bg-gray-100 cursor-not-allowed" />
                           </div>
                         </div>
                       </div>

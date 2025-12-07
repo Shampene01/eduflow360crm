@@ -156,7 +156,20 @@ export default function RegisterPage() {
       );
       const userId = userCredential.user.uid;
 
-      // 2. Create user record in Firestore FIRST (required for other writes)
+      // 2. Prepare address object if provided
+      let address = undefined;
+      if (formData.street && formData.townCity && formData.province) {
+        address = {
+          street: formData.street,
+          suburb: formData.suburb || undefined,
+          townCity: formData.townCity,
+          province: formData.province,
+          postalCode: formData.postalCode || undefined,
+          country: "South Africa",
+        };
+      }
+
+      // 3. Create user record in Firestore with embedded address
       await createUser(userId, {
         email: formData.email,
         phoneNumber: formData.phoneNumber || undefined,
@@ -165,28 +178,12 @@ export default function RegisterPage() {
         idNumber: formData.idNumber || undefined,
         dateOfBirth: formData.dateOfBirth || undefined,
         gender: formData.gender as "Male" | "Female" | "Other" | undefined,
+        address: address,                // Embedded address object
         marketingConsent: formData.marketingConsent,
-        roles: [], // No roles yet - will add "provider" when they apply
+        role: "provider",                // Default role for new registrations (Provider Manager)
         isActive: true,
         emailVerified: false,
       });
-
-      // 3. Create address record (now user doc exists for auth checks)
-      let addressId: string | undefined;
-      if (formData.street || formData.townCity) {
-        const address = await createAddress({
-          street: formData.street,
-          suburb: formData.suburb || undefined,
-          townCity: formData.townCity,
-          province: formData.province,
-          postalCode: formData.postalCode || undefined,
-          country: "South Africa",
-        });
-        addressId = address.addressId;
-        
-        // Update user with addressId
-        await updateUser(userId, { addressId });
-      }
 
       // Redirect to dashboard
       router.push("/dashboard");
