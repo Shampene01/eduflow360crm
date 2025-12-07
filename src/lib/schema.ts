@@ -116,10 +116,12 @@ export interface User {
   idDocumentUrl?: string;            // URL to uploaded ID document (PDF)
   address?: UserAddress;             // Embedded address object
   createdAt: Timestamp;
+  updatedAt?: Timestamp;
   lastLoginAt?: Timestamp;
   marketingConsent: boolean;
   role: UserRole;                    // Single role string
   roleCode?: number;                 // Numeric role code (0-6)
+  roles?: UserRole[];                // Legacy: array of roles (deprecated, use role)
 
   // System fields
   isActive: boolean;
