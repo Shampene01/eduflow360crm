@@ -9,12 +9,9 @@
   # Enable standalone output
   NEXT_PRIVATE_STANDALONE = "true"
 
-# Next.js plugin with optimizations
+# Next.js plugin - ISR is now managed automatically
 [[plugins]]
   package = "@netlify/plugin-nextjs"
-  [plugins.inputs]
-    # Disable ISR and use static generation where possible
-    disable_isr = true
 
 # Cache static assets
 [[headers]]
