@@ -79,9 +79,9 @@ function DashboardContent() {
     checkProviderStatus();
   }, [user?.userId, user?.uid]);
 
-  // Show loading skeleton if user data is not yet available
+  // Show loading skeleton if user data or provider data is not yet available
   // This must come AFTER all hooks to comply with React rules
-  if (!isFullyLoaded || profileLoading || !user) {
+  if (!isFullyLoaded || profileLoading || !user || loadingProvider) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <DashboardHeader />

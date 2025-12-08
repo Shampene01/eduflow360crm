@@ -25,7 +25,7 @@ const provinces = [
 ];
 
 function SettingsContent() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, isFullyLoaded, profileLoading } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const idDocInputRef = useRef<HTMLInputElement>(null);
 
@@ -197,6 +197,41 @@ function SettingsContent() {
       setUploadingDoc(false);
     }
   };
+
+  // Show loading state while user data is being fetched
+  if (!isFullyLoaded || profileLoading || !user) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <DashboardHeader />
+        <div className="flex">
+          <Sidebar userType="provider" />
+          <main className="flex-1 p-6 lg:p-8">
+            <div className="max-w-4xl mx-auto">
+              <div className="mb-8 animate-pulse">
+                <div className="h-8 bg-gray-200 rounded w-32 mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-64"></div>
+              </div>
+              <div className="grid gap-6">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardHeader>
+                      <div className="h-6 bg-gray-200 rounded w-48"></div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="h-4 bg-gray-200 rounded w-full"></div>
+                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
