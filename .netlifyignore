@@ -1,0 +1,24 @@
+# Development files
+*.md
+.git
+.github
+.vscode
+*.log
+*.lock
+
+# Test files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__
+coverage
+
+# Build artifacts
+.next/cache
+node_modules/.cache
+
+# Documentation
+docs
+README.md
+CHANGELOG.md

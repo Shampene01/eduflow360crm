@@ -4,17 +4,20 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  # Reduce function size
+  # Disable source maps to reduce build size
+  GENERATE_SOURCEMAP = "false"
+  # Enable standalone output
   NEXT_PRIVATE_STANDALONE = "true"
 
-# Next.js requires the Netlify Next.js Runtime
+# Next.js plugin with optimizations
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+  [plugins.inputs]
+    # Disable ISR and use static generation where possible
+    disable_isr = true
 
-# Function configuration to handle large bundles
-[functions]
-  node_bundler = "esbuild"
-  
-  # Increase timeout for cold starts
-  [functions."*"]
-    external_node_modules = ["firebase"]
+# Cache static assets
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
