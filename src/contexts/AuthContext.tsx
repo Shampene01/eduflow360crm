@@ -43,7 +43,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       hasFirebaseUser: !!firebaseUser,
       hasUser: !!user,
       isFullyLoaded,
-      userEmail: user?.email
+      userEmail: user?.email,
+      userId: user?.userId || user?.uid,
+      firstNames: user?.firstNames || user?.firstName,
+      criticalFieldsCheck: {
+        hasUserId: !!(user?.userId || user?.uid),
+        hasEmail: !!user?.email,
+        hasFirstNames: !!(user?.firstNames || user?.firstName)
+      }
     });
   }, [loading, profileLoading, firebaseUser, user, isFullyLoaded]);
 
