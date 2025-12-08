@@ -25,8 +25,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profileLoading, setProfileLoading] = useState(true);  // Profile fetch loading - start true to prevent flash
   const [profileError, setProfileError] = useState<string | null>(null);
 
-  // Computed: fully loaded only when we have both firebase user AND user profile
-  const isFullyLoaded = !loading && !profileLoading && !!firebaseUser && !!user;
+  // Computed: fully loaded only when we have both firebase user AND user profile with critical fields
+  // IMPORTANT: We check for critical fields to prevent race condition where user object exists but is not fully populated
+  const isFullyLoaded = !loading &&
+    !profileLoading &&
+    !!firebaseUser &&
+    !!user &&
+    !!(user.userId || user.uid) &&
+    !!user.email &&
+    !!(user.firstNames || user.firstName);
 
   // Log state changes
   useEffect(() => {
