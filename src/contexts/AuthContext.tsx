@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User } from "@/lib/types";
-import { onAuthChange, signOut as authSignOut } from "@/lib/auth";
+import { onAuthChange, signOut as authSignOut, getUserProfile } from "@/lib/auth";
 import { initPresence } from "@/lib/presence";
 
 interface AuthContextType {
@@ -59,7 +59,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfileLoading(true);
       setProfileError(null);
       try {
-        const { getUserProfile } = await import("@/lib/auth");
         const userProfile = await getUserProfile(firebaseUser.uid);
         if (userProfile) {
           setUser(userProfile);
@@ -100,23 +99,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Start fetching user profile from Firestore
         console.log("🔵 AuthContext: Starting to fetch user profile for", fbUser.uid);
         setProfileLoading(true);
+        
+        // Use a timeout to ensure we don't get stuck in loading state
+        const timeoutId = setTimeout(() => {
+          console.warn("🟡 AuthContext: Profile fetch taking too long");
+        }, 5000);
+        
         try {
-          const { getUserProfile } = await import("@/lib/auth");
           console.log("🔵 AuthContext: Calling getUserProfile");
+          const startTime = performance.now();
           const userProfile = await getUserProfile(fbUser.uid);
+          const endTime = performance.now();
+          console.log(`🔵 AuthContext: getUserProfile took ${Math.round(endTime - startTime)}ms`);
+          
+          clearTimeout(timeoutId);
+          
           console.log("🔵 AuthContext: User profile fetched", {
             hasProfile: !!userProfile,
             firstNames: userProfile?.firstNames,
-            email: userProfile?.email,
-            hasAddress: !!userProfile?.address,
-            allKeys: userProfile ? Object.keys(userProfile) : [],
-            rawUserProfile: userProfile
+            email: userProfile?.email
           });
 
           if (userProfile) {
             setUser(userProfile);
             console.log("🟢 AuthContext: User profile set successfully");
-            // Initialize presence tracking (for page refresh/session restore)
+            // Initialize presence tracking in background (non-blocking)
             initPresence(fbUser.uid);
           } else {
             // Profile doesn't exist yet - might be a new user
@@ -125,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setProfileError("Profile not found. Please complete registration.");
           }
         } catch (error) {
+          clearTimeout(timeoutId);
           console.error("🔴 AuthContext: Error loading user profile:", error);
           setUser(null);
           setProfileError("Failed to load user profile. Please try again.");

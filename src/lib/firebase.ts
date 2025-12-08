@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getFirestore, enableIndexedDbPersistence, initializeFirestore, CACHE_SIZE_UNLIMITED } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getDatabase, Database } from "firebase/database";
 import { getAnalytics, isSupported } from "firebase/analytics";
@@ -25,8 +25,35 @@ export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getA
 
 // Initialize Firebase services
 export const auth = getAuth(app);
-export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Initialize Firestore with persistence for better performance
+let firestoreDb: ReturnType<typeof getFirestore>;
+if (typeof window !== "undefined") {
+  // Client-side: use persistence for faster subsequent loads
+  try {
+    firestoreDb = initializeFirestore(app, {
+      cacheSizeBytes: CACHE_SIZE_UNLIMITED,
+    });
+    // Enable offline persistence (non-blocking)
+    enableIndexedDbPersistence(firestoreDb).catch((err) => {
+      if (err.code === 'failed-precondition') {
+        // Multiple tabs open, persistence can only be enabled in one tab at a time
+        console.warn('Firestore persistence failed: Multiple tabs open');
+      } else if (err.code === 'unimplemented') {
+        // The current browser doesn't support persistence
+        console.warn('Firestore persistence not supported in this browser');
+      }
+    });
+  } catch (e) {
+    // Firestore already initialized, just get the instance
+    firestoreDb = getFirestore(app);
+  }
+} else {
+  // Server-side: just use regular Firestore
+  firestoreDb = getFirestore(app);
+}
+export const db = firestoreDb;
 
 // Realtime Database for presence - only initialize if URL is configured
 let rtdbInstance: Database | null = null;

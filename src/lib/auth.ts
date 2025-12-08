@@ -13,30 +13,32 @@ import { initPresence, cleanupPresence } from "./presence";
 
 export async function signIn(email: string, password: string): Promise<User> {
   try {
+    console.log("🔐 Auth: Starting Firebase sign in");
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
+    console.log("🔐 Auth: Firebase sign in complete");
 
-    // Update last login time in Firestore
-    const userRef = doc(db, "users", firebaseUser.uid);
-    await setDoc(
-      userRef,
-      {
-        lastLoginAt: Timestamp.now(),
-      },
-      { merge: true }
-    );
-
-    // Initialize real-time presence tracking
-    initPresence(firebaseUser.uid);
-
-    // Fetch user profile
+    // Fetch user profile first (critical path)
+    console.log("🔐 Auth: Fetching user profile");
     const userProfile = await getUserProfile(firebaseUser.uid);
     if (!userProfile) {
       throw new Error("User profile not found");
     }
+    console.log("🔐 Auth: User profile fetched");
 
+    // Update last login time and init presence in background (non-blocking)
+    // These are not critical for the login flow
+    const userRef = doc(db, "users", firebaseUser.uid);
+    setDoc(userRef, { lastLoginAt: Timestamp.now() }, { merge: true })
+      .catch(err => console.warn("Failed to update lastLoginAt:", err));
+    
+    // Initialize presence tracking in background
+    initPresence(firebaseUser.uid);
+
+    console.log("🔐 Auth: Sign in complete, returning user profile");
     return userProfile;
   } catch (error: any) {
+    console.error("🔐 Auth: Sign in error:", error);
     throw error;
   }
 }
@@ -116,16 +118,25 @@ export async function getCurrentUser(): Promise<User | null> {
 
 export async function getUserProfile(uid: string): Promise<User | null> {
   try {
+    console.log("🔐 getUserProfile: Starting fetch for", uid);
+    const startTime = performance.now();
+    
     const userRef = doc(db, "users", uid);
     const userSnap = await getDoc(userRef);
+    
+    const endTime = performance.now();
+    console.log(`🔐 getUserProfile: Firestore getDoc took ${Math.round(endTime - startTime)}ms`);
 
     if (userSnap.exists()) {
-      return userSnap.data() as User;
+      const userData = userSnap.data() as User;
+      console.log("🔐 getUserProfile: User found", { email: userData.email, firstNames: userData.firstNames });
+      return userData;
     }
 
+    console.log("🔐 getUserProfile: User not found");
     return null;
   } catch (error) {
-    console.error("Error fetching user profile:", error);
+    console.error("🔐 getUserProfile: Error fetching user profile:", error);
     return null;
   }
 }
