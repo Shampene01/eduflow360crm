@@ -29,37 +29,20 @@ export default function LoginPage() {
 
   // Redirect if already logged in AND profile is fully loaded
   useEffect(() => {
-    console.log("🟣 Login Page: Redirect check", {
-      isFullyLoaded,
-      hasUser: !!user,
-      hasFirebaseUser: !!firebaseUser,
-      authLoading,
-      profileLoading,
-      userType: user?.userType,
-      emailVerified: firebaseUser?.emailVerified,
-      userId: user?.userId || user?.uid,
-      userEmail: user?.email,
-      userFirstNames: user?.firstNames || user?.firstName
-    });
-
     if (isFullyLoaded && user && firebaseUser) {
-      console.log("🟣 Login Page: All conditions met, checking email verification");
       // Check email verification first
       if (!firebaseUser.emailVerified) {
-        console.log("🟣 Login Page: Email not verified, redirecting to verify-email");
         router.push("/verify-email");
         return;
       }
 
       if (user.userType === "provider") {
-        console.log("🟣 Login Page: Redirecting to provider-dashboard");
         router.push("/provider-dashboard");
       } else {
-        console.log("🟣 Login Page: Redirecting to dashboard");
         router.push("/dashboard");
       }
     }
-  }, [user, isFullyLoaded, firebaseUser, router, authLoading, profileLoading]);
+  }, [user, isFullyLoaded, firebaseUser, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,13 +51,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      console.log("🟣 Login Page: Starting sign in");
-      const userData = await signIn(email, password);
-      console.log("🟣 Login Page: Sign in completed", { hasUserData: !!userData });
+      await signIn(email, password);
 
       // Check if email is verified
       if (auth.currentUser && !auth.currentUser.emailVerified) {
-        console.log("🟣 Login Page: Email not verified");
         setSuccess("Login successful! Please verify your email.");
         setLoading(false);
         setTimeout(() => {
@@ -83,13 +63,9 @@ export default function LoginPage() {
         return;
       }
 
-      console.log("🟣 Login Page: Email verified, setting success message");
       setSuccess("Login successful! Redirecting...");
-
-      // Note: Keep loading=true while waiting for AuthContext to update and trigger redirect
-      // The redirect happens via useEffect when isFullyLoaded becomes true
+      // Keep loading=true while waiting for AuthContext to update and trigger redirect
     } catch (err: any) {
-      console.error("🟣 Login Page: Login error:", err);
       setError(getAuthErrorMessage(err.code));
       setLoading(false);
     }

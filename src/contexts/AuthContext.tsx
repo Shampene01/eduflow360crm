@@ -35,25 +35,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     !!user.email &&
     !!(user.firstNames || user.firstName);
 
-  // Log state changes
-  useEffect(() => {
-    console.log("🔵 AuthContext State:", {
-      loading,
-      profileLoading,
-      hasFirebaseUser: !!firebaseUser,
-      hasUser: !!user,
-      isFullyLoaded,
-      userEmail: user?.email,
-      userId: user?.userId || user?.uid,
-      firstNames: user?.firstNames || user?.firstName,
-      criticalFieldsCheck: {
-        hasUserId: !!(user?.userId || user?.uid),
-        hasEmail: !!user?.email,
-        hasFirstNames: !!(user?.firstNames || user?.firstName)
-      }
-    });
-  }, [loading, profileLoading, firebaseUser, user, isFullyLoaded]);
-
   const refreshUser = async () => {
     if (firebaseUser) {
       setProfileLoading(true);
@@ -86,67 +67,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    console.log("🔵 AuthContext: Initializing auth listener");
     const unsubscribe = onAuthChange(async (fbUser) => {
-      console.log("🔵 AuthContext: Auth state changed", {
-        hasFirebaseUser: !!fbUser,
-        uid: fbUser?.uid
-      });
       setFirebaseUser(fbUser);
       setProfileError(null);
 
       if (fbUser) {
-        // Start fetching user profile from Firestore
-        console.log("🔵 AuthContext: Starting to fetch user profile for", fbUser.uid);
         setProfileLoading(true);
-        
-        // Use a timeout to ensure we don't get stuck in loading state
-        const timeoutId = setTimeout(() => {
-          console.warn("🟡 AuthContext: Profile fetch taking too long");
-        }, 5000);
-        
         try {
-          console.log("🔵 AuthContext: Calling getUserProfile");
-          const startTime = performance.now();
           const userProfile = await getUserProfile(fbUser.uid);
-          const endTime = performance.now();
-          console.log(`🔵 AuthContext: getUserProfile took ${Math.round(endTime - startTime)}ms`);
-          
-          clearTimeout(timeoutId);
-          
-          console.log("🔵 AuthContext: User profile fetched", {
-            hasProfile: !!userProfile,
-            firstNames: userProfile?.firstNames,
-            email: userProfile?.email
-          });
-
           if (userProfile) {
             setUser(userProfile);
-            console.log("🟢 AuthContext: User profile set successfully");
             // Initialize presence tracking in background (non-blocking)
             initPresence(fbUser.uid);
           } else {
-            // Profile doesn't exist yet - might be a new user
-            console.warn("🟡 AuthContext: User profile not found in Firestore");
             setUser(null);
             setProfileError("Profile not found. Please complete registration.");
           }
         } catch (error) {
-          clearTimeout(timeoutId);
-          console.error("🔴 AuthContext: Error loading user profile:", error);
+          console.error("Error loading user profile:", error);
           setUser(null);
           setProfileError("Failed to load user profile. Please try again.");
         } finally {
-          console.log("🔵 AuthContext: Setting profileLoading to false");
           setProfileLoading(false);
         }
       } else {
-        console.log("🔵 AuthContext: No Firebase user, clearing user state");
         setUser(null);
         setProfileLoading(false);
       }
 
-      console.log("🔵 AuthContext: Setting loading to false");
       setLoading(false);
     });
 

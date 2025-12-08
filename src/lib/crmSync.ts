@@ -61,7 +61,6 @@ export async function syncUserToCRM(
 ): Promise<CRMSyncResult> {
   // Check if webhook URL is configured
   if (!DATAVERSE_USER_SYNC_URL) {
-    console.warn("⚠️ CRM Sync: DATAVERSE_USER_SYNC_URL not configured");
     return {
       success: false,
       message: "CRM sync not configured",
@@ -70,7 +69,6 @@ export async function syncUserToCRM(
   }
 
   try {
-    console.log("🔄 CRM Sync: Starting sync for user", user.userId);
 
     // Convert role name to role code (default to PROVIDER if not found)
     const roleCode = getRoleCodeFromName(user.role || "provider") ?? RoleCode.PROVIDER;
@@ -93,12 +91,6 @@ export async function syncUserToCRM(
       syncSource: syncSource,
     };
 
-    console.log("🔄 CRM Sync: Sending payload to Power Automate", {
-      userId: payload.userId,
-      email: payload.email,
-      syncSource: payload.syncSource,
-    });
-
     // Send to Power Automate webhook
     const response = await fetch(DATAVERSE_USER_SYNC_URL, {
       method: "POST",
@@ -110,11 +102,6 @@ export async function syncUserToCRM(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("🔴 CRM Sync: Failed", {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorText,
-      });
       return {
         success: false,
         message: `CRM sync failed: ${response.statusText}`,
@@ -131,15 +118,12 @@ export async function syncUserToCRM(
       responseData = { message: "Sync completed" };
     }
 
-    console.log("✅ CRM Sync: Success", responseData);
-
     return {
       success: true,
       message: "User synced to CRM successfully",
       crmRecordId: responseData.crmRecordId || responseData.id,
     };
   } catch (error) {
-    console.error("🔴 CRM Sync: Error", error);
     return {
       success: false,
       message: "Failed to sync to CRM",
@@ -157,15 +141,7 @@ export function syncUserToCRMBackground(
   syncSource: CRMSyncPayload["syncSource"] = "registration"
 ): void {
   // Fire and forget - don't await
-  syncUserToCRM(user, syncSource)
-    .then((result) => {
-      if (!result.success) {
-        console.warn("⚠️ CRM Background Sync failed:", result.error);
-      }
-    })
-    .catch((error) => {
-      console.error("🔴 CRM Background Sync error:", error);
-    });
+  syncUserToCRM(user, syncSource).catch(() => {});
 }
 
 // ============================================================================

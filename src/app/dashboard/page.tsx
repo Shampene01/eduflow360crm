@@ -33,8 +33,6 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { getProviderByUserId } from "@/lib/db";
 import { AccommodationProvider } from "@/lib/schema";
-import { syncUserToCRM } from "@/lib/crmSync";
-import { toast } from "sonner";
 
 function formatDate(timestamp: Timestamp | Date | undefined): string {
   if (!timestamp) return "N/A";
@@ -61,89 +59,33 @@ function DashboardContent() {
   const router = useRouter();
   const [providerStatus, setProviderStatus] = useState<AccommodationProvider | null>(null);
   const [loadingProvider, setLoadingProvider] = useState(true);
-  const [syncing, setSyncing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Handle refresh and sync to CRM
-  const handleRefreshAndSync = async () => {
+  // Handle refresh from Firestore
+  const handleRefresh = async () => {
     if (!user) return;
-    
-    setSyncing(true);
+    setRefreshing(true);
     try {
-      // First refresh from Firestore
       await refreshUser();
-      
-      // Then sync to CRM
-      const userId = user.userId || user.uid;
-      if (userId && user.email && user.firstNames && user.surname) {
-        const result = await syncUserToCRM(
-          {
-            userId,
-            email: user.email,
-            firstNames: user.firstNames,
-            surname: user.surname,
-            phoneNumber: user.phoneNumber,
-            idNumber: user.idNumber,
-            dateOfBirth: user.dateOfBirth,
-            gender: user.gender,
-            address: user.address,
-            role: user.role,
-            isActive: user.isActive,
-          },
-          "manual_sync"
-        );
-        
-        if (result.success) {
-          toast.success("Profile synced successfully");
-        } else {
-          toast.error(result.message || "Sync failed");
-        }
-      }
-    } catch (error) {
-      console.error("Sync error:", error);
-      toast.error("Failed to sync profile");
     } finally {
-      setSyncing(false);
+      setRefreshing(false);
     }
   };
 
-  // Log dashboard rendering state
-  useEffect(() => {
-    console.log("🟣 Dashboard: Component state", {
-      isFullyLoaded,
-      profileLoading,
-      hasUser: !!user,
-      loadingProvider,
-      userEmail: user?.email,
-      userFirstNames: user?.firstNames
-    });
-  }, [isFullyLoaded, profileLoading, user, loadingProvider]);
-
   // Check if user has a provider application
-  // This hook must be called unconditionally (before any early returns)
   useEffect(() => {
     const checkProviderStatus = async () => {
       const uid = user?.userId || user?.uid;
-      console.log("🟣 Dashboard: Checking provider status", {
-        hasUser: !!user,
-        userId: user?.userId,
-        uid: user?.uid,
-        computedUid: uid,
-        userKeys: user ? Object.keys(user).slice(0, 10) : []
-      });
       if (!uid) {
-        console.log("🔴 Dashboard: NO UID FOUND - This is the problem!");
         setLoadingProvider(false);
         return;
       }
       try {
-        console.log("🟣 Dashboard: Fetching provider data");
         const provider = await getProviderByUserId(uid);
-        console.log("🟣 Dashboard: Provider data fetched", { hasProvider: !!provider, status: provider?.approvalStatus });
         setProviderStatus(provider);
       } catch (err) {
-        console.error("🔴 Dashboard: Error checking provider status:", err);
+        console.error("Error checking provider status:", err);
       } finally {
-        console.log("🟣 Dashboard: Setting loadingProvider to false");
         setLoadingProvider(false);
       }
     };
@@ -152,17 +94,7 @@ function DashboardContent() {
 
   // Show loading skeleton if user data or provider data is not yet available
   // This must come AFTER all hooks to comply with React rules
-  const shouldShowLoading = !isFullyLoaded || profileLoading || !user || loadingProvider;
-  console.log("🟣 Dashboard: Should show loading?", shouldShowLoading, {
-    isFullyLoaded,
-    profileLoading,
-    hasUser: !!user,
-    loadingProvider
-  });
-
-  if (shouldShowLoading) {
-    console.log("🟡 Dashboard: Showing loading skeleton");
-
+  if (!isFullyLoaded || profileLoading || !user || loadingProvider) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <DashboardHeader />
@@ -457,12 +389,12 @@ function DashboardContent() {
                   <CardTitle className="text-lg">Application Status</CardTitle>
                 </div>
                 <button
-                  onClick={handleRefreshAndSync}
-                  disabled={syncing}
+                  onClick={handleRefresh}
+                  disabled={refreshing}
                   className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-                  title="Refresh profile and sync to CRM"
+                  title="Refresh profile from database"
                 >
-                  <RefreshCw className={`w-4 h-4 text-gray-500 hover:text-amber-500 ${syncing ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-4 h-4 text-gray-500 hover:text-amber-500 ${refreshing ? 'animate-spin' : ''}`} />
                 </button>
               </CardHeader>
               <CardContent className="space-y-3">
