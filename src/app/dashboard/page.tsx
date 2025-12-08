@@ -75,9 +75,15 @@ function DashboardContent() {
   useEffect(() => {
     const checkProviderStatus = async () => {
       const uid = user?.userId || user?.uid;
-      console.log("🟣 Dashboard: Checking provider status for uid:", uid);
+      console.log("🟣 Dashboard: Checking provider status", {
+        hasUser: !!user,
+        userId: user?.userId,
+        uid: user?.uid,
+        computedUid: uid,
+        userKeys: user ? Object.keys(user).slice(0, 10) : []
+      });
       if (!uid) {
-        console.log("🟣 Dashboard: No uid, skipping provider check");
+        console.log("🔴 Dashboard: NO UID FOUND - This is the problem!");
         setLoadingProvider(false);
         return;
       }
