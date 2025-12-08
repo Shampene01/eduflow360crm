@@ -130,12 +130,6 @@ function DashboardContent() {
     );
   }
 
-  console.log("🟢 Dashboard: Rendering actual dashboard content with user data", {
-    userEmail: user?.email,
-    userFirstNames: user?.firstNames,
-    hasAddress: !!user?.address
-  });
-
   // Check if user has provider role or application
   const hasProviderRole = user?.roles?.includes("provider") || user?.userType === "provider";
   const isApprovedProvider = providerStatus?.approvalStatus === "Approved";

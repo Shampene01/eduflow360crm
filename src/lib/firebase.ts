@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
-import { getFirestore, enableIndexedDbPersistence, initializeFirestore, CACHE_SIZE_UNLIMITED } from "firebase/firestore";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getDatabase, Database } from "firebase/database";
 import { getAnalytics, isSupported } from "firebase/analytics";
@@ -30,20 +30,12 @@ export const storage = getStorage(app);
 // Initialize Firestore with persistence for better performance
 let firestoreDb: ReturnType<typeof getFirestore>;
 if (typeof window !== "undefined") {
-  // Client-side: use persistence for faster subsequent loads
+  // Client-side: use persistent cache with multi-tab support
   try {
     firestoreDb = initializeFirestore(app, {
-      cacheSizeBytes: CACHE_SIZE_UNLIMITED,
-    });
-    // Enable offline persistence (non-blocking)
-    enableIndexedDbPersistence(firestoreDb).catch((err) => {
-      if (err.code === 'failed-precondition') {
-        // Multiple tabs open, persistence can only be enabled in one tab at a time
-        console.warn('Firestore persistence failed: Multiple tabs open');
-      } else if (err.code === 'unimplemented') {
-        // The current browser doesn't support persistence
-        console.warn('Firestore persistence not supported in this browser');
-      }
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
     });
   } catch (e) {
     // Firestore already initialized, just get the instance
