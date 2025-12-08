@@ -33,6 +33,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { getProviderByUserId } from "@/lib/db";
 import { AccommodationProvider } from "@/lib/schema";
+import { subscribeToPresence, UserPresence } from "@/lib/presence";
 
 function formatDate(timestamp: Timestamp | Date | undefined): string {
   if (!timestamp) return "N/A";
@@ -60,6 +61,7 @@ function DashboardContent() {
   const [providerStatus, setProviderStatus] = useState<AccommodationProvider | null>(null);
   const [loadingProvider, setLoadingProvider] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastSeen, setLastSeen] = useState<number | null>(null);
 
   // Handle refresh from Firestore
   const handleRefresh = async () => {
@@ -90,6 +92,20 @@ function DashboardContent() {
       }
     };
     checkProviderStatus();
+  }, [user?.userId, user?.uid]);
+
+  // Subscribe to presence data from Realtime Database
+  useEffect(() => {
+    const uid = user?.userId || user?.uid;
+    if (!uid) return;
+
+    const unsubscribe = subscribeToPresence(uid, (presence: UserPresence | null) => {
+      if (presence?.lastSeen && typeof presence.lastSeen === "number") {
+        setLastSeen(presence.lastSeen);
+      }
+    });
+
+    return () => unsubscribe();
   }, [user?.userId, user?.uid]);
 
   // Show loading skeleton if user data or provider data is not yet available
@@ -411,7 +427,18 @@ function DashboardContent() {
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-gray-500 text-sm">Last Login</span>
-                  <span className="font-medium">{formatDate(user?.lastLoginAt)}</span>
+                  <span className="font-medium">
+                    {lastSeen 
+                      ? new Date(lastSeen).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : formatDate(user?.lastLoginAt)
+                    }
+                  </span>
                 </div>
               </CardContent>
             </Card>

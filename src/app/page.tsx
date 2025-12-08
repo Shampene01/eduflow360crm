@@ -454,7 +454,7 @@ export default function Home() {
               asChild
               variant="outline"
               size="lg"
-              className="border-slate-600 text-white hover:bg-white/10 px-8 h-14 text-base"
+              className="border-white/30 text-white hover:bg-white/10 hover:border-white/50 px-8 h-14 text-base"
             >
               <Link href="/contact">Talk to sales</Link>
             </Button>
