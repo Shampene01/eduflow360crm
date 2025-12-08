@@ -6,7 +6,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({
-  variable: "--font-inter", 
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
