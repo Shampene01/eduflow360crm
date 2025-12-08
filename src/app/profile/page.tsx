@@ -27,10 +27,7 @@ import {
 } from "lucide-react";
 import { userDisplayId } from "@/lib/utils/maskId";
 import { doc, getDoc } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
-
-const ADMIN_EMAIL = "shampene@lebonconsulting.co.za";
-const FLOW_URL = "https://2009c4ecf752ec149f8257b7de138b.5c.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/f85d6f24660241b08ef228c7f808e84f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=yw1CtpEKrA7RTZ8hQgNQh21UUpPkX2aujzKQ24JgrlA";
+import { db, auth, DATAVERSE_USER_SYNC_URL } from "@/lib/firebase";
 
 function ProfileContent() {
   const { user, firebaseUser } = useAuth();
@@ -115,8 +112,13 @@ function ProfileContent() {
       console.log("Syncing payload to Dataverse:", payload);
 
       // 3. POST to Power Automate Flow
+      if (!DATAVERSE_USER_SYNC_URL) {
+        setSyncResult({ success: false, message: "Dataverse sync URL not configured" });
+        return;
+      }
+
       try {
-        const res = await fetch(FLOW_URL, {
+        const res = await fetch(DATAVERSE_USER_SYNC_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -200,27 +202,25 @@ function ProfileContent() {
               <p className="text-gray-500">View your account information</p>
             </div>
             <div className="flex gap-3">
-              {/* Sync to Firebase - Only visible for admin email */}
-              {user?.email === ADMIN_EMAIL && (
-                <Button
-                  onClick={handleSyncToFirebase}
-                  disabled={syncing}
-                  variant="outline"
-                  className="border-blue-500 text-blue-600 hover:bg-blue-50"
-                >
-                  {syncing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Syncing...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Sync to Firebase
-                    </>
-                  )}
-                </Button>
-              )}
+              {/* Sync to Dataverse - Available for all users */}
+              <Button
+                onClick={handleSyncToFirebase}
+                disabled={syncing}
+                variant="outline"
+                className="border-blue-500 text-blue-600 hover:bg-blue-50"
+              >
+                {syncing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Sync to Dataverse
+                  </>
+                )}
+              </Button>
               <Button asChild className="bg-amber-500 hover:bg-amber-600 text-gray-900">
                 <Link href="/settings">
                   <Edit className="w-4 h-4 mr-2" />
