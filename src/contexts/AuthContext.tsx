@@ -94,7 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             hasProfile: !!userProfile,
             firstNames: userProfile?.firstNames,
             email: userProfile?.email,
-            hasAddress: !!userProfile?.address
+            hasAddress: !!userProfile?.address,
+            allKeys: userProfile ? Object.keys(userProfile) : [],
+            rawUserProfile: userProfile
           });
 
           if (userProfile) {
