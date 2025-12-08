@@ -5,8 +5,9 @@
  * This module provides functions to sync user data to the CRM via webhooks.
  */
 
-import { DATAVERSE_USER_SYNC_URL } from "./firebase";
+import { DATAVERSE_USER_SYNC_URL, db } from "./firebase";
 import { User } from "./types";
+import { doc, updateDoc } from "firebase/firestore";
 
 // ============================================================================
 // TYPES
@@ -38,7 +39,7 @@ export interface CRMSyncPayload {
 export interface CRMSyncResult {
   success: boolean;
   message: string;
-  crmRecordId?: string;
+  dataverseId?: string;
   error?: string;
 }
 
@@ -115,8 +116,8 @@ export async function syncUserToCRM(
       };
     }
 
-    // Try to parse response (Power Automate may return JSON with CRM record ID)
-    let responseData: any = {};
+    // Parse response - Power Automate returns { message: "OK", dataverseId: "..." }
+    let responseData: { message?: string; dataverseId?: string } = {};
     try {
       responseData = await response.json();
     } catch {
@@ -124,10 +125,22 @@ export async function syncUserToCRM(
       responseData = { message: "Sync completed" };
     }
 
+    // Save dataverseId to Firestore if returned
+    const dataverseId = responseData.dataverseId;
+    if (dataverseId && user.userId) {
+      try {
+        const userRef = doc(db, "users", user.userId);
+        await updateDoc(userRef, { dataverseId });
+        console.log("Saved dataverseId to Firestore:", dataverseId);
+      } catch (updateError) {
+        console.error("Failed to save dataverseId to Firestore:", updateError);
+      }
+    }
+
     return {
       success: true,
       message: "User synced to CRM successfully",
-      crmRecordId: responseData.crmRecordId || responseData.id,
+      dataverseId: dataverseId,
     };
   } catch (error) {
     return {

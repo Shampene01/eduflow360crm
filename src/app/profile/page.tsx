@@ -26,7 +26,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { userDisplayId } from "@/lib/utils/maskId";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db, auth, DATAVERSE_USER_SYNC_URL } from "@/lib/firebase";
 
 function ProfileContent() {
@@ -149,8 +149,20 @@ function ProfileContent() {
           return;
         }
 
-        const responseText = await res.text();
-        console.log("Flow response:", responseText);
+        const responseData = await res.json();
+        console.log("Flow response:", responseData);
+        
+        // Save dataverseId to Firestore if returned
+        const dataverseId = responseData.dataverseId;
+        if (dataverseId && currentUser.uid) {
+          try {
+            const userRef = doc(db, "users", currentUser.uid);
+            await updateDoc(userRef, { dataverseId });
+            console.log("Saved dataverseId to Firestore:", dataverseId);
+          } catch (updateError) {
+            console.error("Failed to save dataverseId to Firestore:", updateError);
+          }
+        }
         
         setSyncResult({ success: true, message: "User synced to Dataverse successfully!" });
       } catch (fetchError: any) {
