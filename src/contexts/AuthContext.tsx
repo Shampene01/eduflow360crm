@@ -28,6 +28,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Computed: fully loaded only when we have both firebase user AND user profile
   const isFullyLoaded = !loading && !profileLoading && !!firebaseUser && !!user;
 
+  // Log state changes
+  useEffect(() => {
+    console.log("🔵 AuthContext State:", {
+      loading,
+      profileLoading,
+      hasFirebaseUser: !!firebaseUser,
+      hasUser: !!user,
+      isFullyLoaded,
+      userEmail: user?.email
+    });
+  }, [loading, profileLoading, firebaseUser, user, isFullyLoaded]);
+
   const refreshUser = async () => {
     if (firebaseUser) {
       setProfileLoading(true);
@@ -61,39 +73,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    console.log("🔵 AuthContext: Initializing auth listener");
     const unsubscribe = onAuthChange(async (fbUser) => {
+      console.log("🔵 AuthContext: Auth state changed", {
+        hasFirebaseUser: !!fbUser,
+        uid: fbUser?.uid
+      });
       setFirebaseUser(fbUser);
       setProfileError(null);
 
       if (fbUser) {
         // Start fetching user profile from Firestore
+        console.log("🔵 AuthContext: Starting to fetch user profile for", fbUser.uid);
         setProfileLoading(true);
         try {
           const { getUserProfile } = await import("@/lib/auth");
+          console.log("🔵 AuthContext: Calling getUserProfile");
           const userProfile = await getUserProfile(fbUser.uid);
-          
+          console.log("🔵 AuthContext: User profile fetched", {
+            hasProfile: !!userProfile,
+            firstNames: userProfile?.firstNames,
+            email: userProfile?.email,
+            hasAddress: !!userProfile?.address
+          });
+
           if (userProfile) {
             setUser(userProfile);
+            console.log("🟢 AuthContext: User profile set successfully");
             // Initialize presence tracking (for page refresh/session restore)
             initPresence(fbUser.uid);
           } else {
             // Profile doesn't exist yet - might be a new user
-            console.warn("User profile not found in Firestore");
+            console.warn("🟡 AuthContext: User profile not found in Firestore");
             setUser(null);
             setProfileError("Profile not found. Please complete registration.");
           }
         } catch (error) {
-          console.error("Error loading user profile:", error);
+          console.error("🔴 AuthContext: Error loading user profile:", error);
           setUser(null);
           setProfileError("Failed to load user profile. Please try again.");
         } finally {
+          console.log("🔵 AuthContext: Setting profileLoading to false");
           setProfileLoading(false);
         }
       } else {
+        console.log("🔵 AuthContext: No Firebase user, clearing user state");
         setUser(null);
         setProfileLoading(false);
       }
 
+      console.log("🔵 AuthContext: Setting loading to false");
       setLoading(false);
     });
 

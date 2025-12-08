@@ -58,21 +58,38 @@ function DashboardContent() {
   const [providerStatus, setProviderStatus] = useState<AccommodationProvider | null>(null);
   const [loadingProvider, setLoadingProvider] = useState(true);
 
+  // Log dashboard rendering state
+  useEffect(() => {
+    console.log("🟣 Dashboard: Component state", {
+      isFullyLoaded,
+      profileLoading,
+      hasUser: !!user,
+      loadingProvider,
+      userEmail: user?.email,
+      userFirstNames: user?.firstNames
+    });
+  }, [isFullyLoaded, profileLoading, user, loadingProvider]);
+
   // Check if user has a provider application
   // This hook must be called unconditionally (before any early returns)
   useEffect(() => {
     const checkProviderStatus = async () => {
       const uid = user?.userId || user?.uid;
+      console.log("🟣 Dashboard: Checking provider status for uid:", uid);
       if (!uid) {
+        console.log("🟣 Dashboard: No uid, skipping provider check");
         setLoadingProvider(false);
         return;
       }
       try {
+        console.log("🟣 Dashboard: Fetching provider data");
         const provider = await getProviderByUserId(uid);
+        console.log("🟣 Dashboard: Provider data fetched", { hasProvider: !!provider, status: provider?.approvalStatus });
         setProviderStatus(provider);
       } catch (err) {
-        console.error("Error checking provider status:", err);
+        console.error("🔴 Dashboard: Error checking provider status:", err);
       } finally {
+        console.log("🟣 Dashboard: Setting loadingProvider to false");
         setLoadingProvider(false);
       }
     };
@@ -81,7 +98,17 @@ function DashboardContent() {
 
   // Show loading skeleton if user data or provider data is not yet available
   // This must come AFTER all hooks to comply with React rules
-  if (!isFullyLoaded || profileLoading || !user || loadingProvider) {
+  const shouldShowLoading = !isFullyLoaded || profileLoading || !user || loadingProvider;
+  console.log("🟣 Dashboard: Should show loading?", shouldShowLoading, {
+    isFullyLoaded,
+    profileLoading,
+    hasUser: !!user,
+    loadingProvider
+  });
+
+  if (shouldShowLoading) {
+    console.log("🟡 Dashboard: Showing loading skeleton");
+
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <DashboardHeader />
@@ -116,6 +143,12 @@ function DashboardContent() {
       </div>
     );
   }
+
+  console.log("🟢 Dashboard: Rendering actual dashboard content with user data", {
+    userEmail: user?.email,
+    userFirstNames: user?.firstNames,
+    hasAddress: !!user?.address
+  });
 
   // Check if user has provider role or application
   const hasProviderRole = user?.roles?.includes("provider") || user?.userType === "provider";
