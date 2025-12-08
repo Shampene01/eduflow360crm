@@ -20,6 +20,8 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { createUser, createAddress, updateUser } from "@/lib/db";
 import { getAuthErrorMessage } from "@/lib/auth";
+import { syncUserToCRMBackground } from "@/lib/crmSync";
+import type { UserRole } from "@/lib/types";
 
 interface FormData {
   email: string;
@@ -180,10 +182,28 @@ export default function RegisterPage() {
         gender: formData.gender as "Male" | "Female" | "Other" | undefined,
         address: address,                // Embedded address object
         marketingConsent: formData.marketingConsent,
-        role: "provider",                // Default role for new registrations (Provider Manager)
+        role: "provider" as const,       // Default role for new registrations
         isActive: true,
         emailVerified: false,
       });
+
+      // 4. Sync user to CRM via Power Automate (background, non-blocking)
+      syncUserToCRMBackground(
+        {
+          userId,
+          email: formData.email,
+          firstNames: formData.firstNames,
+          surname: formData.surname,
+          phoneNumber: formData.phoneNumber || undefined,
+          idNumber: formData.idNumber || undefined,
+          dateOfBirth: formData.dateOfBirth || undefined,
+          gender: formData.gender as "Male" | "Female" | "Other" | undefined,
+          address: address,
+          role: "provider",
+          isActive: true,
+        },
+        "registration"
+      );
 
       // Redirect to dashboard
       router.push("/dashboard");

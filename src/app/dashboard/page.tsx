@@ -20,6 +20,8 @@ import {
   ArrowRight,
   Clock,
   Shield,
+  RefreshCw,
+  Database,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
@@ -31,6 +33,8 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { getProviderByUserId } from "@/lib/db";
 import { AccommodationProvider } from "@/lib/schema";
+import { syncUserToCRM } from "@/lib/crmSync";
+import { toast } from "sonner";
 
 function formatDate(timestamp: Timestamp | Date | undefined): string {
   if (!timestamp) return "N/A";
@@ -53,10 +57,54 @@ const yearMap: Record<string, string> = {
 };
 
 function DashboardContent() {
-  const { user, isFullyLoaded, profileLoading } = useAuth();
+  const { user, isFullyLoaded, profileLoading, refreshUser } = useAuth();
   const router = useRouter();
   const [providerStatus, setProviderStatus] = useState<AccommodationProvider | null>(null);
   const [loadingProvider, setLoadingProvider] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+
+  // Handle refresh and sync to CRM
+  const handleRefreshAndSync = async () => {
+    if (!user) return;
+    
+    setSyncing(true);
+    try {
+      // First refresh from Firestore
+      await refreshUser();
+      
+      // Then sync to CRM
+      const userId = user.userId || user.uid;
+      if (userId && user.email && user.firstNames && user.surname) {
+        const result = await syncUserToCRM(
+          {
+            userId,
+            email: user.email,
+            firstNames: user.firstNames,
+            surname: user.surname,
+            phoneNumber: user.phoneNumber,
+            idNumber: user.idNumber,
+            dateOfBirth: user.dateOfBirth,
+            gender: user.gender,
+            address: user.address,
+            role: user.role,
+            isActive: user.isActive,
+          },
+          "manual_sync"
+        );
+        
+        if (result.success) {
+          toast.success("Profile synced successfully");
+        } else {
+          toast.error(result.message || "Sync failed");
+        }
+      }
+    } catch (error) {
+      console.error("Sync error:", error);
+      toast.error("Failed to sync profile");
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // Log dashboard rendering state
   useEffect(() => {
@@ -401,26 +449,37 @@ function DashboardContent() {
 
             {/* Application Status */}
             <Card>
-              <CardHeader className="flex flex-row items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5 text-green-600" />
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                  </div>
+                  <CardTitle className="text-lg">Application Status</CardTitle>
                 </div>
-                <CardTitle className="text-lg">Application Status</CardTitle>
+                <button
+                  onClick={handleRefreshAndSync}
+                  disabled={syncing}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                  title="Refresh profile and sync to CRM"
+                >
+                  <RefreshCw className={`w-4 h-4 text-gray-500 hover:text-amber-500 ${syncing ? 'animate-spin' : ''}`} />
+                </button>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex justify-between py-2 border-b border-gray-100">
+                <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
                   <span className="text-gray-500 text-sm">Current Status</span>
-                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-700">
-                    {(user?.applicationStatus || "pending").toUpperCase()}
+                  <Badge variant="secondary" className="bg-green-100 text-green-700">
+                    ACTIVE
                   </Badge>
                 </div>
-                <div className="flex justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-500 text-sm">CRM Sync</span>
-                  <span className="font-medium">
-                    {user?.crmSynced ? "✅ Synced" : "⏳ Pending Sync"}
+                <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                  <span className="text-gray-500 text-sm">DB Sync</span>
+                  <span className="font-medium flex items-center gap-1">
+                    <Database className="w-3 h-3" />
+                    {user?.crmSynced ? "✅ Synced" : "Synced to Firestore"}
                   </span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-gray-100">
+                <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
                   <span className="text-gray-500 text-sm">Account Created</span>
                   <span className="font-medium">{formatDate(user?.createdAt)}</span>
                 </div>

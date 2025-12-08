@@ -60,15 +60,16 @@ export function generateId(): string {
 // USER OPERATIONS
 // ============================================================================
 
-export async function createUser(userId: string, userData: Omit<User, "userId" | "createdAt">): Promise<User> {
+export async function createUser(userId: string, userData: Omit<User, "uid" | "userId" | "createdAt">): Promise<User> {
   if (!db) throw new Error("Database not initialized");
-  const user: User = {
+  const user = {
     ...userData,
-    userId,
+    uid: userId,           // Legacy field
+    userId,                // New schema field
     createdAt: serverTimestamp() as Timestamp,
     isActive: true,
     emailVerified: false,
-  };
+  } as User;
   
   await setDoc(doc(db, COLLECTIONS.USERS, userId), user);
   return user;
