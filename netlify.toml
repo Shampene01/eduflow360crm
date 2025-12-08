@@ -4,7 +4,17 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # Reduce function size
+  NEXT_PRIVATE_STANDALONE = "true"
 
 # Next.js requires the Netlify Next.js Runtime
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Function configuration to handle large bundles
+[functions]
+  node_bundler = "esbuild"
+  
+  # Increase timeout for cold starts
+  [functions."*"]
+    external_node_modules = ["firebase"]
