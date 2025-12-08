@@ -7,34 +7,32 @@
 
 import { DATAVERSE_USER_SYNC_URL } from "./firebase";
 import { User } from "./types";
-import { getRoleCodeFromName, RoleCode } from "./roleCodes";
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 export interface CRMSyncPayload {
-  userId: string;
-  email: string;
+  firebaseUserId: string;
   firstNames: string;
   surname: string;
-  roleCode: number;
-  phoneNumber?: string;
-  idNumber?: string;
-  dateOfBirth?: string;
-  gender?: "Male" | "Female" | "Other";
-  address?: {
-    street: string;
-    suburb?: string;
-    townCity: string;
-    province: string;
-    postalCode?: string;
-    country?: string;
-  };
+  email: string;
+  phoneNumber: string;
+  dateOfBirth: string;
+  idNumber: string;
+  gender: number;
+  country: string;
+  province: string;
+  townCity: string;
+  suburb: string;
+  street: string;
+  postalCode: string;
+  role: string;
+  marketingConsent: boolean;
   isActive: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-  syncSource: "registration" | "profile_update" | "manual_sync";
+  createdAt: string;
+  lastLoginAt: string;
+  profilePhotoUrl: string;
 }
 
 export interface CRMSyncResult {
@@ -52,12 +50,10 @@ export interface CRMSyncResult {
  * Sync user data to Power Automate Flow for D365 CRM
  * 
  * @param user - User data to sync
- * @param syncSource - Source of the sync (registration, profile_update, manual_sync)
  * @returns Promise<CRMSyncResult>
  */
 export async function syncUserToCRM(
-  user: Partial<User> & { userId: string; email: string; firstNames: string; surname: string },
-  syncSource: CRMSyncPayload["syncSource"] = "manual_sync"
+  user: Partial<User> & { userId: string; email: string; firstNames: string; surname: string }
 ): Promise<CRMSyncResult> {
   // Check if webhook URL is configured
   if (!DATAVERSE_USER_SYNC_URL) {
@@ -69,26 +65,36 @@ export async function syncUserToCRM(
   }
 
   try {
+    // Helper to convert gender string to integer (0 = Male, 1 = Female)
+    const getGenderCode = (gender: string | undefined): number => {
+      if (!gender) return 0;
+      const g = gender.toLowerCase();
+      if (g === "female" || g === "f") return 1;
+      return 0; // Male or default
+    };
 
-    // Convert role name to role code (default to PROVIDER if not found)
-    const roleCode = getRoleCodeFromName(user.role || "provider") ?? RoleCode.PROVIDER;
-
-    // Prepare payload for Power Automate
+    // Prepare payload for Power Automate (flattened structure matching profile sync)
     const payload: CRMSyncPayload = {
-      userId: user.userId,
-      email: user.email,
-      firstNames: user.firstNames,
-      surname: user.surname,
-      roleCode: roleCode,
-      phoneNumber: user.phoneNumber,
-      idNumber: user.idNumber,
-      dateOfBirth: user.dateOfBirth,
-      gender: user.gender,
-      address: user.address,
-      isActive: user.isActive ?? true,
+      firebaseUserId: String(user.userId || ""),
+      firstNames: String(user.firstNames || ""),
+      surname: String(user.surname || ""),
+      email: String(user.email || ""),
+      phoneNumber: String(user.phoneNumber || ""),
+      dateOfBirth: String(user.dateOfBirth || ""),
+      idNumber: String(user.idNumber || ""),
+      gender: getGenderCode(user.gender),
+      country: String(user.address?.country || "South Africa"),
+      province: String(user.address?.province || ""),
+      townCity: String(user.address?.townCity || ""),
+      suburb: String(user.address?.suburb || ""),
+      street: String(user.address?.street || ""),
+      postalCode: String(user.address?.postalCode || ""),
+      role: String(user.role || "provider"),
+      marketingConsent: Boolean(user.marketingConsent === true),
+      isActive: Boolean(user.isActive !== false),
       createdAt: user.createdAt ? formatTimestamp(user.createdAt) : new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      syncSource: syncSource,
+      lastLoginAt: new Date().toISOString(),
+      profilePhotoUrl: String(user.profilePhotoUrl || ""),
     };
 
     // Send to Power Automate webhook
@@ -137,11 +143,10 @@ export async function syncUserToCRM(
  * Use this for registration flow where we don't want to block the user
  */
 export function syncUserToCRMBackground(
-  user: Partial<User> & { userId: string; email: string; firstNames: string; surname: string },
-  syncSource: CRMSyncPayload["syncSource"] = "registration"
+  user: Partial<User> & { userId: string; email: string; firstNames: string; surname: string }
 ): void {
   // Fire and forget - don't await
-  syncUserToCRM(user, syncSource).catch(() => {});
+  syncUserToCRM(user).catch(() => {});
 }
 
 // ============================================================================

@@ -188,22 +188,20 @@ export default function RegisterPage() {
       });
 
       // 4. Sync user to CRM via Power Automate (background, non-blocking)
-      syncUserToCRMBackground(
-        {
-          userId,
-          email: formData.email,
-          firstNames: formData.firstNames,
-          surname: formData.surname,
-          phoneNumber: formData.phoneNumber || undefined,
-          idNumber: formData.idNumber || undefined,
-          dateOfBirth: formData.dateOfBirth || undefined,
-          gender: formData.gender as "Male" | "Female" | "Other" | undefined,
-          address: address,
-          role: "provider",
-          isActive: true,
-        },
-        "registration"
-      );
+      syncUserToCRMBackground({
+        userId,
+        email: formData.email,
+        firstNames: formData.firstNames,
+        surname: formData.surname,
+        phoneNumber: formData.phoneNumber || undefined,
+        idNumber: formData.idNumber || undefined,
+        dateOfBirth: formData.dateOfBirth || undefined,
+        gender: formData.gender as "Male" | "Female" | "Other" | undefined,
+        address: address,
+        role: "provider",
+        isActive: true,
+        marketingConsent: formData.marketingConsent,
+      });
 
       // Redirect to dashboard
       router.push("/dashboard");
