@@ -53,12 +53,13 @@ const yearMap: Record<string, string> = {
 };
 
 function DashboardContent() {
-  const { user } = useAuth();
+  const { user, isFullyLoaded, profileLoading } = useAuth();
   const router = useRouter();
   const [providerStatus, setProviderStatus] = useState<AccommodationProvider | null>(null);
   const [loadingProvider, setLoadingProvider] = useState(true);
 
   // Check if user has a provider application
+  // This hook must be called unconditionally (before any early returns)
   useEffect(() => {
     const checkProviderStatus = async () => {
       const uid = user?.userId || user?.uid;
@@ -77,6 +78,44 @@ function DashboardContent() {
     };
     checkProviderStatus();
   }, [user?.userId, user?.uid]);
+
+  // Show loading skeleton if user data is not yet available
+  // This must come AFTER all hooks to comply with React rules
+  if (!isFullyLoaded || profileLoading || !user) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <DashboardHeader />
+        <div className="flex">
+          <Sidebar userType="provider" />
+          <main className="flex-1 p-8 overflow-y-auto">
+            {/* Loading skeleton */}
+            <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl p-8 mb-8 animate-pulse">
+              <div className="h-8 bg-gray-700 rounded w-1/3 mb-2"></div>
+              <div className="h-4 bg-gray-700 rounded w-1/2"></div>
+            </div>
+            <div className="grid md:grid-cols-2 gap-6 mb-8">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i} className="animate-pulse">
+                  <CardHeader className="flex flex-row items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-gray-200 dark:bg-gray-700"></div>
+                    <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {[1, 2, 3].map((j) => (
+                      <div key={j} className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   // Check if user has provider role or application
   const hasProviderRole = user?.roles?.includes("provider") || user?.userType === "provider";

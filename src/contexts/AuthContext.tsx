@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<any | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);           // Auth state loading
-  const [profileLoading, setProfileLoading] = useState(false);  // Profile fetch loading
+  const [profileLoading, setProfileLoading] = useState(true);  // Profile fetch loading - start true to prevent flash
   const [profileError, setProfileError] = useState<string | null>(null);
 
   // Computed: fully loaded only when we have both firebase user AND user profile

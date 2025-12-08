@@ -57,7 +57,7 @@ interface DashboardStats {
 }
 
 function ProviderDashboardContent() {
-  const { user } = useAuth();
+  const { user, isFullyLoaded, profileLoading } = useAuth();
   const router = useRouter();
   const [providerStatus, setProviderStatus] = useState<AccommodationProvider | null>(null);
   const [providerAddress, setProviderAddress] = useState<Address | null>(null);
@@ -178,6 +178,56 @@ function ProviderDashboardContent() {
   // Helper variables for contacts
   const primaryContact = providerContacts.find(c => c.isPrimary);
   const secondaryContact = providerContacts.find(c => !c.isPrimary);
+
+  // Show loading skeleton if user data is not yet available
+  // This must come AFTER all hooks to comply with React rules
+  if (!isFullyLoaded || profileLoading || !user || loadingProvider) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <DashboardHeader />
+        <div className="flex">
+          <Sidebar userType="provider" />
+          <main className="flex-1 p-8 overflow-y-auto">
+            {/* Loading skeleton */}
+            <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-sm p-8 mb-8 animate-pulse">
+              <div className="h-8 bg-gray-700 rounded w-1/3 mb-3"></div>
+              <div className="flex gap-6">
+                <div className="h-4 bg-gray-700 rounded w-32"></div>
+                <div className="h-4 bg-gray-700 rounded w-48"></div>
+                <div className="h-4 bg-gray-700 rounded w-36"></div>
+              </div>
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i} className="animate-pulse dark:bg-gray-800 dark:border-gray-700">
+                  <CardContent className="p-6">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-2"></div>
+                    <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <Card className="animate-pulse dark:bg-gray-800 dark:border-gray-700">
+              <CardHeader>
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-4">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <div key={i}>
+                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20 mb-2"></div>
+                      <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </main>
+        </div>
+        <DashboardFooter />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

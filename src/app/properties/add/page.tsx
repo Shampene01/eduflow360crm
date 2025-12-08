@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { getProviderByUserId, createProperty, createAddress } from "@/lib/db";
+import { db } from "@/lib/firebase";
 import { AccommodationProvider } from "@/lib/schema";
 
 const provinces = [

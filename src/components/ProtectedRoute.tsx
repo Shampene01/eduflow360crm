@@ -38,6 +38,7 @@ export function ProtectedRoute({
   const [retrying, setRetrying] = useState(false);
 
   // Combined loading state: wait for both auth AND profile to be ready
+  // Use isFullyLoaded to ensure user profile is available before rendering children
   const isLoading = loading || profileLoading;
 
   useEffect(() => {
@@ -79,7 +80,21 @@ export function ProtectedRoute({
   };
 
   // Show loading while auth state OR profile is loading
+  // This prevents flash of empty content
   if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+          <p className="text-gray-600 dark:text-gray-400">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Additional safety: if we're past loading but user is still null (shouldn't happen normally)
+  // This catches edge cases where the state updates are out of sync
+  if (firebaseUser && !user && !profileError) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="flex flex-col items-center gap-4">
