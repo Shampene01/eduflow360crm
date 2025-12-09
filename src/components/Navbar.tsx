@@ -71,7 +71,7 @@ export function Navbar({ variant = "dark" }: NavbarProps) {
               Pricing
             </Link>
             <Link
-              href="#contact"
+              href="/contact"
               className={`font-medium transition-colors ${
                 isDark
                   ? "text-white/80 hover:text-white"
@@ -131,7 +131,7 @@ export function Navbar({ variant = "dark" }: NavbarProps) {
                 Pricing
               </Link>
               <Link
-                href="#contact"
+                href="/contact"
                 className="text-slate-700 hover:bg-slate-100 font-medium py-3 px-4 rounded-lg transition-colors"
                 onClick={() => setMobileMenuOpen(false)}
               >
