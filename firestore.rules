@@ -2,130 +2,299 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // ============================================================================
-    // HELPER FUNCTIONS
-    // ============================================================================
+    // ========================================================================
+    // HELPER FUNCTIONS (SAFE)
+    // ========================================================================
     
     function isAuthenticated() {
       return request.auth != null;
     }
     
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function getUserData() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) 
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data 
+        : {};
+    }
+    
+    function getUserRole() {
+      let data = getUserData();
+      return data.role != null ? data.role : "none";
+    }
+    
+    function getUserRoles() {
+      let data = getUserData();
+      return data.roles != null ? data.roles : [];
+    }
+    
+    function getUserRoleCode() {
+      let data = getUserData();
+      return data.roleCode != null ? data.roleCode : 0;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserRoleCode() >= 3;
+    }
+    
+    function isProvider() {
+      return isAuthenticated() && (
+        getUserRole() == "provider" || 
+        "provider" in getUserRoles()
+      );
     }
     
     function isProviderOwner(providerId) {
-      return isAuthenticated() && 
+      return isAuthenticated() &&
         exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
         get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
     }
     
-    // ============================================================================
-    // USER COLLECTION
-    // ============================================================================
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isOwner(userId);
+    function isPropertyOwner(propertyId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/properties/$(propertyId)) &&
+        isProviderOwner(get(/databases/$(database)/documents/properties/$(propertyId)).data.providerId);
     }
     
-    // ============================================================================
-    // ADDRESS COLLECTION
-    // ============================================================================
+    // ========================================================================
+    // 1. USERS
+    // ========================================================================
+    match /users/{userId} {
+      // Read: own profile or admin
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Create: self-registration only
+      allow create: if isOwner(userId);
+      
+      // Update: admin can do anything
+      allow update: if isAdmin();
+      
+      // Update: owner can update non-sensitive fields only
+      allow update: if isOwner(userId) && 
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['role', 'roleCode', 'roles', 'isActive', 'emailVerified']);
+      
+      // Delete: admin only
+      allow delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // 2. ADDRESSES
+    // ========================================================================
     match /addresses/{addressId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
-    }
-    
-    // ============================================================================
-    // ACCOMMODATION PROVIDERS
-    // ============================================================================
-    match /accommodationProviders/{providerId} {
-      allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update, delete: if isProviderOwner(providerId);
+      allow update, delete: if isAdmin();
+    }
+    
+    // ========================================================================
+    // 3. ACCOMMODATION PROVIDERS
+    // ========================================================================
+    match /accommodationProviders/{providerId} {
+      // Read: owner or admin
+      allow read: if isOwner(resource.data.userId) || isAdmin();
       
-      // ========================================================================
-      // PROPERTIES SUBCOLLECTION
-      // ========================================================================
-      match /properties/{propertyId} {
-        allow read: if isAuthenticated();
-        allow create: if isProviderOwner(providerId);
-        allow update, delete: if isProviderOwner(providerId);
-        
-        // ======================================================================
-        // PROPERTY SUBCOLLECTIONS (rooms, beds, images, documents)
-        // ======================================================================
-        match /rooms/{roomId} {
-          allow read: if isAuthenticated();
-          allow write: if isProviderOwner(providerId);
-        }
-        
-        match /beds/{bedId} {
-          allow read: if isAuthenticated();
-          allow write: if isProviderOwner(providerId);
-        }
-        
-        match /images/{imageId} {
-          allow read: if isAuthenticated();
-          allow write: if isProviderOwner(providerId);
-        }
-        
-        match /documents/{documentId} {
-          allow read: if isAuthenticated();
-          allow write: if isProviderOwner(providerId);
-        }
-      }
+      // Create: authenticated, self-owned, must be Pending
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.approvalStatus == "Pending";
+      
+      // Update: admin can do anything
+      allow update: if isAdmin();
+      
+      // Update: owner can update non-approval fields only
+      allow update: if isOwner(resource.data.userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['approvalStatus', 'approvedBy', 'approvalTimestamp', 'rejectionReason', 
+                   'nsfasAccredited', 'nsfasAccreditedSince', 'accreditationExpiry']);
+      
+      // Delete: admin only
+      allow delete: if isAdmin();
     }
     
-    // ============================================================================
-    // PROVIDER CONTACT PERSONS
-    // ============================================================================
+    // ========================================================================
+    // 4. PROVIDER CONTACT PERSONS
+    // ========================================================================
     match /providerContactPersons/{contactId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isProviderOwner(resource.data.providerId) || isAdmin();
+      
+      allow create: if isProviderOwner(request.resource.data.providerId);
+      
+      allow update, delete: if isProviderOwner(resource.data.providerId) || isAdmin();
     }
     
-    // ============================================================================
-    // PROVIDER DOCUMENTS
-    // ============================================================================
+    // ========================================================================
+    // 5. PROVIDER DOCUMENTS
+    // ========================================================================
     match /providerDocuments/{documentId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isProviderOwner(resource.data.providerId) || isAdmin();
+      
+      allow create: if isProviderOwner(request.resource.data.providerId) &&
+        request.resource.data.verified == false;
+      
+      // Admin can update anything
+      allow update: if isAdmin();
+      
+      // Owner can update non-verification fields only
+      allow update: if isProviderOwner(resource.data.providerId) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['verified', 'verifiedAt', 'verifiedBy', 'verificationNotes']);
+      
+      // Delete: owner (if not verified) or admin
+      allow delete: if isAdmin();
+      allow delete: if isProviderOwner(resource.data.providerId) && 
+        resource.data.verified == false;
     }
     
-    // ============================================================================
-    // ROOM CONFIGURATIONS
-    // ============================================================================
+    // ========================================================================
+    // 6. PROPERTIES
+    // ========================================================================
+    match /properties/{propertyId} {
+      // Public read: active properties only
+      allow read: if resource.data.status == "Active";
+      
+      // Authenticated read: owner or admin
+      allow read: if isProviderOwner(resource.data.providerId) || isAdmin();
+      
+      // Create: provider owner only
+      allow create: if isProviderOwner(request.resource.data.providerId);
+      
+      // Update: admin can do anything
+      allow update: if isAdmin();
+      
+      // Update: owner can update non-approval fields only
+      allow update: if isProviderOwner(resource.data.providerId) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['nsfasApproved', 'status']);
+      
+      // Delete: owner (if Draft) or admin
+      allow delete: if isAdmin();
+      allow delete: if isProviderOwner(resource.data.providerId) && 
+        resource.data.status == "Draft";
+    }
+    
+    // ========================================================================
+    // 7. ROOM CONFIGURATIONS
+    // ========================================================================
     match /roomConfigurations/{configId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      
+      allow create: if isPropertyOwner(request.resource.data.propertyId);
+      
+      allow update, delete: if isPropertyOwner(resource.data.propertyId) || isAdmin();
     }
     
-    // ============================================================================
-    // STUDENTS
-    // ============================================================================
+    // ========================================================================
+    // 8. PROPERTY ROOMS
+    // ========================================================================
+    match /propertyRooms/{roomId} {
+      allow read: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      
+      allow create: if isPropertyOwner(request.resource.data.propertyId);
+      
+      allow update, delete: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+    }
+    
+    // ========================================================================
+    // 9. PROPERTY BEDS
+    // ========================================================================
+    match /propertyBeds/{bedId} {
+      allow read: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      
+      allow create: if isPropertyOwner(request.resource.data.propertyId);
+      
+      allow update, delete: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+    }
+    
+    // ========================================================================
+    // 10. PROPERTY DOCUMENTS
+    // ========================================================================
+    match /propertyDocuments/{documentId} {
+      allow read: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      
+      allow create: if isPropertyOwner(request.resource.data.propertyId) &&
+        request.resource.data.verified == false;
+      
+      // Admin can update anything
+      allow update: if isAdmin();
+      
+      // Owner can update non-verification fields only
+      allow update: if isPropertyOwner(resource.data.propertyId) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['verified', 'verifiedAt', 'verifiedBy']);
+      
+      allow delete: if isAdmin();
+      allow delete: if isPropertyOwner(resource.data.propertyId) && 
+        resource.data.verified == false;
+    }
+    
+    // ========================================================================
+    // 11. PROPERTY IMAGES
+    // ========================================================================
+    match /propertyImages/{imageId} {
+      // Read: owner, admin, or if property is active
+      allow read: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      allow read: if exists(/databases/$(database)/documents/properties/$(resource.data.propertyId)) &&
+        get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.status == "Active";
+      
+      allow create: if isPropertyOwner(request.resource.data.propertyId);
+      
+      allow update, delete: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+    }
+    
+    // ========================================================================
+    // 12. STUDENTS
+    // ========================================================================
     match /students/{studentId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      // Read: own record (if linked), admin, or provider
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin() || isProvider();
+      
+      // Create: provider or admin
+      allow create: if isProvider() || isAdmin();
+      
+      // Update/Delete: admin only
+      allow update, delete: if isAdmin();
     }
     
-    // ============================================================================
-    // STUDENT PROPERTY ASSIGNMENTS
-    // ============================================================================
+    // ========================================================================
+    // 13. STUDENT PROPERTY ASSIGNMENTS
+    // ========================================================================
     match /studentPropertyAssignments/{assignmentId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      
+      allow create: if isPropertyOwner(request.resource.data.propertyId) || isAdmin();
+      
+      allow update, delete: if isPropertyOwner(resource.data.propertyId) || isAdmin();
     }
     
-    // ============================================================================
-    // LEGACY COLLECTIONS
-    // ============================================================================
+    // ========================================================================
+    // LEGACY: INVOICES
+    // ========================================================================
     match /invoices/{invoiceId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated() &&
+        exists(/databases/$(database)/documents/accommodationProviders/$(resource.data.providerId)) &&
+        (isProviderOwner(resource.data.providerId) || isAdmin());
+      
+      allow create: if isProviderOwner(request.resource.data.providerId) || isAdmin();
+      
+      allow update, delete: if isProviderOwner(resource.data.providerId) || isAdmin();
     }
     
+    // ========================================================================
+    // LEGACY: TICKETS
+    // ========================================================================
     match /tickets/{ticketId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      
+      allow update: if isOwner(resource.data.userId) || isAdmin();
+      
+      allow delete: if isAdmin();
     }
   }
 }

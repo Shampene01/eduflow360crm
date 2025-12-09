@@ -15,6 +15,7 @@ import {
   Building2,
   CheckCircle,
   Clock,
+  Upload,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardFooter } from "@/components/DashboardFooter";
@@ -33,6 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { BulkImportDialog } from "@/components/students/BulkImportDialog";
 
 interface StudentData {
   id: string;
@@ -54,44 +56,45 @@ function StudentsContent() {
   const [properties, setProperties] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
+
+  const fetchData = async () => {
+    const uid = user?.userId || user?.uid;
+    if (!uid || !db) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Fetch provider's properties
+      const providersQuery = query(
+        collection(db, "accommodationProviders"),
+        where("userId", "==", uid)
+      );
+      const providerSnap = await getDocs(providersQuery);
+
+      if (!providerSnap.empty) {
+        const providerData = providerSnap.docs[0].data();
+        const providerId = providerData.providerId || providerSnap.docs[0].id;
+        const propertiesQuery = query(
+          collection(db, "properties"),
+          where("providerId", "==", providerId)
+        );
+        const propertiesSnap = await getDocs(propertiesQuery);
+        setProperties(propertiesSnap.docs.map(doc => doc.id));
+      }
+
+      // In a real app, you'd query students allocated to this provider's properties
+      // For now, we'll show an empty state
+      setStudents([]);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      const uid = user?.userId || user?.uid;
-      if (!uid || !db) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // Fetch provider's properties
-        const providersQuery = query(
-          collection(db, "accommodationProviders"),
-          where("userId", "==", uid)
-        );
-        const providerSnap = await getDocs(providersQuery);
-        
-        if (!providerSnap.empty) {
-          const providerData = providerSnap.docs[0].data();
-          const providerId = providerData.providerId || providerSnap.docs[0].id;
-          const propertiesQuery = query(
-            collection(db, "properties"),
-            where("providerId", "==", providerId)
-          );
-          const propertiesSnap = await getDocs(propertiesQuery);
-          setProperties(propertiesSnap.docs.map(doc => doc.id));
-        }
-
-        // In a real app, you'd query students allocated to this provider's properties
-        // For now, we'll show an empty state
-        setStudents([]);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, [user?.userId, user?.uid]);
 
@@ -116,14 +119,25 @@ function StudentsContent() {
               <h1 className="text-2xl font-bold text-gray-900">Students</h1>
               <p className="text-gray-500">Manage students allocated to your properties</p>
             </div>
-            <Button 
-              className="bg-amber-500 hover:bg-amber-600 text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={properties.length === 0}
-              title={properties.length === 0 ? "Add a property first before adding students" : "Add a new student"}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Student
-            </Button>
+            <div className="flex gap-2">
+              {(user?.role === "provider" || user?.role === "admin") && (
+                <Button
+                  onClick={() => setBulkImportOpen(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Bulk Import
+                </Button>
+              )}
+              <Button
+                className="bg-amber-500 hover:bg-amber-600 text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={properties.length === 0}
+                title={properties.length === 0 ? "Add a property first before adding students" : "Add a new student"}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Student
+              </Button>
+            </div>
           </div>
 
           {/* Stats */}
@@ -314,6 +328,16 @@ function StudentsContent() {
         </main>
       </div>
       <DashboardFooter />
+
+      {/* Bulk Import Dialog */}
+      <BulkImportDialog
+        open={bulkImportOpen}
+        onOpenChange={setBulkImportOpen}
+        onImportComplete={() => {
+          // Refresh student list after import
+          fetchData();
+        }}
+      />
     </div>
   );
 }

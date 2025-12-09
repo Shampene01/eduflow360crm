@@ -363,7 +363,7 @@ function ProviderApplicationContent() {
       }
 
       for (const doc of documentUploads) {
-        const path = `providers/${provider.providerId}/documents/${doc.type}_${Date.now()}`;
+        const path = `provider-documents/${uid}/${doc.type}_${Date.now()}`;
         const fileUrl = await uploadFile(doc.file, path);
         
         await createProviderDocument({
