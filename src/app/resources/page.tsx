@@ -36,169 +36,167 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getPlatformResources } from "@/lib/db";
 import { PlatformResource } from "@/lib/schema";
 
-// Mock data for resources (keeping for backwards compatibility)
-const guides = [
+// Expected resources - these define what resources SHOULD exist
+// They will be matched against uploaded platform resources
+interface ExpectedResource {
+  id: string;
+  title: string;
+  description: string;
+  format: string;
+  category: "Guides & Tutorials" | "Templates & Forms" | "Policies & Regulations";
+  subCategory: string;
+}
+
+const expectedGuides: ExpectedResource[] = [
   {
-    id: "1",
+    id: "guide-1",
     title: "How to Onboard Students",
     description: "Complete guide to registering and onboarding new students to your property",
-    type: "pdf",
-    category: "Onboarding",
-    duration: "15 min read",
-    isNew: true,
+    format: "PDF",
+    category: "Guides & Tutorials",
+    subCategory: "Onboarding",
   },
   {
-    id: "2",
+    id: "guide-2",
     title: "How to Upload Compliance Documents",
     description: "Step-by-step instructions for uploading and managing compliance documentation",
-    type: "pdf",
-    category: "Compliance",
-    duration: "10 min read",
-    isNew: false,
+    format: "PDF",
+    category: "Guides & Tutorials",
+    subCategory: "Compliance",
   },
   {
-    id: "3",
+    id: "guide-3",
     title: "Fire Safety Compliance Guide",
     description: "Essential fire safety requirements and compliance checklist for accommodation providers",
-    type: "pdf",
-    category: "Safety",
-    duration: "20 min read",
-    isNew: false,
+    format: "PDF",
+    category: "Guides & Tutorials",
+    subCategory: "Safety",
   },
   {
-    id: "4",
+    id: "guide-4",
     title: "Property Registration Walkthrough",
     description: "Video tutorial on how to register your property on the platform",
-    type: "video",
-    category: "Onboarding",
-    duration: "8 min",
-    isNew: true,
+    format: "VIDEO",
+    category: "Guides & Tutorials",
+    subCategory: "Onboarding",
   },
   {
-    id: "5",
+    id: "guide-5",
     title: "Invoice Submission Tutorial",
     description: "Learn how to create and submit invoices for student accommodation",
-    type: "video",
-    category: "Billing",
-    duration: "12 min",
-    isNew: false,
+    format: "VIDEO",
+    category: "Guides & Tutorials",
+    subCategory: "Billing",
   },
   {
-    id: "6",
+    id: "guide-6",
     title: "Room Configuration Guide",
     description: "How to set up and manage room configurations for your properties",
-    type: "pdf",
-    category: "Property Management",
-    duration: "8 min read",
-    isNew: false,
+    format: "PDF",
+    category: "Guides & Tutorials",
+    subCategory: "Property Management",
   },
 ];
 
-const templates = [
+const expectedTemplates: ExpectedResource[] = [
   {
-    id: "1",
+    id: "template-1",
     title: "Lease Agreement Template",
     description: "Standard lease agreement template for student accommodation",
     format: "DOCX",
-    size: "245 KB",
-    category: "Legal",
-    downloads: 1250,
+    category: "Templates & Forms",
+    subCategory: "Legal",
   },
   {
-    id: "2",
+    id: "template-2",
     title: "Property Inspection Checklist",
     description: "Comprehensive checklist for property inspections and compliance",
     format: "PDF",
-    size: "180 KB",
-    category: "Compliance",
-    downloads: 890,
+    category: "Templates & Forms",
+    subCategory: "Compliance",
   },
   {
-    id: "3",
+    id: "template-3",
     title: "Financial Statement Template",
     description: "Template for submitting financial documentation to NSFAS",
     format: "XLSX",
-    size: "120 KB",
-    category: "Financial",
-    downloads: 650,
+    category: "Templates & Forms",
+    subCategory: "Financial",
   },
   {
-    id: "4",
+    id: "template-4",
     title: "Incident Report Form",
     description: "Standard form for reporting incidents at your property",
     format: "PDF",
-    size: "95 KB",
-    category: "Safety",
-    downloads: 420,
+    category: "Templates & Forms",
+    subCategory: "Safety",
   },
   {
-    id: "5",
+    id: "template-5",
     title: "Room Configuration Template",
     description: "Template for documenting room layouts and configurations",
     format: "XLSX",
-    size: "85 KB",
-    category: "Property Management",
-    downloads: 380,
+    category: "Templates & Forms",
+    subCategory: "Property Management",
   },
   {
-    id: "6",
+    id: "template-6",
     title: "Student Check-in/Check-out Form",
     description: "Form for documenting student arrivals and departures",
     format: "PDF",
-    size: "75 KB",
-    category: "Operations",
-    downloads: 720,
+    category: "Templates & Forms",
+    subCategory: "Operations",
   },
 ];
 
-const policies = [
+const expectedPolicies: ExpectedResource[] = [
   {
-    id: "1",
+    id: "policy-1",
     title: "NSFAS Accreditation Policy 2025",
     description: "Official NSFAS accreditation requirements and guidelines for accommodation providers",
-    effectiveDate: "January 2025",
-    category: "Accreditation",
-    isUpdated: true,
+    format: "PDF",
+    category: "Policies & Regulations",
+    subCategory: "Accreditation",
   },
   {
-    id: "2",
+    id: "policy-2",
     title: "Fire & Safety Regulations",
     description: "National fire safety regulations applicable to student accommodation",
-    effectiveDate: "March 2024",
-    category: "Safety",
-    isUpdated: false,
+    format: "PDF",
+    category: "Policies & Regulations",
+    subCategory: "Safety",
   },
   {
-    id: "3",
+    id: "policy-3",
     title: "Occupancy Compliance Rules",
     description: "Guidelines for maximum occupancy and room allocation standards",
-    effectiveDate: "June 2024",
-    category: "Compliance",
-    isUpdated: false,
+    format: "PDF",
+    category: "Policies & Regulations",
+    subCategory: "Compliance",
   },
   {
-    id: "4",
+    id: "policy-4",
     title: "Building Safety Standards",
     description: "Structural and building safety requirements for student housing",
-    effectiveDate: "February 2024",
-    category: "Safety",
-    isUpdated: false,
+    format: "PDF",
+    category: "Policies & Regulations",
+    subCategory: "Safety",
   },
   {
-    id: "5",
+    id: "policy-5",
     title: "Student Rights & Responsibilities",
     description: "Policy document outlining student rights and provider obligations",
-    effectiveDate: "January 2024",
-    category: "Legal",
-    isUpdated: false,
+    format: "PDF",
+    category: "Policies & Regulations",
+    subCategory: "Legal",
   },
   {
-    id: "6",
+    id: "policy-6",
     title: "Data Protection & Privacy Policy",
     description: "POPIA compliance guidelines for handling student information",
-    effectiveDate: "April 2024",
-    category: "Legal",
-    isUpdated: true,
+    format: "PDF",
+    category: "Policies & Regulations",
+    subCategory: "Legal",
   },
 ];
 
@@ -336,7 +334,9 @@ function ResourcesContent() {
   useEffect(() => {
     const fetchResources = async () => {
       try {
+        console.log("Fetching platform resources...");
         const resources = await getPlatformResources();
+        console.log("Fetched resources:", resources);
         setPlatformResources(resources);
       } catch (error) {
         console.error("Error fetching resources:", error);
@@ -348,10 +348,46 @@ function ResourcesContent() {
     fetchResources();
   }, []);
 
-  // Categorize resources
-  const guidesAndTutorials = platformResources.filter(r => r.category === "Guides & Tutorials" && r.isActive);
-  const templatesAndForms = platformResources.filter(r => r.category === "Templates & Forms" && r.isActive);
-  const policiesAndRegulations = platformResources.filter(r => r.category === "Policies & Regulations" && r.isActive);
+  // Helper function to find uploaded resource matching an expected resource
+  // Matches by category and title similarity (case-insensitive)
+  const findUploadedResource = (expected: ExpectedResource): PlatformResource | undefined => {
+    // Debug: log all platform resources
+    console.log("Platform resources:", platformResources);
+    console.log("Looking for:", expected.title, "in category:", expected.category);
+    
+    // First try exact category match
+    const categoryMatches = platformResources.filter(
+      (r) => r.isActive !== false && r.category === expected.category
+    );
+    console.log("Category matches:", categoryMatches);
+    
+    // Then find best title match - check if titles share key words
+    const expectedWords = expected.title.toLowerCase().split(" ").filter(w => w.length > 2);
+    
+    const match = categoryMatches.find((r) => {
+      const uploadedTitle = r.title.toLowerCase();
+      const uploadedWords = uploadedTitle.split(" ").filter(w => w.length > 2);
+      
+      // Match if any significant word from uploaded title appears in expected title
+      // OR any significant word from expected title appears in uploaded title
+      const hasCommonWord = uploadedWords.some(word => 
+        expectedWords.some(expWord => expWord.includes(word) || word.includes(expWord))
+      );
+      
+      console.log(`Comparing "${uploadedTitle}" with "${expected.title.toLowerCase()}" - hasCommonWord:`, hasCommonWord);
+      return hasCommonWord;
+    });
+    
+    console.log("Match found:", match);
+    return match;
+  };
+
+  // Helper to format file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -436,101 +472,74 @@ function ResourcesContent() {
                 </div>
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {/* Display platform resources first */}
-                  {guidesAndTutorials
-                    .filter(
-                      (resource) =>
-                        resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        resource.description.toLowerCase().includes(searchTerm.toLowerCase())
-                    )
-                    .map((resource) => (
-                      <Card key={resource.resourceId} className="hover:shadow-lg transition-shadow cursor-pointer">
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                              resource.fileType === "video" ? "bg-red-100" : "bg-blue-100"
-                            }`}>
-                              {resource.fileType === "video" ? (
-                                <Play className="w-6 h-6 text-red-600" />
-                              ) : (
-                                <FileText className="w-6 h-6 text-blue-600" />
-                              )}
-                            </div>
-                            {resource.isNew && (
-                              <Badge className="bg-green-500">New</Badge>
-                            )}
-                          </div>
-                          <h3 className="font-semibold text-gray-900 mb-2">{resource.title}</h3>
-                          <p className="text-sm text-gray-500 mb-4 line-clamp-2">{resource.description}</p>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline">{resource.subCategory}</Badge>
-                              {resource.duration && (
-                                <span className="text-xs text-gray-400">{resource.duration}</span>
-                              )}
-                            </div>
-                            <Button variant="ghost" size="sm" asChild>
-                              <a href={resource.fileUrl} target="_blank" rel="noopener noreferrer">
-                                {resource.fileType === "video" ? (
-                                  <>
-                                    <Play className="w-4 h-4 mr-1" />
-                                    Watch
-                                  </>
-                                ) : (
-                                  <>
-                                    <Download className="w-4 h-4 mr-1" />
-                                    Download
-                                  </>
-                                )}
-                              </a>
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-
-                  {/* Display mock data for backwards compatibility */}
-                  {guides
+                  {/* Display expected guides with upload status */}
+                  {expectedGuides
                     .filter(
                       (guide) =>
                         guide.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         guide.description.toLowerCase().includes(searchTerm.toLowerCase())
                     )
-                    .map((guide) => (
-                    <Card key={guide.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                            guide.type === "video" ? "bg-red-100" : "bg-blue-100"
-                          }`}>
-                            {guide.type === "video" ? (
-                              <Play className="w-6 h-6 text-red-600" />
-                            ) : (
-                              <FileText className="w-6 h-6 text-blue-600" />
-                            )}
-                          </div>
-                          {guide.isNew && (
-                            <Badge className="bg-green-500">New</Badge>
-                          )}
-                        </div>
-                        <h3 className="font-semibold text-gray-900 mb-2">{guide.title}</h3>
-                        <p className="text-sm text-gray-500 mb-4 line-clamp-2">{guide.description}</p>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">{guide.category}</Badge>
-                            <span className="text-xs text-gray-400">{guide.duration}</span>
-                          </div>
-                          <Button variant="ghost" size="sm">
-                            {guide.type === "video" ? (
-                              <Play className="w-4 h-4" />
-                            ) : (
-                              <ExternalLink className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                    .map((guide) => {
+                      const uploadedResource = findUploadedResource(guide);
+                      const isUploaded = !!uploadedResource;
+                      const isVideo = guide.format === "VIDEO";
+                      
+                      return (
+                        <Card key={guide.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                          <CardContent className="p-6">
+                            <div className="flex items-start justify-between mb-4">
+                              <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                                !isUploaded ? "bg-gray-100" : isVideo ? "bg-red-100" : "bg-blue-100"
+                              }`}>
+                                {isVideo ? (
+                                  <Play className={`w-6 h-6 ${isUploaded ? "text-red-600" : "text-gray-400"}`} />
+                                ) : (
+                                  <FileText className={`w-6 h-6 ${isUploaded ? "text-blue-600" : "text-gray-400"}`} />
+                                )}
+                              </div>
+                              {!isUploaded && (
+                                <Badge className="bg-orange-100 text-orange-600">Pending</Badge>
+                              )}
+                            </div>
+                            <h3 className={`font-semibold mb-2 ${isUploaded ? "text-gray-900" : "text-gray-500"}`}>
+                              {uploadedResource?.title || guide.title}
+                            </h3>
+                            <p className="text-sm text-gray-500 mb-4 line-clamp-2">
+                              {uploadedResource?.description || guide.description}
+                            </p>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline">{guide.subCategory}</Badge>
+                                {isUploaded && uploadedResource?.duration && (
+                                  <span className="text-xs text-gray-400">{uploadedResource.duration}</span>
+                                )}
+                              </div>
+                              {isUploaded ? (
+                                <Button variant="ghost" size="sm" asChild>
+                                  <a href={uploadedResource?.fileUrl} target="_blank" rel="noopener noreferrer">
+                                    {isVideo ? (
+                                      <>
+                                        <Play className="w-4 h-4 mr-1" />
+                                        Watch
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Download className="w-4 h-4 mr-1" />
+                                        Download
+                                      </>
+                                    )}
+                                  </a>
+                                </Button>
+                              ) : (
+                                <Button variant="ghost" size="sm" disabled className="text-gray-400">
+                                  <Clock className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                 </div>
               )}
             </TabsContent>
@@ -544,71 +553,74 @@ function ResourcesContent() {
                 </div>
               ) : (
                 <div className="grid md:grid-cols-2 gap-4">
-                  {/* Display platform resources first */}
-                  {templatesAndForms
-                    .filter(
-                      (resource) =>
-                        resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        resource.description.toLowerCase().includes(searchTerm.toLowerCase())
-                    )
-                    .map((resource) => (
-                      <Card key={resource.resourceId} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                              <FileDown className="w-6 h-6 text-amber-600" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-gray-900 truncate">{resource.title}</h3>
-                              <p className="text-sm text-gray-500 truncate">{resource.description}</p>
-                              <div className="flex items-center gap-3 mt-2">
-                                <Badge variant="outline" className="text-xs">{resource.fileType.toUpperCase()}</Badge>
-                                <Badge variant="outline" className="text-xs">{resource.subCategory}</Badge>
-                                <span className="text-xs text-gray-400">{resource.downloadCount} downloads</span>
-                              </div>
-                            </div>
-                            <Button className="bg-amber-500 hover:bg-amber-600 text-gray-900 flex-shrink-0" asChild>
-                              <a href={resource.fileUrl} target="_blank" rel="noopener noreferrer">
-                                <Download className="w-4 h-4 mr-2" />
-                                Download
-                              </a>
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-
-                  {/* Display mock data for backwards compatibility */}
-                  {templates
+                  {/* Display expected templates with upload status */}
+                  {expectedTemplates
                     .filter(
                       (template) =>
                         template.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         template.description.toLowerCase().includes(searchTerm.toLowerCase())
                     )
-                    .map((template) => (
-                    <Card key={template.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                            <FileDown className="w-6 h-6 text-amber-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-gray-900 truncate">{template.title}</h3>
-                            <p className="text-sm text-gray-500 truncate">{template.description}</p>
-                            <div className="flex items-center gap-3 mt-2">
-                              <Badge variant="outline" className="text-xs">{template.format}</Badge>
-                              <span className="text-xs text-gray-400">{template.size}</span>
-                              <span className="text-xs text-gray-400">{template.downloads} downloads</span>
+                    .map((template) => {
+                      const uploadedResource = findUploadedResource(template);
+                      const isUploaded = !!uploadedResource;
+                      
+                      return (
+                        <Card key={template.id} className="hover:shadow-md transition-shadow">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                isUploaded ? "bg-amber-100" : "bg-gray-100"
+                              }`}>
+                                <FileDown className={`w-6 h-6 ${isUploaded ? "text-amber-600" : "text-gray-400"}`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h3 className={`font-semibold truncate ${isUploaded ? "text-gray-900" : "text-gray-500"}`}>
+                                  {uploadedResource?.title || template.title}
+                                </h3>
+                                <p className="text-sm text-gray-500 truncate">
+                                  {uploadedResource?.description || template.description}
+                                </p>
+                                <div className="flex items-center gap-3 mt-2">
+                                  <Badge variant="outline" className="text-xs">
+                                    {uploadedResource?.fileType?.toUpperCase() || template.format}
+                                  </Badge>
+                                  {isUploaded && uploadedResource?.fileSize && (
+                                    <span className="text-xs text-gray-400">
+                                      {formatFileSize(uploadedResource.fileSize)}
+                                    </span>
+                                  )}
+                                  {isUploaded ? (
+                                    <span className="text-xs text-gray-400">
+                                      {uploadedResource?.downloadCount || 0} downloads
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-orange-500 font-medium">
+                                      Pending Upload
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {isUploaded ? (
+                                <Button className="bg-amber-500 hover:bg-amber-600 text-gray-900 flex-shrink-0" asChild>
+                                  <a href={uploadedResource?.fileUrl} target="_blank" rel="noopener noreferrer">
+                                    <Download className="w-4 h-4 mr-2" />
+                                    Download
+                                  </a>
+                                </Button>
+                              ) : (
+                                <Button 
+                                  className="bg-gray-200 text-gray-400 flex-shrink-0 cursor-not-allowed" 
+                                  disabled
+                                >
+                                  <Clock className="w-4 h-4 mr-2" />
+                                  Pending
+                                </Button>
+                              )}
                             </div>
-                          </div>
-                          <Button className="bg-amber-500 hover:bg-amber-600 text-gray-900 flex-shrink-0">
-                            <Download className="w-4 h-4 mr-2" />
-                            Download
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                 </div>
               )}
             </TabsContent>
@@ -622,87 +634,69 @@ function ResourcesContent() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {/* Display platform resources first */}
-                  {policiesAndRegulations
+                  {/* Display expected policies with upload status */}
+                  {expectedPolicies
                     .filter(
-                      (resource) =>
-                        resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        resource.description.toLowerCase().includes(searchTerm.toLowerCase())
+                      (policy) =>
+                        policy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        policy.description.toLowerCase().includes(searchTerm.toLowerCase())
                     )
-                    .map((resource) => (
-                      <Card key={resource.resourceId} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
-                              <Shield className="w-6 h-6 text-purple-600" />
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-semibold text-gray-900">{resource.title}</h3>
-                                {resource.isUpdated && (
-                                  <Badge className="bg-blue-500 text-xs">Updated</Badge>
-                                )}
+                    .map((policy) => {
+                      const uploadedResource = findUploadedResource(policy);
+                      const isUploaded = !!uploadedResource;
+                      
+                      return (
+                        <Card key={policy.id} className="hover:shadow-md transition-shadow">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                isUploaded ? "bg-purple-100" : "bg-gray-100"
+                              }`}>
+                                <Shield className={`w-6 h-6 ${isUploaded ? "text-purple-600" : "text-gray-400"}`} />
                               </div>
-                              <p className="text-sm text-gray-500">{resource.description}</p>
-                              <div className="flex items-center gap-3 mt-2">
-                                <Badge variant="outline" className="text-xs">{resource.subCategory}</Badge>
-                                {resource.effectiveDate && (
-                                  <span className="text-xs text-gray-400 flex items-center gap-1">
-                                    <Calendar className="w-3 h-3" />
-                                    Effective: {new Date(resource.effectiveDate).toLocaleDateString()}
-                                  </span>
-                                )}
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className={`font-semibold ${isUploaded ? "text-gray-900" : "text-gray-500"}`}>
+                                    {uploadedResource?.title || policy.title}
+                                  </h3>
+                                  {!isUploaded && (
+                                    <Badge className="bg-orange-100 text-orange-600 text-xs">Pending Upload</Badge>
+                                  )}
+                                  {isUploaded && uploadedResource?.isUpdated && (
+                                    <Badge className="bg-blue-500 text-xs">Updated</Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-500">
+                                  {uploadedResource?.description || policy.description}
+                                </p>
+                                <div className="flex items-center gap-3 mt-2">
+                                  <Badge variant="outline" className="text-xs">{policy.subCategory}</Badge>
+                                  {isUploaded && uploadedResource?.effectiveDate && (
+                                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                                      <Calendar className="w-3 h-3" />
+                                      Effective: {new Date(uploadedResource.effectiveDate).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                            <Button variant="outline" className="flex-shrink-0 border-purple-500 text-purple-600 hover:bg-purple-50" asChild>
-                              <a href={resource.fileUrl} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="w-4 h-4 mr-2" />
-                                View
-                              </a>
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-
-                  {/* Display mock data for backwards compatibility */}
-                  {policies
-                  .filter(
-                    (policy) =>
-                      policy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      policy.description.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
-                  .map((policy) => (
-                    <Card key={policy.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
-                            <Shield className="w-6 h-6 text-purple-600" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold text-gray-900">{policy.title}</h3>
-                              {policy.isUpdated && (
-                                <Badge className="bg-blue-500 text-xs">Updated</Badge>
+                              {isUploaded ? (
+                                <Button variant="outline" className="flex-shrink-0 border-purple-500 text-purple-600 hover:bg-purple-50" asChild>
+                                  <a href={uploadedResource?.fileUrl} target="_blank" rel="noopener noreferrer">
+                                    <ExternalLink className="w-4 h-4 mr-2" />
+                                    View
+                                  </a>
+                                </Button>
+                              ) : (
+                                <Button variant="outline" className="flex-shrink-0 text-gray-400 border-gray-300" disabled>
+                                  <Clock className="w-4 h-4 mr-2" />
+                                  Pending
+                                </Button>
                               )}
                             </div>
-                            <p className="text-sm text-gray-500">{policy.description}</p>
-                            <div className="flex items-center gap-3 mt-2">
-                              <Badge variant="outline">{policy.category}</Badge>
-                              <span className="text-xs text-gray-400 flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                Effective: {policy.effectiveDate}
-                              </span>
-                            </div>
-                          </div>
-                          <Button variant="outline" className="flex-shrink-0">
-                            <ExternalLink className="w-4 h-4 mr-2" />
-                            View
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                 </div>
               )}
             </TabsContent>

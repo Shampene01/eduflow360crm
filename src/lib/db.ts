@@ -759,24 +759,43 @@ export async function createPlatformResource(
 export async function getPlatformResources(
   category?: ResourceCategory
 ): Promise<PlatformResource[]> {
-  if (!db) return [];
-
-  let q;
-  if (category) {
-    q = query(
-      collection(db, COLLECTIONS.PLATFORM_RESOURCES),
-      where("category", "==", category),
-      orderBy("uploadedAt", "desc")
-    );
-  } else {
-    q = query(
-      collection(db, COLLECTIONS.PLATFORM_RESOURCES),
-      orderBy("uploadedAt", "desc")
-    );
+  if (!db) {
+    console.log("DB not initialized");
+    return [];
   }
 
-  const snap = await getDocs(q);
-  return snap.docs.map(d => d.data() as PlatformResource);
+  try {
+    let q;
+    if (category) {
+      q = query(
+        collection(db, COLLECTIONS.PLATFORM_RESOURCES),
+        where("category", "==", category)
+      );
+    } else {
+      // Simple query without orderBy to avoid index requirements
+      q = query(collection(db, COLLECTIONS.PLATFORM_RESOURCES));
+    }
+
+    console.log("Querying collection:", COLLECTIONS.PLATFORM_RESOURCES);
+    const snap = await getDocs(q);
+    console.log("Query returned", snap.docs.length, "documents");
+    
+    const resources = snap.docs.map(d => {
+      const data = d.data();
+      console.log("Document data:", data);
+      return data as PlatformResource;
+    });
+    
+    // Sort by uploadedAt client-side
+    return resources.sort((a, b) => {
+      const aTime = a.uploadedAt?.toMillis?.() || 0;
+      const bTime = b.uploadedAt?.toMillis?.() || 0;
+      return bTime - aTime;
+    });
+  } catch (error) {
+    console.error("Error in getPlatformResources:", error);
+    return [];
+  }
 }
 
 export async function getPlatformResourceById(
