@@ -93,8 +93,9 @@ service cloud.firestore {
     // 3. ACCOMMODATION PROVIDERS
     // ========================================================================
     match /accommodationProviders/{providerId} {
-      // Read: owner or admin
-      allow read: if isOwner(resource.data.userId) || isAdmin();
+      // Read: owner or admin - also allow query by userId for authenticated users
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
 
       // Create: authenticated, self-owned, must be Pending, must have required fields
       allow create: if isAuthenticated() &&
@@ -106,7 +107,7 @@ service cloud.firestore {
       allow update: if isAdmin();
 
       // Update: owner can update non-approval fields only
-      allow update: if isOwner(resource.data.userId) &&
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid &&
         !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['approvalStatus', 'approvedBy', 'approvalTimestamp', 'rejectionReason',
                    'nsfasAccredited', 'nsfasAccreditedSince', 'accreditationExpiry']);
@@ -159,8 +160,15 @@ service cloud.firestore {
       // Authenticated read: owner or admin
       allow read: if isProviderOwner(resource.data.providerId) || isAdmin();
       
-      // Create: provider owner only
-      allow create: if isProviderOwner(request.resource.data.providerId);
+      // Also allow read if user owns the provider (direct check for queries)
+      allow read: if isAuthenticated() &&
+        exists(/databases/$(database)/documents/accommodationProviders/$(resource.data.providerId)) &&
+        get(/databases/$(database)/documents/accommodationProviders/$(resource.data.providerId)).data.userId == request.auth.uid;
+      
+      // Create: provider owner only - verify the provider belongs to the user
+      allow create: if isAuthenticated() &&
+        exists(/databases/$(database)/documents/accommodationProviders/$(request.resource.data.providerId)) &&
+        get(/databases/$(database)/documents/accommodationProviders/$(request.resource.data.providerId)).data.userId == request.auth.uid;
       
       // Update: admin can do anything
       allow update: if isAdmin();
@@ -235,14 +243,25 @@ service cloud.firestore {
     // 11. PROPERTY IMAGES
     // ========================================================================
     match /propertyImages/{imageId} {
+      // Helper: check if user owns the property via provider
+      function userOwnsProperty(propId) {
+        return exists(/databases/$(database)/documents/properties/$(propId)) &&
+          exists(/databases/$(database)/documents/accommodationProviders/$(get(/databases/$(database)/documents/properties/$(propId)).data.providerId)) &&
+          get(/databases/$(database)/documents/accommodationProviders/$(get(/databases/$(database)/documents/properties/$(propId)).data.providerId)).data.userId == request.auth.uid;
+      }
+      
       // Read: owner, admin, or if property is active
-      allow read: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      allow read: if isAuthenticated() && userOwnsProperty(resource.data.propertyId);
+      allow read: if isAdmin();
       allow read: if exists(/databases/$(database)/documents/properties/$(resource.data.propertyId)) &&
         get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.status == "Active";
       
-      allow create: if isPropertyOwner(request.resource.data.propertyId);
+      // Create: user must own the property
+      allow create: if isAuthenticated() && userOwnsProperty(request.resource.data.propertyId);
       
-      allow update, delete: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      // Update/Delete: owner or admin
+      allow update, delete: if isAuthenticated() && userOwnsProperty(resource.data.propertyId);
+      allow update, delete: if isAdmin();
     }
     
     // ========================================================================
