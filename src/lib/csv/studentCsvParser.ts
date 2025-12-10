@@ -20,6 +20,7 @@ import {
   validateFundingYear,
   validateRequiredString,
   validateOptionalString,
+  validateDobMatchesId,
 } from "./studentCsvValidator";
 
 // Expected CSV column headers
@@ -280,6 +281,18 @@ export function validateStudentRow(
       field: "dateOfBirth",
       message: dobResult.error || "Invalid date of birth",
     });
+  }
+
+  // Cross-validation: Check if date of birth matches ID number
+  if (idResult.valid && dobResult.valid && row.dateOfBirth) {
+    const dobMatchResult = validateDobMatchesId(row.idNumber, row.dateOfBirth);
+    if (!dobMatchResult.valid) {
+      errors.push({
+        row: rowNumber,
+        field: "dateOfBirth",
+        message: dobMatchResult.error || "Date of birth does not match ID number",
+      });
+    }
   }
 
   // Optional field: gender

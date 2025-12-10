@@ -17,33 +17,33 @@ const SA_PROVINCES = [
 
 /**
  * Validates South African ID number with Luhn checksum algorithm
- * NOTE: Validation temporarily suspended for testing - only checks for presence
+ * Provides detailed, actionable error messages
  */
 export function validateIdNumber(idNumber: string): ValidationResult {
   if (!idNumber || typeof idNumber !== "string") {
-    return { valid: false, error: "ID number is required" };
+    return {
+      valid: false,
+      error: "ID number is required. Please enter a valid 13-digit SA ID number."
+    };
   }
 
   // Remove spaces and hyphens
   const cleaned = idNumber.replace(/[\s-]/g, "");
 
-  // TEMPORARILY SUSPENDED: Full validation disabled for testing
-  // Just check that it's not empty
-  if (cleaned.length === 0) {
-    return { valid: false, error: "ID number is required" };
-  }
-
-  return { valid: true, value: cleaned };
-
-  /* ORIGINAL VALIDATION - SUSPENDED
   // Check length
   if (cleaned.length !== 13) {
-    return { valid: false, error: "SA ID must be 13 digits" };
+    return {
+      valid: false,
+      error: `Invalid ID length: Expected 13 digits, but got ${cleaned.length}. SA ID format: YYMMDDGSSSCAZ`
+    };
   }
 
   // Check all characters are digits
   if (!/^\d{13}$/.test(cleaned)) {
-    return { valid: false, error: "SA ID must contain only digits" };
+    return {
+      valid: false,
+      error: "Invalid ID format: ID number must contain only digits (0-9). Remove any letters or special characters."
+    };
   }
 
   // Extract date of birth (YYMMDD)
@@ -53,10 +53,16 @@ export function validateIdNumber(idNumber: string): ValidationResult {
 
   // Basic date validation
   if (month < 1 || month > 12) {
-    return { valid: false, error: "Invalid month in SA ID number" };
+    return {
+      valid: false,
+      error: `Invalid birth month in ID: Month '${month.toString().padStart(2, '0')}' is not valid. Must be between 01-12.`
+    };
   }
   if (day < 1 || day > 31) {
-    return { valid: false, error: "Invalid day in SA ID number" };
+    return {
+      valid: false,
+      error: `Invalid birth day in ID: Day '${day.toString().padStart(2, '0')}' is not valid. Must be between 01-31.`
+    };
   }
 
   // Luhn algorithm checksum validation (last digit)
@@ -73,11 +79,62 @@ export function validateIdNumber(idNumber: string): ValidationResult {
   const checksum = (10 - (sum % 10)) % 10;
 
   if (checksum !== digits[12]) {
-    return { valid: false, error: "Invalid SA ID checksum" };
+    return {
+      valid: false,
+      error: `Invalid ID checksum: The last digit should be '${checksum}' but found '${digits[12]}'. Correct ID: ${cleaned.substring(0, 12)}${checksum}`
+    };
   }
 
   return { valid: true, value: cleaned };
-  */
+}
+
+/**
+ * Extracts date of birth from SA ID number
+ */
+export function extractDobFromIdNumber(idNumber: string): string | null {
+  const cleaned = idNumber.replace(/[\s-]/g, "");
+  if (cleaned.length !== 13 || !/^\d{13}$/.test(cleaned)) {
+    return null;
+  }
+
+  const year = parseInt(cleaned.substring(0, 2));
+  const month = cleaned.substring(2, 4);
+  const day = cleaned.substring(4, 6);
+
+  // Determine century (00-24 = 2000s, 25-99 = 1900s)
+  const fullYear = year <= 24 ? 2000 + year : 1900 + year;
+
+  return `${fullYear}-${month}-${day}`;
+}
+
+/**
+ * Validates date of birth against ID number
+ */
+export function validateDobMatchesId(
+  idNumber: string,
+  dateOfBirth: string
+): ValidationResult {
+  const idDob = extractDobFromIdNumber(idNumber);
+
+  if (!idDob) {
+    return { valid: true }; // Can't validate if ID is invalid
+  }
+
+  if (!dateOfBirth || dateOfBirth.trim() === "") {
+    return { valid: true }; // Optional field
+  }
+
+  // Normalize date format (handle YYYY/MM/DD or YYYY-MM-DD)
+  const normalizedDob = dateOfBirth.replace(/\//g, "-");
+
+  if (idDob !== normalizedDob) {
+    return {
+      valid: false,
+      error: `Date mismatch: ID number indicates birth date ${idDob}, but dateOfBirth field shows ${normalizedDob}. Please correct one of these fields.`
+    };
+  }
+
+  return { valid: true };
 }
 
 /**
@@ -90,7 +147,10 @@ export function validateEmail(email: string): ValidationResult {
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    return { valid: false, error: "Invalid email format" };
+    return {
+      valid: false,
+      error: `Invalid email format: '${email}' is not a valid email address. Example: student@example.com`
+    };
   }
 
   return { valid: true, value: email.trim() };
@@ -111,7 +171,7 @@ export function validatePhoneNumber(phoneNumber: string): ValidationResult {
   if (!/^0\d{9}$/.test(cleaned)) {
     return {
       valid: false,
-      error: "Phone number must be 10 digits starting with 0",
+      error: `Invalid phone format: '${phoneNumber}' must be 10 digits starting with 0. Example: 0821234567 or 082-123-4567`
     };
   }
 
@@ -135,7 +195,10 @@ export function validateGender(gender: string): ValidationResult {
   );
 
   if (!matched) {
-    return { valid: false, error: "Gender must be Male, Female, or Other" };
+    return {
+      valid: false,
+      error: `Invalid gender: '${gender}' is not valid. Must be one of: Male, Female, or Other (case-insensitive)`
+    };
   }
 
   return { valid: true, value: matched };
@@ -146,7 +209,10 @@ export function validateGender(gender: string): ValidationResult {
  */
 export function validateFunded(funded: string): ValidationResult {
   if (!funded || typeof funded !== "string") {
-    return { valid: false, error: "Funded field is required (Yes or No)" };
+    return {
+      valid: false,
+      error: "Funded field is required. Must be 'Yes' or 'No' to indicate NSFAS funding status."
+    };
   }
 
   const normalized = funded.trim().toLowerCase();
@@ -159,7 +225,10 @@ export function validateFunded(funded: string): ValidationResult {
     return { valid: true, value: false };
   }
 
-  return { valid: false, error: "Funded must be Yes or No" };
+  return {
+    valid: false,
+    error: `Invalid funded value: '${funded}' is not valid. Must be 'Yes' or 'No' (Y/N also accepted, case-insensitive)`
+  };
 }
 
 /**
@@ -194,20 +263,29 @@ export function validateDateOfBirth(dateOfBirth: string): ValidationResult {
   // Check ISO format (YYYY-MM-DD)
   const isoRegex = /^\d{4}-\d{2}-\d{2}$/;
   if (!isoRegex.test(dateOfBirth)) {
-    return { valid: false, error: "Date must be in YYYY-MM-DD format" };
+    return {
+      valid: false,
+      error: `Invalid date format: '${dateOfBirth}' must be in YYYY-MM-DD format (e.g., 2000-01-15). If using Excel, the date might have been auto-formatted - please convert to text format.`
+    };
   }
 
   // Validate date is real
   const date = new Date(dateOfBirth);
   if (isNaN(date.getTime())) {
-    return { valid: false, error: "Invalid date" };
+    return {
+      valid: false,
+      error: `Invalid date: '${dateOfBirth}' is not a valid calendar date. Please check the year, month, and day values.`
+    };
   }
 
   // Check age is reasonable (16-70 years old)
   const today = new Date();
   const age = today.getFullYear() - date.getFullYear();
   if (age < 16 || age > 70) {
-    return { valid: false, error: "Age must be between 16 and 70" };
+    return {
+      valid: false,
+      error: `Invalid age: Birth date ${dateOfBirth} indicates age ${age}, which is outside the valid range (16-70 years). Students must be between 16 and 70 years old.`
+    };
   }
 
   return { valid: true, value: dateOfBirth };
