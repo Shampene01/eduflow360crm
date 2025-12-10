@@ -1,46 +1,65 @@
-rules_version = '2';
-
 service firebase.storage {
   match /b/{bucket}/o {
-    // Profile photos - users can only upload/read their own photos
-    match /profile-photos/{userId}/{fileName} {
-      allow read: if true; // Anyone can view profile photos
-      allow write: if request.auth != null && request.auth.uid == userId;
-      allow delete: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // ID documents - users can only upload/read their own documents
+    
+    // ================================
+    // PROFILE PHOTOS (PRIVATE)
+    // ================================
+   match /profile-photos/{userId}/{fileName} {
+  // Profile photos are visible to all authenticated users
+  allow read: if request.auth != null;
+  
+  // Only the owner can upload/delete
+  allow write, delete: if request.auth != null && request.auth.uid == userId;
+}
+    // ================================
+    // ID DOCUMENTS (STRICTLY PRIVATE)
+    // ================================
     match /id-documents/{userId}/{fileName} {
+      // Only owner may read
       allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null && request.auth.uid == userId;
-      allow delete: if request.auth != null && request.auth.uid == userId;
+
+      // Only owner may upload/delete
+      allow write, delete: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Provider documents - providers can upload, admins can read
+    // ================================
+    // PROVIDER DOCUMENTS (PRIVATE TO PROVIDER)
+    // ================================
     match /provider-documents/{providerId}/{fileName} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == providerId;
-      allow delete: if request.auth != null && request.auth.uid == providerId;
+      // Only provider owner and admins can read
+      allow read: if request.auth != null && (
+          request.auth.uid == providerId ||
+          request.auth.token.role == "admin" // optional admin access
+      );
+
+      // Only provider owner can upload/delete
+      allow write, delete: if request.auth != null && request.auth.uid == providerId;
     }
 
-    // Property images - providers can upload for their properties
+    // ================================
+    // PROPERTY IMAGES (PUBLIC LISTINGS)
+    // ================================
     match /property-images/{propertyId}/{fileName} {
-      allow read: if true; // Anyone can view property images
-      allow write: if request.auth != null;
-      allow delete: if request.auth != null;
+      // Public can view property images
+      allow read: if true;
+
+      // Only authenticated providers upload/delete
+      allow write, delete: if request.auth != null;
     }
 
-    // Platform resources - readable by all authenticated users
-    // Writable only by specific admin (shampene@lebonconsulting.co.za)
-    match /platform-resources/{fileName} {
-      allow read: if request.auth != null; // Any authenticated user can read
-      allow write: if request.auth != null && 
-        request.auth.token.email == "shampene@lebonconsulting.co.za";
-      allow delete: if request.auth != null && 
+    // ================================
+    // PLATFORM RESOURCES (ADMIN UPLOAD)
+    // ================================
+    match /platform-resources/{allPaths=**} {
+      // All authenticated users can read
+      allow read: if request.auth != null;
+
+      // Only specific admin can upload/delete
+      allow write, delete: if request.auth != null && 
         request.auth.token.email == "shampene@lebonconsulting.co.za";
     }
 
-    // Default: deny all other access
+    // DEFAULT: DENY EVERYTHING ELSE
     match /{allPaths=**} {
       allow read, write: if false;
     }
