@@ -26,6 +26,43 @@ const provinces = [
   "North West", "Mpumalanga", "Limpopo"
 ];
 
+// Predefined resources for each category
+interface PredefinedResource {
+  id: string;
+  title: string;
+  description: string;
+  subCategory: ResourceSubCategory;
+}
+
+const predefinedGuides: PredefinedResource[] = [
+  { id: "guide-1", title: "How to Onboard Students", description: "Complete guide to registering and onboarding new students to your property", subCategory: "Onboarding" },
+  { id: "guide-2", title: "How to Upload Compliance Documents", description: "Step-by-step instructions for uploading and managing compliance documentation", subCategory: "Compliance" },
+  { id: "guide-3", title: "Fire Safety Compliance Guide", description: "Essential fire safety requirements and compliance checklist for accommodation providers", subCategory: "Safety" },
+  { id: "guide-4", title: "Property Registration Walkthrough", description: "Video tutorial on how to register your property on the platform", subCategory: "Onboarding" },
+  { id: "guide-5", title: "Invoice Submission Tutorial", description: "Learn how to create and submit invoices for student accommodation", subCategory: "Billing" },
+  { id: "guide-6", title: "Room Configuration Guide", description: "How to set up and manage room configurations for your properties", subCategory: "Property Management" },
+];
+
+const predefinedTemplates: PredefinedResource[] = [
+  { id: "template-1", title: "Lease Agreement Template", description: "Standard lease agreement template for student accommodation", subCategory: "Legal" },
+  { id: "template-2", title: "Property Inspection Checklist", description: "Comprehensive checklist for property inspections and compliance", subCategory: "Operations" },
+  { id: "template-3", title: "Financial Statement Template", description: "Template for submitting financial documentation to NSFAS", subCategory: "Financial" },
+  { id: "template-4", title: "Incident Report Form", description: "Standard form for reporting incidents at your property", subCategory: "Operations" },
+  { id: "template-5", title: "Room Configuration Template", description: "Template for documenting room layouts and configurations", subCategory: "Operations" },
+  { id: "template-6", title: "Student Check-in/Check-out Form", description: "Form for documenting student arrivals and departures", subCategory: "Operations" },
+];
+
+const predefinedPolicies: PredefinedResource[] = [
+  { id: "policy-1", title: "NSFAS Accreditation Policy 2025", description: "Official NSFAS accreditation requirements and guidelines for accommodation providers", subCategory: "Accreditation" },
+  { id: "policy-2", title: "Fire & Safety Regulations", description: "National fire safety regulations applicable to student accommodation", subCategory: "Accreditation" },
+  { id: "policy-3", title: "Occupancy Compliance Rules", description: "Guidelines for maximum occupancy and room allocation standards", subCategory: "Accreditation" },
+  { id: "policy-4", title: "Building Safety Standards", description: "Structural and building safety requirements for student housing", subCategory: "Accreditation" },
+  { id: "policy-5", title: "Student Rights & Responsibilities", description: "Policy document outlining student rights and provider obligations", subCategory: "System" },
+  { id: "policy-6", title: "Data Protection & Privacy Policy", description: "POPIA compliance guidelines for handling student information", subCategory: "System" },
+];
+
+type UploadType = "Guides & Tutorials" | "Templates & Forms" | "Policies & Regulations" | "Other";
+
 function SettingsContent() {
   const { user, refreshUser, isFullyLoaded, profileLoading } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,6 +99,8 @@ function SettingsContent() {
   const resourceFileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingResource, setUploadingResource] = useState(false);
   const [resourceSuccess, setResourceSuccess] = useState(false);
+  const [uploadType, setUploadType] = useState<UploadType | "">("");
+  const [selectedPredefinedId, setSelectedPredefinedId] = useState("");
   const [resourceTitle, setResourceTitle] = useState("");
   const [resourceDescription, setResourceDescription] = useState("");
   const [resourceCategory, setResourceCategory] = useState<ResourceCategory | "">("");
@@ -78,6 +117,57 @@ function SettingsContent() {
         return ["Accreditation", "System"];
       default:
         return [];
+    }
+  };
+
+  // Get predefined resources based on upload type
+  const getPredefinedResources = (type: UploadType): PredefinedResource[] => {
+    switch (type) {
+      case "Guides & Tutorials":
+        return predefinedGuides;
+      case "Templates & Forms":
+        return predefinedTemplates;
+      case "Policies & Regulations":
+        return predefinedPolicies;
+      default:
+        return [];
+    }
+  };
+
+  // Handle upload type change
+  const handleUploadTypeChange = (type: UploadType | "") => {
+    setUploadType(type);
+    setSelectedPredefinedId("");
+    setResourceTitle("");
+    setResourceDescription("");
+    setResourceSubCategory("");
+    
+    // Set category based on upload type (except for "Other")
+    if (type && type !== "Other") {
+      setResourceCategory(type as ResourceCategory);
+    } else {
+      setResourceCategory("");
+    }
+  };
+
+  // Handle predefined resource selection
+  const handlePredefinedSelect = (predefinedId: string) => {
+    setSelectedPredefinedId(predefinedId);
+    
+    if (!predefinedId) {
+      setResourceTitle("");
+      setResourceDescription("");
+      setResourceSubCategory("");
+      return;
+    }
+    
+    const resources = getPredefinedResources(uploadType as UploadType);
+    const selected = resources.find(r => r.id === predefinedId);
+    
+    if (selected) {
+      setResourceTitle(selected.title);
+      setResourceDescription(selected.description);
+      setResourceSubCategory(selected.subCategory);
     }
   };
 
@@ -298,6 +388,7 @@ function SettingsContent() {
           downloadCount: 0,
           uploadedByEmail: user.email || "",
           isActive: true,
+          ...(selectedPredefinedId && { predefinedResourceId: selectedPredefinedId }),
         },
         user.email || user.userId || user.uid
       );
@@ -306,6 +397,8 @@ function SettingsContent() {
       setTimeout(() => {
         setResourceSuccess(false);
         // Reset form
+        setUploadType("");
+        setSelectedPredefinedId("");
         setResourceTitle("");
         setResourceDescription("");
         setResourceCategory("");
@@ -603,78 +696,131 @@ function SettingsContent() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-gray-600 mb-4">
-                      Upload resources (Lease Agreement Templates, Student Housing Regulations, etc.) for all authenticated users to access.
+                      Upload resources for all authenticated users to access. Select a predefined document type or choose &quot;Other&quot; for custom uploads.
                     </p>
 
                     <div className="space-y-4">
-                      {/* Title */}
+                      {/* Upload Type */}
                       <div>
-                        <Label htmlFor="resourceTitle">Title *</Label>
-                        <Input
-                          id="resourceTitle"
-                          value={resourceTitle}
-                          onChange={(e) => setResourceTitle(e.target.value)}
-                          placeholder="e.g., NSFAS Lease Agreement Template 2025"
-                          disabled={uploadingResource}
-                        />
-                      </div>
-
-                      {/* Description */}
-                      <div>
-                        <Label htmlFor="resourceDescription">Description *</Label>
-                        <Textarea
-                          id="resourceDescription"
-                          value={resourceDescription}
-                          onChange={(e) => setResourceDescription(e.target.value)}
-                          placeholder="Describe what this resource is and how it should be used..."
-                          rows={3}
-                          disabled={uploadingResource}
-                        />
-                      </div>
-
-                      {/* Category */}
-                      <div>
-                        <Label htmlFor="resourceCategory">Category *</Label>
+                        <Label htmlFor="uploadType">Upload Type *</Label>
                         <Select
-                          value={resourceCategory}
-                          onValueChange={(value) => {
-                            setResourceCategory(value as ResourceCategory);
-                            setResourceSubCategory(""); // Reset subcategory when category changes
-                          }}
+                          value={uploadType}
+                          onValueChange={(value) => handleUploadTypeChange(value as UploadType | "")}
                           disabled={uploadingResource}
                         >
-                          <SelectTrigger id="resourceCategory">
-                            <SelectValue placeholder="Select category" />
+                          <SelectTrigger id="uploadType">
+                            <SelectValue placeholder="Select upload type" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="Guides & Tutorials">Guides & Tutorials</SelectItem>
                             <SelectItem value="Templates & Forms">Templates & Forms</SelectItem>
                             <SelectItem value="Policies & Regulations">Policies & Regulations</SelectItem>
+                            <SelectItem value="Other">Other (Custom)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
-                      {/* Subcategory */}
-                      {resourceCategory && (
+                      {/* Predefined Document Selection (for non-Other types) */}
+                      {uploadType && uploadType !== "Other" && (
                         <div>
-                          <Label htmlFor="resourceSubCategory">Subcategory *</Label>
+                          <Label htmlFor="predefinedResource">Document Name *</Label>
                           <Select
-                            value={resourceSubCategory}
-                            onValueChange={(value) => setResourceSubCategory(value as ResourceSubCategory)}
+                            value={selectedPredefinedId}
+                            onValueChange={handlePredefinedSelect}
                             disabled={uploadingResource}
                           >
-                            <SelectTrigger id="resourceSubCategory">
-                              <SelectValue placeholder="Select subcategory" />
+                            <SelectTrigger id="predefinedResource">
+                              <SelectValue placeholder="Select document to upload" />
                             </SelectTrigger>
                             <SelectContent>
-                              {getSubCategories(resourceCategory as ResourceCategory).map((sub) => (
-                                <SelectItem key={sub} value={sub}>
-                                  {sub}
+                              {getPredefinedResources(uploadType as UploadType).map((resource) => (
+                                <SelectItem key={resource.id} value={resource.id}>
+                                  {resource.title}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
+                          {selectedPredefinedId && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {getPredefinedResources(uploadType as UploadType).find(r => r.id === selectedPredefinedId)?.description}
+                            </p>
+                          )}
                         </div>
+                      )}
+
+                      {/* Manual fields for "Other" type */}
+                      {uploadType === "Other" && (
+                        <>
+                          {/* Category */}
+                          <div>
+                            <Label htmlFor="resourceCategory">Category *</Label>
+                            <Select
+                              value={resourceCategory}
+                              onValueChange={(value) => {
+                                setResourceCategory(value as ResourceCategory);
+                                setResourceSubCategory("");
+                              }}
+                              disabled={uploadingResource}
+                            >
+                              <SelectTrigger id="resourceCategory">
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Guides & Tutorials">Guides & Tutorials</SelectItem>
+                                <SelectItem value="Templates & Forms">Templates & Forms</SelectItem>
+                                <SelectItem value="Policies & Regulations">Policies & Regulations</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Subcategory */}
+                          {resourceCategory && (
+                            <div>
+                              <Label htmlFor="resourceSubCategory">Subcategory *</Label>
+                              <Select
+                                value={resourceSubCategory}
+                                onValueChange={(value) => setResourceSubCategory(value as ResourceSubCategory)}
+                                disabled={uploadingResource}
+                              >
+                                <SelectTrigger id="resourceSubCategory">
+                                  <SelectValue placeholder="Select subcategory" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {getSubCategories(resourceCategory as ResourceCategory).map((sub) => (
+                                    <SelectItem key={sub} value={sub}>
+                                      {sub}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+
+                          {/* Title */}
+                          <div>
+                            <Label htmlFor="resourceTitle">Title *</Label>
+                            <Input
+                              id="resourceTitle"
+                              value={resourceTitle}
+                              onChange={(e) => setResourceTitle(e.target.value)}
+                              placeholder="e.g., NSFAS Lease Agreement Template 2025"
+                              disabled={uploadingResource}
+                            />
+                          </div>
+
+                          {/* Description */}
+                          <div>
+                            <Label htmlFor="resourceDescription">Description *</Label>
+                            <Textarea
+                              id="resourceDescription"
+                              value={resourceDescription}
+                              onChange={(e) => setResourceDescription(e.target.value)}
+                              placeholder="Describe what this resource is and how it should be used..."
+                              rows={3}
+                              disabled={uploadingResource}
+                            />
+                          </div>
+                        </>
                       )}
 
                       {/* File Upload */}
@@ -690,7 +836,12 @@ function SettingsContent() {
                         />
                         <Button
                           onClick={() => resourceFileInputRef.current?.click()}
-                          disabled={uploadingResource || !resourceTitle || !resourceDescription || !resourceCategory || !resourceSubCategory}
+                          disabled={
+                            uploadingResource || 
+                            !uploadType ||
+                            (uploadType !== "Other" && !selectedPredefinedId) ||
+                            (uploadType === "Other" && (!resourceTitle || !resourceDescription || !resourceCategory || !resourceSubCategory))
+                          }
                           variant="outline"
                           className="border-amber-500 text-amber-600 hover:bg-amber-50 w-full"
                         >

@@ -521,6 +521,7 @@ export interface PlatformResource {
   mimeType: string;
   
   // Metadata
+  predefinedResourceId?: string;     // Links to predefined resource (e.g., "guide-1", "template-1")
   duration?: string;                 // e.g., "15 min read", "8 min" for videos
   effectiveDate?: string;            // ISO date for policies
   isNew?: boolean;                   // Flag for new resources

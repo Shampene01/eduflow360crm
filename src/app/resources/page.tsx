@@ -349,36 +349,13 @@ function ResourcesContent() {
   }, []);
 
   // Helper function to find uploaded resource matching an expected resource
-  // Matches by category and title similarity (case-insensitive)
+  // Matches by predefinedResourceId for exact matching
   const findUploadedResource = (expected: ExpectedResource): PlatformResource | undefined => {
-    // Debug: log all platform resources
-    console.log("Platform resources:", platformResources);
-    console.log("Looking for:", expected.title, "in category:", expected.category);
-    
-    // First try exact category match
-    const categoryMatches = platformResources.filter(
-      (r) => r.isActive !== false && r.category === expected.category
+    // Find by predefinedResourceId (exact match)
+    const match = platformResources.find(
+      (r) => r.isActive !== false && r.predefinedResourceId === expected.id
     );
-    console.log("Category matches:", categoryMatches);
     
-    // Then find best title match - check if titles share key words
-    const expectedWords = expected.title.toLowerCase().split(" ").filter(w => w.length > 2);
-    
-    const match = categoryMatches.find((r) => {
-      const uploadedTitle = r.title.toLowerCase();
-      const uploadedWords = uploadedTitle.split(" ").filter(w => w.length > 2);
-      
-      // Match if any significant word from uploaded title appears in expected title
-      // OR any significant word from expected title appears in uploaded title
-      const hasCommonWord = uploadedWords.some(word => 
-        expectedWords.some(expWord => expWord.includes(word) || word.includes(expWord))
-      );
-      
-      console.log(`Comparing "${uploadedTitle}" with "${expected.title.toLowerCase()}" - hasCommonWord:`, hasCommonWord);
-      return hasCommonWord;
-    });
-    
-    console.log("Match found:", match);
     return match;
   };
 
