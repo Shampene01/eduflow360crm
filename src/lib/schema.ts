@@ -87,6 +87,29 @@ export type AssignmentStatus = "Active" | "Future" | "Closed" | "Cancelled";
 
 export type AccountType = "Current" | "Savings" | "Transmission";
 
+// Platform Resource Categories (based on Resources page structure)
+export type ResourceCategory = 
+  | "Guides & Tutorials"
+  | "Templates & Forms"
+  | "Policies & Regulations";
+
+export type ResourceSubCategory = 
+  // Guides & Tutorials
+  | "Onboarding"
+  | "Compliance"
+  | "Safety"
+  | "Billing"
+  | "Property Management"
+  // Templates & Forms
+  | "Legal"
+  | "Financial"
+  | "Operations"
+  // Policies & Regulations
+  | "Accreditation"
+  | "System";
+
+export type ResourceFileType = "pdf" | "docx" | "xlsx" | "video";
+
 // ============================================================================
 // 1. USER TABLE (Natural Person Only)
 // ============================================================================
@@ -478,6 +501,43 @@ export interface PropertyImage {
 }
 
 // ============================================================================
+// 11. PLATFORM RESOURCES TABLE
+// ============================================================================
+
+export interface PlatformResource {
+  resourceId: string;                // UUID, PK
+  
+  // Resource Information
+  title: string;
+  description: string;
+  category: ResourceCategory;
+  subCategory: ResourceSubCategory;
+  fileType: ResourceFileType;
+  
+  // File Information
+  fileUrl: string;                   // Storage URL
+  fileName: string;                  // Original filename
+  fileSize: number;                  // Bytes
+  mimeType: string;
+  
+  // Metadata
+  duration?: string;                 // e.g., "15 min read", "8 min" for videos
+  effectiveDate?: string;            // ISO date for policies
+  isNew?: boolean;                   // Flag for new resources
+  isUpdated?: boolean;               // Flag for updated resources
+  downloadCount: number;             // Track downloads
+  
+  // Upload Information
+  uploadedBy: string;                // userId
+  uploadedByEmail: string;           // Email of uploader
+  uploadedAt: Timestamp;
+  updatedAt?: Timestamp;
+  
+  // Status
+  isActive: boolean;
+}
+
+// ============================================================================
 // HELPER TYPES FOR API RESPONSES
 // ============================================================================
 
@@ -541,6 +601,9 @@ export const COLLECTIONS = {
   // Legacy
   INVOICES: "invoices",
   TICKETS: "tickets",
+  
+  // Platform Resources
+  PLATFORM_RESOURCES: "platformResources",
 } as const;
 
 // ============================================================================

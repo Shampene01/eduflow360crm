@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   BookOpen,
@@ -33,8 +33,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getPlatformResources } from "@/lib/db";
+import { PlatformResource } from "@/lib/schema";
 
-// Mock data for resources
+// Mock data for resources (keeping for backwards compatibility)
 const guides = [
   {
     id: "1",
@@ -327,6 +329,29 @@ const helpArticles = [
 function ResourcesContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("guides");
+  const [platformResources, setPlatformResources] = useState<PlatformResource[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch platform resources from Firestore
+  useEffect(() => {
+    const fetchResources = async () => {
+      try {
+        const resources = await getPlatformResources();
+        setPlatformResources(resources);
+      } catch (error) {
+        console.error("Error fetching resources:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchResources();
+  }, []);
+
+  // Categorize resources
+  const guidesAndTutorials = platformResources.filter(r => r.category === "Guides & Tutorials" && r.isActive);
+  const templatesAndForms = platformResources.filter(r => r.category === "Templates & Forms" && r.isActive);
+  const policiesAndRegulations = platformResources.filter(r => r.category === "Policies & Regulations" && r.isActive);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -404,14 +429,74 @@ function ResourcesContent() {
 
             {/* Guides & Tutorials Tab */}
             <TabsContent value="guides" className="space-y-6">
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {guides
-                  .filter(
-                    (guide) =>
-                      guide.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      guide.description.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
-                  .map((guide) => (
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
+                  <p className="text-gray-500 mt-4">Loading resources...</p>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Display platform resources first */}
+                  {guidesAndTutorials
+                    .filter(
+                      (resource) =>
+                        resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        resource.description.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map((resource) => (
+                      <Card key={resource.resourceId} className="hover:shadow-lg transition-shadow cursor-pointer">
+                        <CardContent className="p-6">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                              resource.fileType === "video" ? "bg-red-100" : "bg-blue-100"
+                            }`}>
+                              {resource.fileType === "video" ? (
+                                <Play className="w-6 h-6 text-red-600" />
+                              ) : (
+                                <FileText className="w-6 h-6 text-blue-600" />
+                              )}
+                            </div>
+                            {resource.isNew && (
+                              <Badge className="bg-green-500">New</Badge>
+                            )}
+                          </div>
+                          <h3 className="font-semibold text-gray-900 mb-2">{resource.title}</h3>
+                          <p className="text-sm text-gray-500 mb-4 line-clamp-2">{resource.description}</p>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline">{resource.subCategory}</Badge>
+                              {resource.duration && (
+                                <span className="text-xs text-gray-400">{resource.duration}</span>
+                              )}
+                            </div>
+                            <Button variant="ghost" size="sm" asChild>
+                              <a href={resource.fileUrl} target="_blank" rel="noopener noreferrer">
+                                {resource.fileType === "video" ? (
+                                  <>
+                                    <Play className="w-4 h-4 mr-1" />
+                                    Watch
+                                  </>
+                                ) : (
+                                  <>
+                                    <Download className="w-4 h-4 mr-1" />
+                                    Download
+                                  </>
+                                )}
+                              </a>
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+
+                  {/* Display mock data for backwards compatibility */}
+                  {guides
+                    .filter(
+                      (guide) =>
+                        guide.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        guide.description.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map((guide) => (
                     <Card key={guide.id} className="hover:shadow-lg transition-shadow cursor-pointer">
                       <CardContent className="p-6">
                         <div className="flex items-start justify-between mb-4">
@@ -446,19 +531,61 @@ function ResourcesContent() {
                       </CardContent>
                     </Card>
                   ))}
-              </div>
+                </div>
+              )}
             </TabsContent>
 
             {/* Templates & Forms Tab */}
             <TabsContent value="templates" className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-4">
-                {templates
-                  .filter(
-                    (template) =>
-                      template.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      template.description.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
-                  .map((template) => (
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
+                  <p className="text-gray-500 mt-4">Loading resources...</p>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Display platform resources first */}
+                  {templatesAndForms
+                    .filter(
+                      (resource) =>
+                        resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        resource.description.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map((resource) => (
+                      <Card key={resource.resourceId} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                              <FileDown className="w-6 h-6 text-amber-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-gray-900 truncate">{resource.title}</h3>
+                              <p className="text-sm text-gray-500 truncate">{resource.description}</p>
+                              <div className="flex items-center gap-3 mt-2">
+                                <Badge variant="outline" className="text-xs">{resource.fileType.toUpperCase()}</Badge>
+                                <Badge variant="outline" className="text-xs">{resource.subCategory}</Badge>
+                                <span className="text-xs text-gray-400">{resource.downloadCount} downloads</span>
+                              </div>
+                            </div>
+                            <Button className="bg-amber-500 hover:bg-amber-600 text-gray-900 flex-shrink-0" asChild>
+                              <a href={resource.fileUrl} target="_blank" rel="noopener noreferrer">
+                                <Download className="w-4 h-4 mr-2" />
+                                Download
+                              </a>
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+
+                  {/* Display mock data for backwards compatibility */}
+                  {templates
+                    .filter(
+                      (template) =>
+                        template.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        template.description.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map((template) => (
                     <Card key={template.id} className="hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
                         <div className="flex items-center gap-4">
@@ -482,13 +609,64 @@ function ResourcesContent() {
                       </CardContent>
                     </Card>
                   ))}
-              </div>
+                </div>
+              )}
             </TabsContent>
 
             {/* Policies & Regulations Tab */}
             <TabsContent value="policies" className="space-y-6">
-              <div className="space-y-4">
-                {policies
+              {loading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
+                  <p className="text-gray-500 mt-4">Loading resources...</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Display platform resources first */}
+                  {policiesAndRegulations
+                    .filter(
+                      (resource) =>
+                        resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        resource.description.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map((resource) => (
+                      <Card key={resource.resourceId} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                              <Shield className="w-6 h-6 text-purple-600" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-semibold text-gray-900">{resource.title}</h3>
+                                {resource.isUpdated && (
+                                  <Badge className="bg-blue-500 text-xs">Updated</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-500">{resource.description}</p>
+                              <div className="flex items-center gap-3 mt-2">
+                                <Badge variant="outline" className="text-xs">{resource.subCategory}</Badge>
+                                {resource.effectiveDate && (
+                                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    Effective: {new Date(resource.effectiveDate).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <Button variant="outline" className="flex-shrink-0 border-purple-500 text-purple-600 hover:bg-purple-50" asChild>
+                              <a href={resource.fileUrl} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="w-4 h-4 mr-2" />
+                                View
+                              </a>
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+
+                  {/* Display mock data for backwards compatibility */}
+                  {policies
                   .filter(
                     (policy) =>
                       policy.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -525,7 +703,8 @@ function ResourcesContent() {
                       </CardContent>
                     </Card>
                   ))}
-              </div>
+                </div>
+              )}
             </TabsContent>
 
             {/* Announcements Tab */}

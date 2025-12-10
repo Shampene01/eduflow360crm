@@ -30,6 +30,16 @@ service firebase.storage {
       allow delete: if request.auth != null;
     }
 
+    // Platform resources - readable by all authenticated users
+    // Writable only by specific admin (shampene@lebonconsulting.co.za)
+    match /platform-resources/{fileName} {
+      allow read: if request.auth != null; // Any authenticated user can read
+      allow write: if request.auth != null && 
+        request.auth.token.email == "shampene@lebonconsulting.co.za";
+      allow delete: if request.auth != null && 
+        request.auth.token.email == "shampene@lebonconsulting.co.za";
+    }
+
     // Default: deny all other access
     match /{allPaths=**} {
       allow read, write: if false;

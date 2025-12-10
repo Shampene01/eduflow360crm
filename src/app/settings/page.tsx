@@ -11,12 +11,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
-import { User, MapPin, FileText, Upload, Loader2, CheckCircle, Lock, Mail } from "lucide-react";
+import { User, MapPin, FileText, Upload, Loader2, CheckCircle, Lock, Mail, FolderOpen } from "lucide-react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage, auth } from "@/lib/firebase";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { updateUser } from "@/lib/db";
+import { updateUser, createPlatformResource } from "@/lib/db";
 import { UserAddress } from "@/lib/types";
+import { ResourceCategory, ResourceSubCategory, ResourceFileType } from "@/lib/schema";
+import { Textarea } from "@/components/ui/textarea";
 
 const provinces = [
   "Western Cape", "Eastern Cape", "Northern Cape",
@@ -55,6 +57,29 @@ function SettingsContent() {
   // Password Reset State
   const [sendingReset, setSendingReset] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+
+  // Platform Resource Upload State (Admin Only)
+  const resourceFileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingResource, setUploadingResource] = useState(false);
+  const [resourceSuccess, setResourceSuccess] = useState(false);
+  const [resourceTitle, setResourceTitle] = useState("");
+  const [resourceDescription, setResourceDescription] = useState("");
+  const [resourceCategory, setResourceCategory] = useState<ResourceCategory | "">("");
+  const [resourceSubCategory, setResourceSubCategory] = useState<ResourceSubCategory | "">("");
+
+  // Subcategory options based on selected category
+  const getSubCategories = (category: ResourceCategory): ResourceSubCategory[] => {
+    switch (category) {
+      case "Guides & Tutorials":
+        return ["Onboarding", "Compliance", "Safety", "Billing", "Property Management"];
+      case "Templates & Forms":
+        return ["Legal", "Financial", "Operations"];
+      case "Policies & Regulations":
+        return ["Accreditation", "System"];
+      default:
+        return [];
+    }
+  };
 
   // Load existing address and ID document from user object
   useEffect(() => {
@@ -195,6 +220,105 @@ function SettingsContent() {
       setError(err.message || "Failed to upload document");
     } finally {
       setUploadingDoc(false);
+    }
+  };
+
+  const handleResourceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate required fields
+    if (!resourceTitle.trim()) {
+      setError("Please enter a resource title");
+      return;
+    }
+    if (!resourceDescription.trim()) {
+      setError("Please enter a resource description");
+      return;
+    }
+    if (!resourceCategory) {
+      setError("Please select a category");
+      return;
+    }
+    if (!resourceSubCategory) {
+      setError("Please select a subcategory");
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "video/mp4",
+      "video/quicktime",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please upload a PDF, DOCX, XLSX, or video file");
+      return;
+    }
+
+    // Validate file size (max 50MB)
+    if (file.size > 50 * 1024 * 1024) {
+      setError("File size must be less than 50MB");
+      return;
+    }
+
+    setUploadingResource(true);
+    setError("");
+    setResourceSuccess(false);
+
+    try {
+      // Determine file type
+      let fileType: ResourceFileType = "pdf";
+      if (file.type.includes("wordprocessingml")) fileType = "docx";
+      else if (file.type.includes("spreadsheetml")) fileType = "xlsx";
+      else if (file.type.includes("video")) fileType = "video";
+
+      // Upload to Firebase Storage
+      const storageRef = ref(
+        storage,
+        `platform-resources/${resourceCategory}/${Date.now()}_${file.name}`
+      );
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // Create platform resource in Firestore
+      await createPlatformResource(
+        {
+          title: resourceTitle.trim(),
+          description: resourceDescription.trim(),
+          category: resourceCategory as ResourceCategory,
+          subCategory: resourceSubCategory as ResourceSubCategory,
+          fileType,
+          fileUrl: downloadURL,
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+          downloadCount: 0,
+          uploadedByEmail: user.email || "",
+          isActive: true,
+        },
+        user.email || user.userId || user.uid
+      );
+
+      setResourceSuccess(true);
+      setTimeout(() => {
+        setResourceSuccess(false);
+        // Reset form
+        setResourceTitle("");
+        setResourceDescription("");
+        setResourceCategory("");
+        setResourceSubCategory("");
+        if (resourceFileInputRef.current) {
+          resourceFileInputRef.current.value = "";
+        }
+      }, 3000);
+    } catch (err: any) {
+      console.error("Error uploading resource:", err);
+      setError(err.message || "Failed to upload resource");
+    } finally {
+      setUploadingResource(false);
     }
   };
 
@@ -467,6 +591,134 @@ function SettingsContent() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Platform Resources Upload (Admin Only) */}
+              {user?.email === "shampene@lebonconsulting.co.za" && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FolderOpen className="w-5 h-5 text-amber-500" />
+                      Platform Resources
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Upload resources (Lease Agreement Templates, Student Housing Regulations, etc.) for all authenticated users to access.
+                    </p>
+
+                    <div className="space-y-4">
+                      {/* Title */}
+                      <div>
+                        <Label htmlFor="resourceTitle">Title *</Label>
+                        <Input
+                          id="resourceTitle"
+                          value={resourceTitle}
+                          onChange={(e) => setResourceTitle(e.target.value)}
+                          placeholder="e.g., NSFAS Lease Agreement Template 2025"
+                          disabled={uploadingResource}
+                        />
+                      </div>
+
+                      {/* Description */}
+                      <div>
+                        <Label htmlFor="resourceDescription">Description *</Label>
+                        <Textarea
+                          id="resourceDescription"
+                          value={resourceDescription}
+                          onChange={(e) => setResourceDescription(e.target.value)}
+                          placeholder="Describe what this resource is and how it should be used..."
+                          rows={3}
+                          disabled={uploadingResource}
+                        />
+                      </div>
+
+                      {/* Category */}
+                      <div>
+                        <Label htmlFor="resourceCategory">Category *</Label>
+                        <Select
+                          value={resourceCategory}
+                          onValueChange={(value) => {
+                            setResourceCategory(value as ResourceCategory);
+                            setResourceSubCategory(""); // Reset subcategory when category changes
+                          }}
+                          disabled={uploadingResource}
+                        >
+                          <SelectTrigger id="resourceCategory">
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Guides & Tutorials">Guides & Tutorials</SelectItem>
+                            <SelectItem value="Templates & Forms">Templates & Forms</SelectItem>
+                            <SelectItem value="Policies & Regulations">Policies & Regulations</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Subcategory */}
+                      {resourceCategory && (
+                        <div>
+                          <Label htmlFor="resourceSubCategory">Subcategory *</Label>
+                          <Select
+                            value={resourceSubCategory}
+                            onValueChange={(value) => setResourceSubCategory(value as ResourceSubCategory)}
+                            disabled={uploadingResource}
+                          >
+                            <SelectTrigger id="resourceSubCategory">
+                              <SelectValue placeholder="Select subcategory" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {getSubCategories(resourceCategory as ResourceCategory).map((sub) => (
+                                <SelectItem key={sub} value={sub}>
+                                  {sub}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {/* File Upload */}
+                      <div>
+                        <Label>File *</Label>
+                        <input
+                          ref={resourceFileInputRef}
+                          type="file"
+                          accept=".pdf,.docx,.xlsx,.mp4,.mov"
+                          onChange={handleResourceUpload}
+                          className="hidden"
+                          disabled={uploadingResource}
+                        />
+                        <Button
+                          onClick={() => resourceFileInputRef.current?.click()}
+                          disabled={uploadingResource || !resourceTitle || !resourceDescription || !resourceCategory || !resourceSubCategory}
+                          variant="outline"
+                          className="border-amber-500 text-amber-600 hover:bg-amber-50 w-full"
+                        >
+                          {uploadingResource ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : resourceSuccess ? (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Uploaded Successfully!
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2" />
+                              Select File to Upload
+                            </>
+                          )}
+                        </Button>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Accepted formats: PDF, DOCX, XLSX, MP4, MOV (Max 50MB)
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Password Reset */}
               <Card>

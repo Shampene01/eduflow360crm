@@ -296,5 +296,30 @@ service cloud.firestore {
       
       allow delete: if isAdmin();
     }
+    
+    // ========================================================================
+    // 14. PLATFORM RESOURCES
+    // ========================================================================
+    match /platformResources/{resourceId} {
+      // Read: any authenticated user can read active resources
+      allow read: if isAuthenticated() && resource.data.isActive == true;
+      
+      // Admin read: can read all resources (including inactive)
+      allow read: if isAdmin();
+      
+      // Create: only specific admin email (shampene@lebonconsulting.co.za)
+      allow create: if isAuthenticated() && 
+        request.auth.token.email == "shampene@lebonconsulting.co.za";
+      
+      // Update: only specific admin email or admin role
+      allow update: if isAuthenticated() && (
+        request.auth.token.email == "shampene@lebonconsulting.co.za" || isAdmin()
+      );
+      
+      // Delete: only specific admin email or admin role
+      allow delete: if isAuthenticated() && (
+        request.auth.token.email == "shampene@lebonconsulting.co.za" || isAdmin()
+      );
+    }
   }
 }

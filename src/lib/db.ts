@@ -36,6 +36,8 @@ import {
   StudentPropertyAssignment,
   PropertyImage,
   PropertyDocument as PropertyDoc,
+  PlatformResource,
+  ResourceCategory,
   COLLECTIONS,
   ProviderWithDetails,
   PropertyWithDetails,
@@ -730,4 +732,73 @@ export async function getProviderDashboardStats(providerId: string) {
     occupancyRate: totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0,
     activeStudents: assignments.length,
   };
+}
+
+// ============================================================================
+// PLATFORM RESOURCES
+// ============================================================================
+
+export async function createPlatformResource(
+  resourceData: Omit<PlatformResource, "resourceId" | "uploadedAt" | "uploadedBy">,
+  uploadedBy: string
+): Promise<PlatformResource> {
+  if (!db) throw new Error("Database not initialized");
+
+  const resourceId = generateId();
+  const resource: PlatformResource = {
+    ...resourceData,
+    resourceId,
+    uploadedAt: serverTimestamp() as Timestamp,
+    uploadedBy,
+  };
+
+  await setDoc(doc(db, COLLECTIONS.PLATFORM_RESOURCES, resourceId), resource);
+  return resource;
+}
+
+export async function getPlatformResources(
+  category?: ResourceCategory
+): Promise<PlatformResource[]> {
+  if (!db) return [];
+
+  let q;
+  if (category) {
+    q = query(
+      collection(db, COLLECTIONS.PLATFORM_RESOURCES),
+      where("category", "==", category),
+      orderBy("uploadedAt", "desc")
+    );
+  } else {
+    q = query(
+      collection(db, COLLECTIONS.PLATFORM_RESOURCES),
+      orderBy("uploadedAt", "desc")
+    );
+  }
+
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data() as PlatformResource);
+}
+
+export async function getPlatformResourceById(
+  resourceId: string
+): Promise<PlatformResource | null> {
+  if (!db) return null;
+  const snap = await getDoc(doc(db, COLLECTIONS.PLATFORM_RESOURCES, resourceId));
+  return snap.exists() ? (snap.data() as PlatformResource) : null;
+}
+
+export async function updatePlatformResource(
+  resourceId: string,
+  updates: Partial<PlatformResource>
+): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  await updateDoc(doc(db, COLLECTIONS.PLATFORM_RESOURCES, resourceId), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deletePlatformResource(resourceId: string): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  await deleteDoc(doc(db, COLLECTIONS.PLATFORM_RESOURCES, resourceId));
 }
