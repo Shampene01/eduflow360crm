@@ -222,6 +222,9 @@ export interface AccommodationProvider {
   nsfasAccreditedSince?: string;
   accreditationExpiry?: string;
   
+  // CRM Sync
+  dataverseId?: string;              // Dataverse account ID (returned from Power Automate)
+  
   // Metadata
   metadata?: Record<string, unknown>;
   createdAt: Timestamp;
@@ -311,6 +314,9 @@ export interface Property {
   
   // Amenities
   amenities?: string[];
+  
+  // CRM Sync
+  dataverseId?: string;              // Dataverse property ID (returned from Power Automate)
   
   // Metadata
   metadata?: Record<string, unknown>;
@@ -423,6 +429,9 @@ export interface Student {
   
   // Status
   status: "Pending" | "Verified" | "Active" | "Inactive" | "Graduated";
+  
+  // CRM Sync
+  dataverseId?: string;              // Dataverse student ID (returned from Power Automate)
   
   // Metadata
   metadata?: Record<string, unknown>;

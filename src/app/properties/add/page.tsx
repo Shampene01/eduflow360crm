@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { getProviderByUserId, createProperty, createAddress } from "@/lib/db";
 import { db } from "@/lib/firebase";
 import { AccommodationProvider } from "@/lib/schema";
+import { syncPropertyToCRMBackground } from "@/lib/crmSync";
 
 const provinces = [
   "Eastern Cape",
@@ -151,7 +152,7 @@ function AddPropertyContent() {
       });
 
       // Then create the property in the subcollection
-      await createProperty({
+      const property = await createProperty({
         providerId: provider.providerId,
         name: formData.name,
         ownershipType: "Owned",
@@ -165,6 +166,21 @@ function AddPropertyContent() {
         nsfasApproved: formData.nsfasApproved,
         status: "Pending",
       });
+
+      // Sync property to Dataverse CRM (background, non-blocking)
+      // Requires both provider and user to have Dataverse IDs
+      const providerDataverseId = provider.dataverseId;
+      const userDataverseId = user?.dataverseId;
+      if (providerDataverseId && userDataverseId) {
+        syncPropertyToCRMBackground(
+          property,
+          providerDataverseId,
+          userDataverseId,
+          address
+        );
+      } else {
+        console.warn("Provider or user does not have a Dataverse ID - property will not be synced to CRM");
+      }
 
       toast.success("Property added successfully!");
       router.push("/properties");

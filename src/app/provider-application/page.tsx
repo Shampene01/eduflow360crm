@@ -29,8 +29,8 @@ import {
   createProviderContact,
   createProviderDocument,
   getProviderByUserId,
-  updateUser,
 } from "@/lib/db";
+import { syncProviderToCRMBackground } from "@/lib/crmSync";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 import { LegalForm, AccountType, DocumentType } from "@/lib/schema";
@@ -379,6 +379,49 @@ function ProviderApplicationContent() {
 
       // Note: User role update is handled by admin during provider approval
       // The provider status is tracked via the accommodationProviders collection
+
+      // 6. Sync provider to Dataverse CRM (background, non-blocking)
+      // The user's dataverseId links the provider to their Dataverse contact record
+      const userDataverseId = user?.dataverseId;
+      if (userDataverseId) {
+        // Prepare primary contact data for CRM sync
+        const primaryContactForSync = {
+          contactId: "",
+          providerId: provider.providerId,
+          firstNames: formData.primaryFirstNames,
+          surname: formData.primarySurname,
+          position: formData.primaryPosition || undefined,
+          phoneNumber: formData.primaryPhone,
+          email: formData.primaryEmail,
+          idNumber: formData.primaryIdNumber || undefined,
+          isPrimary: true,
+          isActive: true,
+          createdAt: provider.createdAt,
+        };
+
+        // Prepare secondary contact if provided
+        const secondaryContactForSync = formData.secondaryFirstNames && formData.secondaryPhone ? {
+          contactId: "",
+          providerId: provider.providerId,
+          firstNames: formData.secondaryFirstNames,
+          surname: formData.secondarySurname || "",
+          phoneNumber: formData.secondaryPhone,
+          email: formData.secondaryEmail || "",
+          isPrimary: false,
+          isActive: true,
+          createdAt: provider.createdAt,
+        } : null;
+
+        syncProviderToCRMBackground(
+          provider,
+          userDataverseId,
+          address,
+          primaryContactForSync,
+          secondaryContactForSync
+        );
+      } else {
+        console.warn("User does not have a Dataverse ID - provider will not be synced to CRM");
+      }
 
       // Redirect to provider dashboard
       router.push("/provider-dashboard");

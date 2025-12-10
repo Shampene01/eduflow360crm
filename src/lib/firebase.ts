@@ -71,6 +71,9 @@ export const analytics = analyticsInstance;
 
 // Dataverse Sync Webhooks (Power Automate)
 export const DATAVERSE_USER_SYNC_URL = process.env.NEXT_PUBLIC_DATAVERSE_USER_SYNC_URL;
+export const DATAVERSE_PROVIDER_SYNC_URL = process.env.NEXT_PUBLIC_DATAVERSE_PROVIDER_SYNC_URL;
+export const DATAVERSE_PROPERTY_SYNC_URL = process.env.NEXT_PUBLIC_DATAVERSE_PROPERTY_SYNC_URL;
+export const DATAVERSE_STUDENT_SYNC_URL = process.env.NEXT_PUBLIC_DATAVERSE_STUDENT_SYNC_URL;
 export const DATAVERSE_SYNC_URL = process.env.NEXT_PUBLIC_DATAVERSE_SYNC_URL;
 
 // Legacy (backward compatibility)

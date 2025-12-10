@@ -11,7 +11,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db } from "../firebase";
-import { COLLECTIONS } from "../schema";
+import { COLLECTIONS, Student, StudentPropertyAssignment } from "../schema";
 import { generateId } from "../db";
 import {
   ValidatedStudent,
@@ -20,6 +20,7 @@ import {
   DuplicateStudent,
   ImportError,
 } from "./types";
+import { syncStudentToCRMBackground } from "../crmSync";
 
 const BATCH_SIZE = 200; // 200 students = 400 operations (2 per student: address + student)
 
@@ -111,11 +112,26 @@ export async function checkDuplicateIdNumbers(
 }
 
 /**
+ * CRM Sync context for student imports
+ */
+export interface StudentImportCRMContext {
+  propertyDataverseId?: string;
+  providerDataverseId?: string;
+  userDataverseId?: string;
+  firebaseProviderId?: string;
+  propertyId?: string;
+}
+
+/**
  * Imports a batch of students with progress tracking
+ * @param students - Array of validated students to import
+ * @param onProgress - Optional callback for progress updates
+ * @param crmContext - Optional CRM context for syncing students to Dataverse
  */
 export async function importStudentBatch(
   students: ValidatedStudent[],
-  onProgress?: (progress: BatchProgress) => void
+  onProgress?: (progress: BatchProgress) => void,
+  crmContext?: StudentImportCRMContext
 ): Promise<ImportResult> {
   if (!db) {
     throw new Error("Database not initialized");
@@ -219,6 +235,54 @@ export async function importStudentBatch(
         try {
           await firestoreBatch.commit();
           result.successCount += studentsToImport.length;
+          
+          // Sync successfully imported students to CRM (background, non-blocking)
+          if (crmContext?.propertyDataverseId && crmContext?.providerDataverseId) {
+            for (const student of studentsToImport) {
+              const studentId = generateId(); // Note: This is a new ID, not the one used in batch
+              // Create a minimal Student object for CRM sync
+              const studentForCRM: Student = {
+                studentId,
+                idNumber: student.idNumber,
+                firstNames: student.firstNames,
+                surname: student.surname,
+                email: student.email,
+                phoneNumber: student.phoneNumber,
+                dateOfBirth: student.dateOfBirth,
+                gender: student.gender as "Male" | "Female" | "Other" | undefined,
+                institution: student.institution,
+                studentNumber: student.studentNumber,
+                program: student.program,
+                yearOfStudy: student.yearOfStudy,
+                nsfasNumber: student.nsfasNumber,
+                funded: student.funded,
+                fundedAmount: student.fundedAmount,
+                fundingYear: student.fundingYear,
+                status: "Pending",
+                createdAt: serverTimestamp() as Timestamp,
+              };
+              
+              // Create assignment if property context is provided
+              const assignment: StudentPropertyAssignment | null = crmContext.propertyId ? {
+                assignmentId: generateId(),
+                studentId,
+                propertyId: crmContext.propertyId,
+                startDate: new Date().toISOString().split("T")[0], // Today's date
+                status: "Future", // Newly imported students are pending assignment confirmation
+                createdBy: crmContext.userDataverseId || "",
+                createdAt: serverTimestamp() as Timestamp,
+              } : null;
+              
+              syncStudentToCRMBackground(
+                studentForCRM,
+                assignment,
+                crmContext.propertyDataverseId,
+                crmContext.providerDataverseId,
+                crmContext.userDataverseId || "",
+                crmContext.firebaseProviderId || ""
+              );
+            }
+          }
         } catch (error) {
           // If batch commit fails, all students in this batch failed
           result.errorCount += studentsToImport.length;

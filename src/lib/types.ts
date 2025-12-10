@@ -72,6 +72,7 @@ export interface User {
   
   // CRM sync
   crmSynced?: boolean;
+  dataverseId?: string;              // Dataverse contact ID (returned from Power Automate)
   
   // Legacy provider fields (kept for backward compatibility)
   providerName?: string;

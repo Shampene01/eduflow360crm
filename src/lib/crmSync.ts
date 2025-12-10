@@ -5,8 +5,22 @@
  * This module provides functions to sync user data to the CRM via webhooks.
  */
 
-import { DATAVERSE_USER_SYNC_URL, db } from "./firebase";
+import { 
+  DATAVERSE_USER_SYNC_URL, 
+  DATAVERSE_PROVIDER_SYNC_URL, 
+  DATAVERSE_PROPERTY_SYNC_URL,
+  DATAVERSE_STUDENT_SYNC_URL,
+  db 
+} from "./firebase";
 import { User } from "./types";
+import { 
+  AccommodationProvider, 
+  Address, 
+  ProviderContactPerson,
+  Property,
+  Student,
+  StudentPropertyAssignment,
+} from "./schema";
 import { doc, updateDoc } from "firebase/firestore";
 
 // ============================================================================
@@ -193,4 +207,715 @@ function formatTimestamp(timestamp: any): string {
   }
   
   return new Date().toISOString();
+}
+
+// ============================================================================
+// ACCOMMODATION PROVIDER SYNC
+// ============================================================================
+
+/**
+ * Payload for syncing accommodation provider to Dataverse
+ * Links provider to the user's existing Dataverse contact record
+ */
+export interface ProviderSyncPayload {
+  // Link to existing Dataverse contact (user)
+  userDataverseId: string;           // The logged-in user's Dataverse ID (returned on registration)
+  firebaseUserId: string;            // Firebase Auth UID of the user
+  firebaseProviderId: string;        // Firebase providerId from accommodationProviders collection
+  
+  // Company Information
+  companyName: string;
+  tradingName: string;
+  legalForm: string;
+  industryClassification: string;
+  companyRegistrationNumber: string;
+  yearsInOperation: number;
+  
+  // Tax Information
+  taxReferenceNumber: string;
+  vatRegistered: boolean;
+  vatNumber: string;
+  
+  // Banking Information
+  bankName: string;
+  accountType: string;
+  accountNumber: string;
+  branchCode: string;
+  accountHolder: string;
+  
+  // B-BBEE Information
+  bbbeeLevel: number;
+  bbbeeCertificateExpiry: string;
+  blackOwnershipPercentage: number;
+  blackYouthOwnershipPercentage: number;
+  blackWomenOwnershipPercentage: number;
+  disabledPersonOwnershipPercentage: number;
+  
+  // Physical Address (flattened)
+  physicalStreet: string;
+  physicalSuburb: string;
+  physicalTownCity: string;
+  physicalProvince: string;
+  physicalPostalCode: string;
+  physicalCountry: string;
+  physicalLatitude: number | null;
+  physicalLongitude: number | null;
+  
+  // Primary Contact
+  primaryContactFirstNames: string;
+  primaryContactSurname: string;
+  primaryContactPosition: string;
+  primaryContactPhone: string;
+  primaryContactEmail: string;
+  primaryContactIdNumber: string;
+  
+  // Secondary Contact (optional)
+  secondaryContactFirstNames: string;
+  secondaryContactSurname: string;
+  secondaryContactPhone: string;
+  secondaryContactEmail: string;
+  
+  // Status
+  approvalStatus: string;
+  nsfasAccredited: boolean;
+  nsfasAccreditedSince: string;
+  accreditationExpiry: string;
+  
+  // Timestamps
+  createdAt: string;
+}
+
+export interface ProviderSyncResult {
+  success: boolean;
+  message: string;
+  providerDataverseId?: string;      // Dataverse ID for the provider/account record
+  error?: string;
+}
+
+/**
+ * Sync accommodation provider data to Power Automate Flow for D365 CRM
+ * 
+ * @param provider - AccommodationProvider data
+ * @param userDataverseId - The Dataverse ID of the logged-in user (contact record)
+ * @param physicalAddress - Physical address of the provider
+ * @param primaryContact - Primary contact person
+ * @param secondaryContact - Optional secondary contact person
+ * @returns Promise<ProviderSyncResult>
+ */
+export async function syncProviderToCRM(
+  provider: AccommodationProvider,
+  userDataverseId: string,
+  physicalAddress?: Address | null,
+  primaryContact?: ProviderContactPerson | null,
+  secondaryContact?: ProviderContactPerson | null
+): Promise<ProviderSyncResult> {
+  // Check if webhook URL is configured
+  if (!DATAVERSE_PROVIDER_SYNC_URL) {
+    return {
+      success: false,
+      message: "Provider CRM sync not configured",
+      error: "DATAVERSE_PROVIDER_SYNC_URL environment variable not set",
+    };
+  }
+
+  // Validate userDataverseId
+  if (!userDataverseId) {
+    return {
+      success: false,
+      message: "User Dataverse ID required",
+      error: "The logged-in user must have a Dataverse ID to link the provider",
+    };
+  }
+
+  try {
+    // Prepare payload for Power Automate
+    const payload: ProviderSyncPayload = {
+      // Link to user's Dataverse contact
+      userDataverseId: String(userDataverseId),
+      firebaseUserId: String(provider.userId || ""),
+      firebaseProviderId: String(provider.providerId || ""),
+      
+      // Company Information
+      companyName: String(provider.companyName || ""),
+      tradingName: String(provider.tradingName || ""),
+      legalForm: String(provider.legalForm || ""),
+      industryClassification: String(provider.industryClassification || ""),
+      companyRegistrationNumber: String(provider.companyRegistrationNumber || ""),
+      yearsInOperation: Number(provider.yearsInOperation || 0),
+      
+      // Tax Information
+      taxReferenceNumber: String(provider.taxReferenceNumber || ""),
+      vatRegistered: Boolean(provider.vatRegistered === true),
+      vatNumber: String(provider.vatNumber || ""),
+      
+      // Banking Information
+      bankName: String(provider.bankName || ""),
+      accountType: String(provider.accountType || ""),
+      accountNumber: String(provider.accountNumber || ""),
+      branchCode: String(provider.branchCode || ""),
+      accountHolder: String(provider.accountHolder || ""),
+      
+      // B-BBEE Information
+      bbbeeLevel: Number(provider.bbbeeLevel || 0),
+      bbbeeCertificateExpiry: String(provider.bbbeeCertificateExpiry || ""),
+      blackOwnershipPercentage: Number(provider.blackOwnershipPercentage || 0),
+      blackYouthOwnershipPercentage: Number(provider.blackYouthOwnershipPercentage || 0),
+      blackWomenOwnershipPercentage: Number(provider.blackWomenOwnershipPercentage || 0),
+      disabledPersonOwnershipPercentage: Number(provider.disabledPersonOwnershipPercentage || 0),
+      
+      // Physical Address
+      physicalStreet: String(physicalAddress?.street || ""),
+      physicalSuburb: String(physicalAddress?.suburb || ""),
+      physicalTownCity: String(physicalAddress?.townCity || ""),
+      physicalProvince: String(physicalAddress?.province || ""),
+      physicalPostalCode: String(physicalAddress?.postalCode || ""),
+      physicalCountry: String(physicalAddress?.country || "South Africa"),
+      physicalLatitude: physicalAddress?.latitude ?? null,
+      physicalLongitude: physicalAddress?.longitude ?? null,
+      
+      // Primary Contact
+      primaryContactFirstNames: String(primaryContact?.firstNames || ""),
+      primaryContactSurname: String(primaryContact?.surname || ""),
+      primaryContactPosition: String(primaryContact?.position || ""),
+      primaryContactPhone: String(primaryContact?.phoneNumber || ""),
+      primaryContactEmail: String(primaryContact?.email || ""),
+      primaryContactIdNumber: String(primaryContact?.idNumber || ""),
+      
+      // Secondary Contact
+      secondaryContactFirstNames: String(secondaryContact?.firstNames || ""),
+      secondaryContactSurname: String(secondaryContact?.surname || ""),
+      secondaryContactPhone: String(secondaryContact?.phoneNumber || ""),
+      secondaryContactEmail: String(secondaryContact?.email || ""),
+      
+      // Status
+      approvalStatus: String(provider.approvalStatus || "Pending"),
+      nsfasAccredited: Boolean(provider.nsfasAccredited === true),
+      nsfasAccreditedSince: String(provider.nsfasAccreditedSince || ""),
+      accreditationExpiry: String(provider.accreditationExpiry || ""),
+      
+      // Timestamps
+      createdAt: provider.createdAt ? formatTimestamp(provider.createdAt) : new Date().toISOString(),
+    };
+
+    // Send to Power Automate webhook
+    const response = await fetch(DATAVERSE_PROVIDER_SYNC_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        message: `Provider CRM sync failed: ${response.statusText}`,
+        error: errorText,
+      };
+    }
+
+    // Parse response - Power Automate returns { message: "OK", providerDataverseId: "..." }
+    let responseData: { message?: string; providerDataverseId?: string } = {};
+    try {
+      responseData = await response.json();
+    } catch {
+      // Response might not be JSON
+      responseData = { message: "Sync completed" };
+    }
+
+    // Save providerDataverseId to Firestore if returned
+    const providerDataverseId = responseData.providerDataverseId;
+    if (providerDataverseId && provider.providerId) {
+      try {
+        const providerRef = doc(db, "accommodationProviders", provider.providerId);
+        await updateDoc(providerRef, { dataverseId: providerDataverseId });
+        console.log("Saved providerDataverseId to Firestore:", providerDataverseId);
+      } catch (updateError) {
+        console.error("Failed to save providerDataverseId to Firestore:", updateError);
+      }
+    }
+
+    return {
+      success: true,
+      message: "Provider synced to CRM successfully",
+      providerDataverseId: providerDataverseId,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: "Failed to sync provider to CRM",
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Sync provider data to CRM in background (non-blocking)
+ * Use this for provider application flow where we don't want to block the user
+ */
+export function syncProviderToCRMBackground(
+  provider: AccommodationProvider,
+  userDataverseId: string,
+  physicalAddress?: Address | null,
+  primaryContact?: ProviderContactPerson | null,
+  secondaryContact?: ProviderContactPerson | null
+): void {
+  // Fire and forget - don't await
+  syncProviderToCRM(provider, userDataverseId, physicalAddress, primaryContact, secondaryContact)
+    .then((result) => {
+      if (result.success) {
+        console.log("Provider synced to CRM:", result.providerDataverseId);
+      } else {
+        console.warn("Provider CRM sync failed:", result.error);
+      }
+    })
+    .catch((err) => {
+      console.error("Provider CRM sync error:", err);
+    });
+}
+
+// ============================================================================
+// PROPERTY SYNC
+// ============================================================================
+
+/**
+ * Payload for syncing property to Dataverse
+ * Links property to the provider's Dataverse account record
+ */
+export interface PropertySyncPayload {
+  // Link to existing Dataverse records
+  providerDataverseId: string;       // The provider's Dataverse Account ID
+  userDataverseId: string;           // The user's Dataverse Contact ID (who created the property)
+  firebaseProviderId: string;        // Firebase providerId
+  firebasePropertyId: string;        // Firebase propertyId
+  
+  // Property Information
+  name: string;
+  ownershipType: string;
+  propertyType: string;
+  institution: string;
+  description: string;
+  
+  // Address (flattened)
+  street: string;
+  suburb: string;
+  townCity: string;
+  province: string;
+  postalCode: string;
+  country: string;
+  latitude: number | null;
+  longitude: number | null;
+  
+  // Capacity
+  totalBeds: number;
+  availableBeds: number;
+  
+  // Pricing
+  pricePerBedPerMonth: number;
+  
+  // Status
+  status: string;
+  nsfasApproved: boolean;
+  
+  // Media
+  coverImageUrl: string;
+  
+  // Amenities (comma-separated)
+  amenities: string;
+  
+  // Timestamps
+  createdAt: string;
+}
+
+export interface PropertySyncResult {
+  success: boolean;
+  message: string;
+  propertyDataverseId?: string;      // Dataverse ID for the property record
+  error?: string;
+}
+
+/**
+ * Sync property data to Power Automate Flow for D365 CRM
+ * 
+ * @param property - Property data
+ * @param providerDataverseId - The Dataverse ID of the accommodation provider (account record)
+ * @param userDataverseId - The Dataverse ID of the user who created the property
+ * @param address - Property address
+ * @returns Promise<PropertySyncResult>
+ */
+export async function syncPropertyToCRM(
+  property: Property,
+  providerDataverseId: string,
+  userDataverseId: string,
+  address?: Address | null
+): Promise<PropertySyncResult> {
+  // Check if webhook URL is configured
+  if (!DATAVERSE_PROPERTY_SYNC_URL) {
+    return {
+      success: false,
+      message: "Property CRM sync not configured",
+      error: "DATAVERSE_PROPERTY_SYNC_URL environment variable not set",
+    };
+  }
+
+  // Validate providerDataverseId
+  if (!providerDataverseId) {
+    return {
+      success: false,
+      message: "Provider Dataverse ID required",
+      error: "The accommodation provider must have a Dataverse ID to link the property",
+    };
+  }
+
+  try {
+    // Prepare payload for Power Automate
+    const payload: PropertySyncPayload = {
+      // Link to Dataverse records
+      providerDataverseId: String(providerDataverseId),
+      userDataverseId: String(userDataverseId || ""),
+      firebaseProviderId: String(property.providerId || ""),
+      firebasePropertyId: String(property.propertyId || ""),
+      
+      // Property Information
+      name: String(property.name || ""),
+      ownershipType: String(property.ownershipType || ""),
+      propertyType: String(property.propertyType || ""),
+      institution: String(property.institution || ""),
+      description: String(property.description || ""),
+      
+      // Address
+      street: String(address?.street || ""),
+      suburb: String(address?.suburb || ""),
+      townCity: String(address?.townCity || ""),
+      province: String(address?.province || ""),
+      postalCode: String(address?.postalCode || ""),
+      country: String(address?.country || "South Africa"),
+      latitude: address?.latitude ?? null,
+      longitude: address?.longitude ?? null,
+      
+      // Capacity
+      totalBeds: Number(property.totalBeds || 0),
+      availableBeds: Number(property.availableBeds || 0),
+      
+      // Pricing
+      pricePerBedPerMonth: Number(property.pricePerBedPerMonth || 0),
+      
+      // Status
+      status: String(property.status || "Draft"),
+      nsfasApproved: Boolean(property.nsfasApproved === true),
+      
+      // Media
+      coverImageUrl: String(property.coverImageUrl || ""),
+      
+      // Amenities (convert array to comma-separated string)
+      amenities: Array.isArray(property.amenities) ? property.amenities.join(", ") : "",
+      
+      // Timestamps
+      createdAt: property.createdAt ? formatTimestamp(property.createdAt) : new Date().toISOString(),
+    };
+
+    // Send to Power Automate webhook
+    const response = await fetch(DATAVERSE_PROPERTY_SYNC_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        message: `Property CRM sync failed: ${response.statusText}`,
+        error: errorText,
+      };
+    }
+
+    // Parse response - Power Automate returns { message: "OK", propertyDataverseId: "..." }
+    let responseData: { message?: string; propertyDataverseId?: string } = {};
+    try {
+      responseData = await response.json();
+    } catch {
+      responseData = { message: "Sync completed" };
+    }
+
+    // Save propertyDataverseId to Firestore if returned
+    const propertyDataverseId = responseData.propertyDataverseId;
+    if (propertyDataverseId && property.propertyId && property.providerId) {
+      try {
+        // Properties are stored in subcollection: accommodationProviders/{providerId}/properties/{propertyId}
+        const propertyRef = doc(db, "accommodationProviders", property.providerId, "properties", property.propertyId);
+        await updateDoc(propertyRef, { dataverseId: propertyDataverseId });
+        console.log("Saved propertyDataverseId to Firestore:", propertyDataverseId);
+      } catch (updateError) {
+        console.error("Failed to save propertyDataverseId to Firestore:", updateError);
+      }
+    }
+
+    return {
+      success: true,
+      message: "Property synced to CRM successfully",
+      propertyDataverseId: propertyDataverseId,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: "Failed to sync property to CRM",
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Sync property data to CRM in background (non-blocking)
+ */
+export function syncPropertyToCRMBackground(
+  property: Property,
+  providerDataverseId: string,
+  userDataverseId: string,
+  address?: Address | null
+): void {
+  syncPropertyToCRM(property, providerDataverseId, userDataverseId, address)
+    .then((result) => {
+      if (result.success) {
+        console.log("Property synced to CRM:", result.propertyDataverseId);
+      } else {
+        console.warn("Property CRM sync failed:", result.error);
+      }
+    })
+    .catch((err) => {
+      console.error("Property CRM sync error:", err);
+    });
+}
+
+// ============================================================================
+// STUDENT SYNC
+// ============================================================================
+
+/**
+ * Payload for syncing student to Dataverse
+ * Links student to property and provider
+ */
+export interface StudentSyncPayload {
+  // Link to existing Dataverse records
+  propertyDataverseId: string;       // The property's Dataverse ID where student is assigned
+  providerDataverseId: string;       // The provider's Dataverse Account ID
+  userDataverseId: string;           // The user's Dataverse Contact ID (who assigned the student)
+  firebaseStudentId: string;         // Firebase studentId
+  firebasePropertyId: string;        // Firebase propertyId
+  firebaseProviderId: string;        // Firebase providerId
+  
+  // Personal Information
+  idNumber: string;
+  firstNames: string;
+  surname: string;
+  email: string;
+  phoneNumber: string;
+  dateOfBirth: string;
+  gender: number;                    // 0 = Male, 1 = Female
+  
+  // Academic Information
+  institution: string;
+  studentNumber: string;
+  program: string;
+  yearOfStudy: number;
+  
+  // NSFAS Information
+  nsfasNumber: string;
+  funded: boolean;
+  fundedAmount: number;
+  fundingYear: number;
+  
+  // Assignment Information
+  assignmentId: string;
+  roomId: string;
+  bedId: string;
+  startDate: string;
+  endDate: string;
+  monthlyRate: number;
+  assignmentStatus: string;
+  
+  // Status
+  studentStatus: string;
+  
+  // Timestamps
+  createdAt: string;
+}
+
+export interface StudentSyncResult {
+  success: boolean;
+  message: string;
+  studentDataverseId?: string;       // Dataverse ID for the student record
+  error?: string;
+}
+
+/**
+ * Sync student data to Power Automate Flow for D365 CRM
+ * 
+ * @param student - Student data
+ * @param assignment - Student property assignment data
+ * @param propertyDataverseId - The Dataverse ID of the property
+ * @param providerDataverseId - The Dataverse ID of the accommodation provider
+ * @param userDataverseId - The Dataverse ID of the user who assigned the student
+ * @param firebaseProviderId - Firebase provider ID
+ * @returns Promise<StudentSyncResult>
+ */
+export async function syncStudentToCRM(
+  student: Student,
+  assignment: StudentPropertyAssignment | null,
+  propertyDataverseId: string,
+  providerDataverseId: string,
+  userDataverseId: string,
+  firebaseProviderId: string
+): Promise<StudentSyncResult> {
+  // Check if webhook URL is configured
+  if (!DATAVERSE_STUDENT_SYNC_URL) {
+    return {
+      success: false,
+      message: "Student CRM sync not configured",
+      error: "DATAVERSE_STUDENT_SYNC_URL environment variable not set",
+    };
+  }
+
+  // Validate propertyDataverseId
+  if (!propertyDataverseId) {
+    return {
+      success: false,
+      message: "Property Dataverse ID required",
+      error: "The property must have a Dataverse ID to link the student",
+    };
+  }
+
+  try {
+    // Helper to convert gender string to integer (0 = Male, 1 = Female)
+    const getGenderCode = (gender: string | undefined): number => {
+      if (!gender) return 0;
+      const g = gender.toLowerCase();
+      if (g === "female" || g === "f") return 1;
+      return 0;
+    };
+
+    // Prepare payload for Power Automate
+    const payload: StudentSyncPayload = {
+      // Link to Dataverse records
+      propertyDataverseId: String(propertyDataverseId),
+      providerDataverseId: String(providerDataverseId || ""),
+      userDataverseId: String(userDataverseId || ""),
+      firebaseStudentId: String(student.studentId || ""),
+      firebasePropertyId: String(assignment?.propertyId || ""),
+      firebaseProviderId: String(firebaseProviderId || ""),
+      
+      // Personal Information
+      idNumber: String(student.idNumber || ""),
+      firstNames: String(student.firstNames || ""),
+      surname: String(student.surname || ""),
+      email: String(student.email || ""),
+      phoneNumber: String(student.phoneNumber || ""),
+      dateOfBirth: String(student.dateOfBirth || ""),
+      gender: getGenderCode(student.gender),
+      
+      // Academic Information
+      institution: String(student.institution || ""),
+      studentNumber: String(student.studentNumber || ""),
+      program: String(student.program || ""),
+      yearOfStudy: Number(student.yearOfStudy || 0),
+      
+      // NSFAS Information
+      nsfasNumber: String(student.nsfasNumber || ""),
+      funded: Boolean(student.funded === true),
+      fundedAmount: Number(student.fundedAmount || 0),
+      fundingYear: Number(student.fundingYear || 0),
+      
+      // Assignment Information
+      assignmentId: String(assignment?.assignmentId || ""),
+      roomId: String(assignment?.roomId || ""),
+      bedId: String(assignment?.bedId || ""),
+      startDate: String(assignment?.startDate || ""),
+      endDate: String(assignment?.endDate || ""),
+      monthlyRate: Number(assignment?.monthlyRate || 0),
+      assignmentStatus: String(assignment?.status || ""),
+      
+      // Status
+      studentStatus: String(student.status || "Pending"),
+      
+      // Timestamps
+      createdAt: student.createdAt ? formatTimestamp(student.createdAt) : new Date().toISOString(),
+    };
+
+    // Send to Power Automate webhook
+    const response = await fetch(DATAVERSE_STUDENT_SYNC_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        message: `Student CRM sync failed: ${response.statusText}`,
+        error: errorText,
+      };
+    }
+
+    // Parse response - Power Automate returns { message: "OK", studentDataverseId: "..." }
+    let responseData: { message?: string; studentDataverseId?: string } = {};
+    try {
+      responseData = await response.json();
+    } catch {
+      responseData = { message: "Sync completed" };
+    }
+
+    // Save studentDataverseId to Firestore if returned
+    const studentDataverseId = responseData.studentDataverseId;
+    if (studentDataverseId && student.studentId) {
+      try {
+        const studentRef = doc(db, "students", student.studentId);
+        await updateDoc(studentRef, { dataverseId: studentDataverseId });
+        console.log("Saved studentDataverseId to Firestore:", studentDataverseId);
+      } catch (updateError) {
+        console.error("Failed to save studentDataverseId to Firestore:", updateError);
+      }
+    }
+
+    return {
+      success: true,
+      message: "Student synced to CRM successfully",
+      studentDataverseId: studentDataverseId,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: "Failed to sync student to CRM",
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Sync student data to CRM in background (non-blocking)
+ */
+export function syncStudentToCRMBackground(
+  student: Student,
+  assignment: StudentPropertyAssignment | null,
+  propertyDataverseId: string,
+  providerDataverseId: string,
+  userDataverseId: string,
+  firebaseProviderId: string
+): void {
+  syncStudentToCRM(student, assignment, propertyDataverseId, providerDataverseId, userDataverseId, firebaseProviderId)
+    .then((result) => {
+      if (result.success) {
+        console.log("Student synced to CRM:", result.studentDataverseId);
+      } else {
+        console.warn("Student CRM sync failed:", result.error);
+      }
+    })
+    .catch((err) => {
+      console.error("Student CRM sync error:", err);
+    });
 }
