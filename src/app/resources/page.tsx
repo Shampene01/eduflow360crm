@@ -33,7 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getPlatformResources } from "@/lib/db";
+import { getPlatformResources, incrementDownloadCount } from "@/lib/db";
 import { PlatformResource } from "@/lib/schema";
 
 // Expected resources - these define what resources SHOULD exist
@@ -389,6 +389,30 @@ function ResourcesContent() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  // Handle download with tracking
+  const handleDownload = async (resource: PlatformResource) => {
+    try {
+      // Increment download count in database
+      await incrementDownloadCount(resource.resourceId);
+      
+      // Update local state to reflect the new count
+      setPlatformResources(prev => 
+        prev.map(r => 
+          r.resourceId === resource.resourceId 
+            ? { ...r, downloadCount: (r.downloadCount || 0) + 1 }
+            : r
+        )
+      );
+      
+      // Open the file in a new tab
+      window.open(resource.fileUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Error tracking download:', error);
+      // Still open the file even if tracking fails
+      window.open(resource.fileUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <DashboardHeader />
@@ -514,21 +538,23 @@ function ResourcesContent() {
                                   <span className="text-xs text-gray-400">{uploadedResource.duration}</span>
                                 )}
                               </div>
-                              {isUploaded ? (
-                                <Button variant="ghost" size="sm" asChild>
-                                  <a href={uploadedResource?.fileUrl} target="_blank" rel="noopener noreferrer">
-                                    {isVideo ? (
-                                      <>
-                                        <Play className="w-4 h-4 mr-1" />
-                                        Watch
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Download className="w-4 h-4 mr-1" />
-                                        Download
-                                      </>
-                                    )}
-                                  </a>
+                              {isUploaded && uploadedResource ? (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => handleDownload(uploadedResource)}
+                                >
+                                  {isVideo ? (
+                                    <>
+                                      <Play className="w-4 h-4 mr-1" />
+                                      Watch
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Download className="w-4 h-4 mr-1" />
+                                      Download
+                                    </>
+                                  )}
                                 </Button>
                               ) : (
                                 <Button variant="ghost" size="sm" disabled className="text-gray-400">
@@ -600,12 +626,13 @@ function ResourcesContent() {
                                   )}
                                 </div>
                               </div>
-                              {isUploaded ? (
-                                <Button className="bg-amber-500 hover:bg-amber-600 text-gray-900 flex-shrink-0" asChild>
-                                  <a href={uploadedResource?.fileUrl} target="_blank" rel="noopener noreferrer">
-                                    <Download className="w-4 h-4 mr-2" />
-                                    Download
-                                  </a>
+                              {isUploaded && uploadedResource ? (
+                                <Button 
+                                  className="bg-amber-500 hover:bg-amber-600 text-gray-900 flex-shrink-0"
+                                  onClick={() => handleDownload(uploadedResource)}
+                                >
+                                  <Download className="w-4 h-4 mr-2" />
+                                  Download
                                 </Button>
                               ) : (
                                 <Button 
@@ -679,12 +706,14 @@ function ResourcesContent() {
                                   )}
                                 </div>
                               </div>
-                              {isUploaded ? (
-                                <Button variant="outline" className="flex-shrink-0 border-purple-500 text-purple-600 hover:bg-purple-50" asChild>
-                                  <a href={uploadedResource?.fileUrl} target="_blank" rel="noopener noreferrer">
-                                    <ExternalLink className="w-4 h-4 mr-2" />
-                                    View
-                                  </a>
+                              {isUploaded && uploadedResource ? (
+                                <Button 
+                                  variant="outline" 
+                                  className="flex-shrink-0 border-purple-500 text-purple-600 hover:bg-purple-50"
+                                  onClick={() => handleDownload(uploadedResource)}
+                                >
+                                  <ExternalLink className="w-4 h-4 mr-2" />
+                                  View
                                 </Button>
                               ) : (
                                 <Button variant="outline" className="flex-shrink-0 text-gray-400 border-gray-300" disabled>

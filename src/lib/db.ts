@@ -20,6 +20,7 @@ import {
   serverTimestamp,
   writeBatch,
   Timestamp,
+  increment,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import {
@@ -820,4 +821,11 @@ export async function updatePlatformResource(
 export async function deletePlatformResource(resourceId: string): Promise<void> {
   if (!db) throw new Error("Database not initialized");
   await deleteDoc(doc(db, COLLECTIONS.PLATFORM_RESOURCES, resourceId));
+}
+
+export async function incrementDownloadCount(resourceId: string): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  await updateDoc(doc(db, COLLECTIONS.PLATFORM_RESOURCES, resourceId), {
+    downloadCount: increment(1),
+  });
 }
