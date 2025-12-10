@@ -302,11 +302,8 @@ service cloud.firestore {
     // 14. PLATFORM RESOURCES
     // ========================================================================
     match /platformResources/{resourceId} {
-      // Read: any authenticated user can read active resources
-      allow read: if isAuthenticated() && resource.data.isActive == true;
-      
-      // Admin read: can read all resources (including inactive)
-      allow read: if isAdmin();
+      // Read: any authenticated user can read (resources are filtered by isActive in queries)
+      allow read: if isAuthenticated();
       
       // Create: only specific admin email (shampene@lebonconsulting.co.za)
       allow create: if isAuthenticated() && 

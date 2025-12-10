@@ -377,13 +377,8 @@ function ProviderApplicationContent() {
         });
       }
 
-      // 6. Update user roles to include "provider"
-      const currentRoles = (user?.roles || []) as string[];
-      if (!currentRoles.includes("provider")) {
-        await updateUser(uid, {
-          roles: [...currentRoles, "provider"] as ("provider" | "student" | "admin" | "manager" | "supervisor" | "registrar" | "administrator")[],
-        });
-      }
+      // Note: User role update is handled by admin during provider approval
+      // The provider status is tracked via the accommodationProviders collection
 
       // Redirect to provider dashboard
       router.push("/provider-dashboard");
