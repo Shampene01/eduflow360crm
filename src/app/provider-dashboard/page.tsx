@@ -42,8 +42,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getProviderByUserId, getAddressById, getProviderContacts } from "@/lib/db";
-import { AccommodationProvider, Address, ProviderContactPerson } from "@/lib/schema";
+import { getProviderByUserId, getAddressById, getProviderContacts, getPropertiesByProvider, getPropertyAssignments } from "@/lib/db";
+import { AccommodationProvider, Address, ProviderContactPerson, Property, Student, StudentPropertyAssignment } from "@/lib/schema";
+import { getStudentById } from "@/lib/db";
 import { providerDisplayId } from "@/lib/utils/maskId";
 import { OnlineStatus } from "@/components/OnlineStatus";
 
@@ -54,6 +55,12 @@ interface DashboardStats {
   pendingInvoices: number;
   openTickets: number;
   monthlyRevenue: number;
+}
+
+interface StudentWithProperty {
+  student: Student;
+  assignment: StudentPropertyAssignment;
+  property: Property;
 }
 
 function ProviderDashboardContent() {
@@ -72,6 +79,8 @@ function ProviderDashboardContent() {
     monthlyRevenue: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [propertiesList, setPropertiesList] = useState<Property[]>([]);
+  const [studentsList, setStudentsList] = useState<StudentWithProperty[]>([]);
 
   // Check if user has approved provider status and fetch related data
   useEffect(() => {
@@ -122,32 +131,48 @@ function ProviderDashboardContent() {
         // Use the provider's ID, not the user's ID
         const providerId = providerStatus.providerId;
 
-        // Fetch properties count
-        const propertiesQuery = query(
-          collection(db, "properties"),
-          where("providerId", "==", providerId)
-        );
-        const propertiesSnap = await getDocs(propertiesQuery);
-        const totalProperties = propertiesSnap.size;
+        // Fetch all properties for this provider
+        const properties = await getPropertiesByProvider(providerId);
+        const totalProperties = properties.length;
+        
+        // Store properties list (limit to 10 for dashboard display)
+        setPropertiesList(properties.slice(0, 10));
 
-        // Calculate total rooms and students
-        let totalRooms = 0;
-        let occupiedRooms = 0;
-        propertiesSnap.forEach((doc) => {
-          const data = doc.data();
-          totalRooms += data.totalRooms || 0;
-          occupiedRooms += (data.totalRooms || 0) - (data.availableRooms || 0);
+        // Calculate total beds across all properties
+        let totalBeds = 0;
+        properties.forEach((property) => {
+          totalBeds += property.totalBeds || 0;
         });
 
-        const occupancyRate = totalRooms > 0 ? Math.round((occupiedRooms / totalRooms) * 100) : 0;
+        // Fetch all active student assignments across all properties
+        let totalStudents = 0;
+        const allStudentsWithProperties: StudentWithProperty[] = [];
+        
+        for (const property of properties) {
+          const assignments = await getPropertyAssignments(property.propertyId);
+          const activeAssignments = assignments.filter(a => a.status === "Active");
+          totalStudents += activeAssignments.length;
+          
+          // Get student details for each assignment (limit total to 10)
+          for (const assignment of activeAssignments) {
+            if (allStudentsWithProperties.length < 10) {
+              const student = await getStudentById(assignment.studentId);
+              if (student) {
+                allStudentsWithProperties.push({
+                  student,
+                  assignment,
+                  property,
+                });
+              }
+            }
+          }
+        }
+        
+        // Store students list
+        setStudentsList(allStudentsWithProperties);
 
-        // Fetch pending invoices
-        const invoicesQuery = query(
-          collection(db, "invoices"),
-          where("providerId", "==", providerId),
-          where("status", "==", "submitted")
-        );
-        const invoicesSnap = await getDocs(invoicesQuery);
+        // Calculate occupancy rate based on total beds vs assigned students
+        const occupancyRate = totalBeds > 0 ? Math.round((totalStudents / totalBeds) * 100) : 0;
 
         // Fetch open tickets (still uses userId for ticket ownership)
         const ticketsQuery = query(
@@ -159,9 +184,9 @@ function ProviderDashboardContent() {
 
         setStats({
           totalProperties,
-          totalStudents: occupiedRooms,
+          totalStudents,
           occupancyRate,
-          pendingInvoices: invoicesSnap.size,
+          pendingInvoices: 0, // Invoicing not implemented yet
           openTickets: ticketsSnap.size,
           monthlyRevenue: 0, // Would need more complex calculation
         });
@@ -517,19 +542,52 @@ function ProviderDashboardContent() {
                         <TableRow className="dark:border-gray-700">
                           <TableHead className="dark:text-gray-300">Property Name</TableHead>
                           <TableHead className="dark:text-gray-300">Location</TableHead>
-                          <TableHead className="dark:text-gray-300">Rooms</TableHead>
-                          <TableHead className="dark:text-gray-300">Occupancy</TableHead>
+                          <TableHead className="dark:text-gray-300">Beds</TableHead>
                           <TableHead className="dark:text-gray-300">Status</TableHead>
                           <TableHead className="dark:text-gray-300">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {/* Properties will be listed here when available */}
-                        <TableRow className="dark:border-gray-700">
-                          <TableCell colSpan={6} className="text-center text-gray-500 dark:text-gray-400 py-8">
-                            Property list functionality coming soon
-                          </TableCell>
-                        </TableRow>
+                        {propertiesList.map((property) => (
+                          <TableRow key={property.propertyId} className="dark:border-gray-700">
+                            <TableCell>
+                              <Link
+                                href={`/properties/${property.propertyId}`}
+                                className="font-medium text-amber-600 hover:text-amber-700 hover:underline"
+                              >
+                                {property.name}
+                              </Link>
+                            </TableCell>
+                            <TableCell className="text-gray-600 dark:text-gray-400">
+                              {property.institution || "-"}
+                            </TableCell>
+                            <TableCell className="text-gray-600 dark:text-gray-400">
+                              {property.totalBeds || 0}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                className={
+                                  property.status === "Active"
+                                    ? "bg-green-500"
+                                    : property.status === "Pending"
+                                    ? "bg-yellow-500"
+                                    : property.status === "Draft"
+                                    ? "bg-blue-500"
+                                    : "bg-gray-500"
+                                }
+                              >
+                                {property.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button asChild variant="ghost" size="sm">
+                                <Link href={`/properties/${property.propertyId}`}>
+                                  <Eye className="w-4 h-4" />
+                                </Link>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
                       </TableBody>
                     </Table>
                   )}
@@ -540,15 +598,87 @@ function ProviderDashboardContent() {
             {/* Students Tab */}
             <TabsContent value="students">
               <Card className="dark:bg-gray-800 dark:border-gray-700">
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="dark:text-gray-100">Allocated Students</CardTitle>
+                  <Button asChild variant="outline" className="dark:border-gray-600 dark:text-gray-300">
+                    <Link href="/students">
+                      View All Students
+                    </Link>
+                  </Button>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-center py-12">
-                    <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No students allocated</h3>
-                    <p className="text-gray-500 dark:text-gray-400">Students will appear here once allocated to your properties</p>
-                  </div>
+                  {studentsList.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No students allocated</h3>
+                      <p className="text-gray-500 dark:text-gray-400">Students will appear here once allocated to your properties</p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="dark:border-gray-700">
+                          <TableHead className="dark:text-gray-300">Student Name</TableHead>
+                          <TableHead className="dark:text-gray-300">ID Number</TableHead>
+                          <TableHead className="dark:text-gray-300">Property</TableHead>
+                          <TableHead className="dark:text-gray-300">NSFAS</TableHead>
+                          <TableHead className="dark:text-gray-300">Monthly Rent</TableHead>
+                          <TableHead className="dark:text-gray-300">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {studentsList.map(({ student, assignment, property }) => (
+                          <TableRow key={`${student.studentId}-${assignment.assignmentId}`} className="dark:border-gray-700">
+                            <TableCell>
+                              <Link
+                                href={`/students/${student.studentId}`}
+                                className="font-medium text-amber-600 hover:text-amber-700 hover:underline"
+                              >
+                                {student.firstNames} {student.surname}
+                              </Link>
+                            </TableCell>
+                            <TableCell className="font-mono text-sm text-gray-600 dark:text-gray-400">
+                              {student.idNumber}
+                            </TableCell>
+                            <TableCell>
+                              <Link
+                                href={`/properties/${property.propertyId}`}
+                                className="text-amber-600 hover:text-amber-700 hover:underline"
+                              >
+                                {property.name}
+                              </Link>
+                            </TableCell>
+                            <TableCell>
+                              {student.funded ? (
+                                <Badge className="bg-green-500">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Funded
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">Not Funded</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-gray-600 dark:text-gray-400">
+                              {assignment.monthlyRate ? `R${assignment.monthlyRate.toLocaleString()}` : "-"}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  assignment.status === "Active"
+                                    ? "border-green-500 text-green-700 bg-green-50 dark:bg-green-900/30"
+                                    : assignment.status === "Future"
+                                    ? "border-blue-500 text-blue-700 bg-blue-50 dark:bg-blue-900/30"
+                                    : "border-gray-500 text-gray-700 bg-gray-50 dark:bg-gray-900/30"
+                                }
+                              >
+                                {assignment.status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

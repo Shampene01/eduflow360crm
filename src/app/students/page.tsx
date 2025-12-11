@@ -2,20 +2,20 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import {
   Users,
   Plus,
   Search,
   Filter,
-  Eye,
   Mail,
   Phone,
   Building2,
   CheckCircle,
   Clock,
   Upload,
+  GraduationCap,
+  CreditCard,
+  Loader2,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardFooter } from "@/components/DashboardFooter";
@@ -35,58 +35,70 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { BulkImportDialog } from "@/components/students/BulkImportDialog";
+import { Student, StudentPropertyAssignment, Property } from "@/lib/schema";
+import {
+  getProviderByUserId,
+  getPropertiesByProvider,
+  getPropertyAssignments,
+  getStudentById,
+} from "@/lib/db";
 
-interface StudentData {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone?: string;
-  studentId?: string;
-  institution?: string;
-  nsfasVerified?: boolean;
-  status: string;
-  propertyName?: string;
-  roomNumber?: string;
+interface StudentWithProperty {
+  student: Student;
+  assignment: StudentPropertyAssignment;
+  property: Property;
 }
 
 function StudentsContent() {
   const { user } = useAuth();
-  const [students, setStudents] = useState<StudentData[]>([]);
-  const [properties, setProperties] = useState<string[]>([]);
+  const [studentsWithProperties, setStudentsWithProperties] = useState<StudentWithProperty[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [providerId, setProviderId] = useState<string>("");
 
   const fetchData = async () => {
     const uid = user?.userId || user?.uid;
-    if (!uid || !db) {
+    if (!uid) {
       setLoading(false);
       return;
     }
 
     try {
-      // Fetch provider's properties
-      const providersQuery = query(
-        collection(db, "accommodationProviders"),
-        where("userId", "==", uid)
-      );
-      const providerSnap = await getDocs(providersQuery);
+      // Get provider
+      const provider = await getProviderByUserId(uid);
+      if (!provider) {
+        setLoading(false);
+        return;
+      }
+      setProviderId(provider.providerId);
 
-      if (!providerSnap.empty) {
-        const providerData = providerSnap.docs[0].data();
-        const providerId = providerData.providerId || providerSnap.docs[0].id;
-        const propertiesQuery = query(
-          collection(db, "properties"),
-          where("providerId", "==", providerId)
-        );
-        const propertiesSnap = await getDocs(propertiesQuery);
-        setProperties(propertiesSnap.docs.map(doc => doc.id));
+      // Get all properties for this provider
+      const providerProperties = await getPropertiesByProvider(provider.providerId);
+      setProperties(providerProperties);
+
+      // Get all students assigned to these properties
+      const allStudentsWithProperties: StudentWithProperty[] = [];
+      
+      for (const property of providerProperties) {
+        // Get assignments for this property
+        const assignments = await getPropertyAssignments(property.propertyId);
+        
+        // Get student details for each assignment
+        for (const assignment of assignments) {
+          const student = await getStudentById(assignment.studentId);
+          if (student) {
+            allStudentsWithProperties.push({
+              student,
+              assignment,
+              property,
+            });
+          }
+        }
       }
 
-      // In a real app, you'd query students allocated to this provider's properties
-      // For now, we'll show an empty state
-      setStudents([]);
+      setStudentsWithProperties(allStudentsWithProperties);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -98,12 +110,21 @@ function StudentsContent() {
     fetchData();
   }, [user?.userId, user?.uid]);
 
-  const filteredStudents = students.filter(
-    (student) =>
-      student.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredStudents = studentsWithProperties.filter(
+    ({ student, property }) =>
+      student.firstNames.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.surname.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (student.email && student.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      property.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Calculate stats
+  const totalStudents = studentsWithProperties.length;
+  const fundedStudents = studentsWithProperties.filter(({ student }) => student.funded).length;
+  const activeAssignments = studentsWithProperties.filter(({ assignment }) => assignment.status === "Active").length;
+  const totalMonthlyRevenue = studentsWithProperties
+    .filter(({ assignment }) => assignment.status === "Active")
+    .reduce((sum, { assignment }) => sum + (assignment.monthlyRate || 0), 0);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -149,7 +170,7 @@ function StudentsContent() {
                     <Users className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">{students.length}</p>
+                    <p className="text-2xl font-bold text-gray-900">{totalStudents}</p>
                     <p className="text-sm text-gray-500">Total Students</p>
                   </div>
                 </div>
@@ -162,10 +183,8 @@ function StudentsContent() {
                     <CheckCircle className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {students.filter((s) => s.nsfasVerified).length}
-                    </p>
-                    <p className="text-sm text-gray-500">NSFAS Verified</p>
+                    <p className="text-2xl font-bold text-gray-900">{fundedStudents}</p>
+                    <p className="text-sm text-gray-500">NSFAS Funded</p>
                   </div>
                 </div>
               </CardContent>
@@ -173,14 +192,12 @@ function StudentsContent() {
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
-                    <Clock className="w-5 h-5 text-yellow-600" />
+                  <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                    <GraduationCap className="w-5 h-5 text-amber-600" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {students.filter((s) => s.status === "pending").length}
-                    </p>
-                    <p className="text-sm text-gray-500">Pending</p>
+                    <p className="text-2xl font-bold text-gray-900">{activeAssignments}</p>
+                    <p className="text-sm text-gray-500">Active Placements</p>
                   </div>
                 </div>
               </CardContent>
@@ -189,13 +206,13 @@ function StudentsContent() {
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-purple-600" />
+                    <CreditCard className="w-5 h-5 text-purple-600" />
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-gray-900">
-                      {students.filter((s) => s.status === "allocated").length}
+                      R{totalMonthlyRevenue.toLocaleString()}
                     </p>
-                    <p className="text-sm text-gray-500">Allocated</p>
+                    <p className="text-sm text-gray-500">Monthly Revenue</p>
                   </div>
                 </div>
               </CardContent>
@@ -247,76 +264,72 @@ function StudentsContent() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Student</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Institution</TableHead>
+                      <TableHead>ID Number</TableHead>
                       <TableHead>Property</TableHead>
+                      <TableHead>Institution</TableHead>
                       <TableHead>NSFAS</TableHead>
+                      <TableHead>Monthly Rent</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredStudents.map((student) => (
-                      <TableRow key={student.id}>
+                    {filteredStudents.map(({ student, assignment, property }) => (
+                      <TableRow key={`${student.studentId}-${assignment.assignmentId}`}>
                         <TableCell>
                           <div>
-                            <p className="font-medium">
-                              {student.firstName} {student.lastName}
-                            </p>
-                            <p className="text-sm text-gray-500">{student.studentId}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1 text-sm">
-                              <Mail className="w-3 h-3" />
-                              {student.email}
-                            </div>
-                            {student.phone && (
-                              <div className="flex items-center gap-1 text-sm text-gray-500">
-                                <Phone className="w-3 h-3" />
-                                {student.phone}
-                              </div>
+                            <Link
+                              href={`/students/${student.studentId}`}
+                              className="font-medium text-amber-600 hover:text-amber-700 hover:underline"
+                            >
+                              {student.firstNames} {student.surname}
+                            </Link>
+                            {student.studentNumber && (
+                              <p className="text-sm text-gray-500">{student.studentNumber}</p>
                             )}
                           </div>
                         </TableCell>
+                        <TableCell className="font-mono text-sm">{student.idNumber}</TableCell>
+                        <TableCell>
+                          <Link
+                            href={`/properties/${property.propertyId}`}
+                            className="text-amber-600 hover:text-amber-700 hover:underline"
+                          >
+                            {property.name}
+                          </Link>
+                        </TableCell>
                         <TableCell>{student.institution || "-"}</TableCell>
                         <TableCell>
-                          {student.propertyName ? (
-                            <div>
-                              <p className="font-medium">{student.propertyName}</p>
-                              <p className="text-sm text-gray-500">Room {student.roomNumber}</p>
-                            </div>
+                          {student.funded ? (
+                            <Badge className="bg-green-500">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Funded
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">Not Funded</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {assignment.monthlyRate ? (
+                            <span className="font-medium">R{assignment.monthlyRate.toLocaleString()}</span>
                           ) : (
                             "-"
                           )}
                         </TableCell>
                         <TableCell>
                           <Badge
-                            variant={student.nsfasVerified ? "default" : "secondary"}
-                            className={student.nsfasVerified ? "bg-green-500" : ""}
-                          >
-                            {student.nsfasVerified ? "Verified" : "Pending"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
                             variant="outline"
                             className={
-                              student.status === "allocated"
-                                ? "border-green-500 text-green-700"
-                                : student.status === "pending"
-                                ? "border-yellow-500 text-yellow-700"
-                                : ""
+                              assignment.status === "Active"
+                                ? "border-green-500 text-green-700 bg-green-50"
+                                : assignment.status === "Future"
+                                ? "border-blue-500 text-blue-700 bg-blue-50"
+                                : assignment.status === "Closed"
+                                ? "border-gray-500 text-gray-700 bg-gray-50"
+                                : "border-red-500 text-red-700 bg-red-50"
                             }
                           >
-                            {student.status}
+                            {assignment.status}
                           </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="sm">
-                            <Eye className="w-4 h-4" />
-                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}

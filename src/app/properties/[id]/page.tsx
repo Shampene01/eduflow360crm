@@ -27,7 +27,7 @@ import { Property, Address, RoomConfiguration } from "@/lib/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getProviderByUserId, getPropertyById, getAddressById, getRoomConfiguration, updateProperty } from "@/lib/db";
+import { getProviderByUserId, getPropertyById, getAddressById, getRoomConfiguration, updateProperty, getPropertyAssignments } from "@/lib/db";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -54,6 +54,7 @@ function PropertyDetailsContent() {
   const [loading, setLoading] = useState(true);
   const [providerId, setProviderId] = useState<string>("");
   const [deactivating, setDeactivating] = useState(false);
+  const [assignedStudentsCount, setAssignedStudentsCount] = useState<number>(0);
 
   useEffect(() => {
     const fetchProperty = async () => {
@@ -78,6 +79,11 @@ function PropertyDetailsContent() {
           // Fetch room configuration for pricing
           const roomConfig = await getRoomConfiguration(provider.providerId, id as string);
           setProperty({ ...propertyData, address: address || undefined, roomConfig: roomConfig || undefined });
+          
+          // Fetch active student assignments to calculate occupancy
+          const assignments = await getPropertyAssignments(id as string);
+          const activeAssignments = assignments.filter(a => a.status === "Active");
+          setAssignedStudentsCount(activeAssignments.length);
         }
       } catch (error) {
         console.error("Error fetching property:", error);
@@ -151,9 +157,9 @@ function PropertyDetailsContent() {
   }
 
   const totalBeds = property.totalBeds || 0;
-  const availableBeds = property.availableBeds || 0;
+  const availableBeds = Math.max(0, totalBeds - assignedStudentsCount);
   const occupancyRate = totalBeds > 0
-    ? Math.round(((totalBeds - availableBeds) / totalBeds) * 100)
+    ? Math.round((assignedStudentsCount / totalBeds) * 100)
     : 0;
 
   // Calculate lowest bed price from room configuration

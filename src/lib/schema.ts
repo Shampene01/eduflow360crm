@@ -442,6 +442,13 @@ export interface Student {
   fundedAmount?: number;
   fundingYear?: number;
   
+  // Next of Kin Information
+  nextOfKinName?: string;
+  nextOfKinRelationship?: string;
+  nextOfKinPhone?: string;
+  nextOfKinEmail?: string;
+  nextOfKinAddress?: string;
+  
   // Address
   homeAddressId?: string;            // FK → Address
   
