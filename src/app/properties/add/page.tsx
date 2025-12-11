@@ -83,6 +83,18 @@ const ROOM_TYPES = [
   { key: "sharing3Beds_Standard", label: "Sharing Standard (3 Beds)", description: "Minimum 19m² shared facilities" },
 ];
 
+// Progress steps for the submission process
+const SUBMISSION_STEPS = [
+  { id: 1, label: "Uploading cover image", icon: "📸" },
+  { id: 2, label: "Processing room configuration", icon: "🔢" },
+  { id: 3, label: "Creating address record", icon: "📍" },
+  { id: 4, label: "Creating property document", icon: "🏢" },
+  { id: 5, label: "Saving room configuration", icon: "🛏️" },
+  { id: 6, label: "Uploading property images", icon: "🖼️" },
+  { id: 7, label: "Uploading documents", icon: "📄" },
+  { id: 8, label: "Finalizing submission", icon: "🎉" },
+];
+
 function AddPropertyContent() {
   const { user } = useAuth();
   const router = useRouter();
@@ -91,6 +103,10 @@ function AddPropertyContent() {
   const [provider, setProvider] = useState<AccommodationProvider | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const TOTAL_STEPS = 5;
+  
+  // Submission progress tracking
+  const [submissionStep, setSubmissionStep] = useState(0);
+  const [submissionMessage, setSubmissionMessage] = useState("");
 
   // File input refs
   const coverImageInputRef = useRef<HTMLInputElement>(null);
@@ -514,11 +530,15 @@ function AddPropertyContent() {
 
     setLoading(true);
     setError("");
+    setSubmissionStep(0);
+    setSubmissionMessage("");
 
     try {
       console.log("🚀 Starting property creation process...");
 
       // 1. Upload cover image
+      setSubmissionStep(1);
+      setSubmissionMessage("Uploading cover image...");
       console.log("📸 Step 1: Uploading cover image...");
       let coverImageUrl = "";
       if (step1Data.coverImageFile) {
@@ -529,6 +549,8 @@ function AddPropertyContent() {
       }
 
       // 2. Calculate total rooms and beds from room configuration
+      setSubmissionStep(2);
+      setSubmissionMessage("Processing room configuration...");
       console.log("🔢 Step 2: Calculating room/bed totals...");
       const totalRooms = Object.values(step3Data).reduce((sum, val) => sum + val, 0);
       const totalBeds =
@@ -542,6 +564,8 @@ function AddPropertyContent() {
       console.log(`✅ Calculated: ${totalRooms} rooms, ${totalBeds} beds`);
 
       // 3. Create address
+      setSubmissionStep(3);
+      setSubmissionMessage("Creating address record...");
       console.log("📍 Step 3: Creating address...");
       // Note: createAddress already filters out undefined values
       const addressPayload: any = {
@@ -558,6 +582,8 @@ function AddPropertyContent() {
       console.log("✅ Address created:", address.addressId);
 
       // 4. Create property with "Pending" status for accreditation
+      setSubmissionStep(4);
+      setSubmissionMessage("Creating property document...");
       console.log("🏢 Step 4: Creating property document...");
       // Note: Optional fields with undefined values will be filtered out by createProperty
       const propertyPayload: any = {
@@ -590,6 +616,8 @@ function AddPropertyContent() {
       console.log("✅ Property created:", property.propertyId);
 
       // 5. Create room configuration (totalRooms and totalBeds are calculated automatically)
+      setSubmissionStep(5);
+      setSubmissionMessage("Saving room configuration...");
       console.log("🛏️ Step 5: Creating room configuration...");
       await createRoomConfiguration(provider.providerId, {
         propertyId: property.propertyId,
@@ -611,6 +639,8 @@ function AddPropertyContent() {
       console.log("✅ Room configuration created");
 
       // 6. Upload property images
+      setSubmissionStep(6);
+      setSubmissionMessage("Uploading property images...");
       console.log("🖼️ Step 6: Uploading property images...");
       let sortOrder = 0;
 
@@ -739,6 +769,8 @@ function AddPropertyContent() {
       console.log("✅ All property images uploaded successfully");
 
       // 7. Upload documents
+      setSubmissionStep(7);
+      setSubmissionMessage("Uploading property documents...");
       console.log("📄 Step 7: Uploading property documents...");
 
       if (step5Data.titleDeedFile) {
@@ -813,6 +845,10 @@ function AddPropertyContent() {
         }
       }
 
+      // 8. Finalize
+      setSubmissionStep(8);
+      setSubmissionMessage("Finalizing submission...");
+      
       console.log("🎉 Property creation completed successfully!");
       toast.success("Property submitted for accreditation successfully!");
       router.push("/properties");
@@ -822,6 +858,8 @@ function AddPropertyContent() {
       console.error("Error message:", err.message);
       console.error("Full error object:", JSON.stringify(err, null, 2));
       setError(err.message || "Failed to create property. Please try again.");
+      setSubmissionStep(0);
+      setSubmissionMessage("");
     } finally {
       setLoading(false);
     }
@@ -851,6 +889,59 @@ function AddPropertyContent() {
       <div className="flex">
         <Sidebar userType="provider" />
         <main className="flex-1 p-8">
+          {/* Submission Progress Overlay */}
+          {loading && submissionStep > 0 && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+              <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Loader2 className="w-8 h-8 text-amber-600 animate-spin" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900 mb-2">Creating Your Property</h2>
+                  <p className="text-gray-500 text-sm">Please wait while we process your submission...</p>
+                </div>
+                
+                {/* Progress Steps */}
+                <div className="space-y-3 mb-6">
+                  {SUBMISSION_STEPS.map((step) => (
+                    <div
+                      key={step.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
+                        step.id < submissionStep
+                          ? "bg-green-50 text-green-700"
+                          : step.id === submissionStep
+                          ? "bg-amber-50 text-amber-700 border border-amber-200"
+                          : "bg-gray-50 text-gray-400"
+                      }`}
+                    >
+                      <span className="text-lg">{step.icon}</span>
+                      <span className="flex-1 text-sm font-medium">{step.label}</span>
+                      {step.id < submissionStep && (
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                      )}
+                      {step.id === submissionStep && (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Progress Bar */}
+                <div className="relative">
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-amber-400 to-amber-600 rounded-full transition-all duration-500"
+                      style={{ width: `${(submissionStep / SUBMISSION_STEPS.length) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-center text-sm text-gray-500 mt-2">
+                    Step {submissionStep} of {SUBMISSION_STEPS.length}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="max-w-4xl mx-auto">
             {/* Header */}
             <div className="mb-6">
