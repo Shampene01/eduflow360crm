@@ -423,11 +423,12 @@ export async function createRoomConfiguration(
   const config: RoomConfiguration = {
     ...configData,
     configId,
+    providerId, // Add providerId for Firestore rules
     totalRooms,
     totalBeds,
     createdAt: serverTimestamp() as Timestamp,
   };
-  
+
   await setDoc(doc(db, COLLECTIONS.ROOM_CONFIGURATIONS, configId), config);
   
   // Update property with bed counts

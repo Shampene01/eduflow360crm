@@ -337,8 +337,9 @@ export interface Property {
 
 export interface RoomConfiguration {
   configId: string;                  // UUID, PK
+  providerId: string;                // FK → Provider (needed for Firestore rules)
   propertyId: string;                // FK → Property
-  
+
   // Room type counts
   bachelor: number;
   singleEnSuite: number;

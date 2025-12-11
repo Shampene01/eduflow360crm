@@ -52,10 +52,10 @@ service cloud.firestore {
         get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
     }
     
-    function isPropertyOwner(propertyId) {
+    function isPropertyOwner(providerId, propertyId) {
       return isAuthenticated() &&
-        exists(/databases/$(database)/documents/properties/$(propertyId)) &&
-        isProviderOwner(get(/databases/$(database)/documents/properties/$(propertyId)).data.providerId);
+        exists(/databases/$(database)/documents/accommodationProviders/$(providerId)/properties/$(propertyId)) &&
+        isProviderOwner(providerId);
     }
     
     // ========================================================================
@@ -280,11 +280,11 @@ service cloud.firestore {
     // 7. ROOM CONFIGURATIONS
     // ========================================================================
     match /roomConfigurations/{configId} {
-      allow read: if isPropertyOwner(resource.data.propertyId) || isAdmin();
-      
-      allow create: if isPropertyOwner(request.resource.data.propertyId);
-      
-      allow update, delete: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      allow read: if isPropertyOwner(resource.data.providerId, resource.data.propertyId) || isAdmin();
+
+      allow create: if isPropertyOwner(request.resource.data.providerId, request.resource.data.propertyId);
+
+      allow update, delete: if isPropertyOwner(resource.data.providerId, resource.data.propertyId) || isAdmin();
     }
     
     // ========================================================================
