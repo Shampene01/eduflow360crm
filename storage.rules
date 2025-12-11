@@ -1,3 +1,4 @@
+rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     
@@ -51,10 +52,11 @@ service firebase.storage {
     // PROPERTIES FOLDER (ORGANIZED BY PROVIDER)
     // ================================
     match /properties/{providerId}/{allPaths=**} {
-      // Public can read active property files
+      // Public can read property files
       allow read: if true;
 
-      // Authenticated users who own the provider can upload/modify/delete
+      // Authenticated users can upload/modify/delete
+      // Note: Ownership verification happens at Firestore level
       allow write, delete: if request.auth != null;
     }
 
