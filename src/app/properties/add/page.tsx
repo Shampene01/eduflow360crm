@@ -488,15 +488,20 @@ function AddPropertyContent() {
     setError("");
 
     try {
+      console.log("🚀 Starting property creation process...");
+
       // 1. Upload cover image
+      console.log("📸 Step 1: Uploading cover image...");
       let coverImageUrl = "";
       if (step1Data.coverImageFile) {
         const coverRef = ref(storage, `properties/${provider.providerId}/${Date.now()}_cover_${step1Data.coverImageFile.name}`);
         await uploadBytes(coverRef, step1Data.coverImageFile);
         coverImageUrl = await getDownloadURL(coverRef);
+        console.log("✅ Cover image uploaded successfully:", coverImageUrl);
       }
 
       // 2. Calculate total rooms and beds from room configuration
+      console.log("🔢 Step 2: Calculating room/bed totals...");
       const totalRooms = Object.values(step3Data).reduce((sum, val) => sum + val, 0);
       const totalBeds =
         step3Data.bachelor * 1 +
@@ -506,8 +511,10 @@ function AddPropertyContent() {
         step3Data.sharing2Beds_Standard * 2 +
         step3Data.sharing3Beds_EnSuite * 3 +
         step3Data.sharing3Beds_Standard * 3;
+      console.log(`✅ Calculated: ${totalRooms} rooms, ${totalBeds} beds`);
 
       // 3. Create address
+      console.log("📍 Step 3: Creating address...");
       // Note: createAddress already filters out undefined values
       const addressPayload: any = {
         street: step2Data.street,
@@ -520,8 +527,10 @@ function AddPropertyContent() {
       if (step2Data.suburb) addressPayload.suburb = step2Data.suburb;
 
       const address = await createAddress(addressPayload);
+      console.log("✅ Address created:", address.addressId);
 
       // 4. Create property with "Pending" status for accreditation
+      console.log("🏢 Step 4: Creating property document...");
       // Note: Optional fields with undefined values will be filtered out by createProperty
       const propertyPayload: any = {
         providerId: provider.providerId,
@@ -548,9 +557,12 @@ function AddPropertyContent() {
       if (step2Data.managerEmail) propertyPayload.managerEmail = step2Data.managerEmail;
       if (step2Data.managerPhone) propertyPayload.managerPhone = step2Data.managerPhone;
 
+      console.log("Property payload:", propertyPayload);
       const property = await createProperty(propertyPayload);
+      console.log("✅ Property created:", property.propertyId);
 
       // 5. Create room configuration (totalRooms and totalBeds are calculated automatically)
+      console.log("🛏️ Step 5: Creating room configuration...");
       await createRoomConfiguration(provider.providerId, {
         propertyId: property.propertyId,
         bachelor: step3Data.bachelor,
@@ -561,140 +573,219 @@ function AddPropertyContent() {
         sharing3Beds_EnSuite: step3Data.sharing3Beds_EnSuite,
         sharing3Beds_Standard: step3Data.sharing3Beds_Standard,
       });
+      console.log("✅ Room configuration created");
 
-      // 5. Upload property images
+      // 6. Upload property images
+      console.log("🖼️ Step 6: Uploading property images...");
       let sortOrder = 0;
-      for (const imageFile of step4Data.roomImages) {
-        const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/rooms/${Date.now()}_${imageFile.name}`);
-        await uploadBytes(imageRef, imageFile);
-        const imageUrl = await getDownloadURL(imageRef);
 
-        await createPropertyImage(provider.providerId, {
-          propertyId: property.propertyId,
-          imageUrl,
-          caption: `Room image ${sortOrder + 1}`,
-          sortOrder: sortOrder++,
-          isCover: false,
-          uploadedBy: user?.email || provider.providerId,
-        });
+      console.log(`Uploading ${step4Data.roomImages.length} room images...`);
+      for (const imageFile of step4Data.roomImages) {
+        try {
+          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/rooms/${Date.now()}_${imageFile.name}`);
+          console.log("Uploading to storage:", imageRef.fullPath);
+          await uploadBytes(imageRef, imageFile);
+          const imageUrl = await getDownloadURL(imageRef);
+          console.log("✅ Storage upload successful, creating Firestore doc...");
+
+          await createPropertyImage(provider.providerId, {
+            propertyId: property.propertyId,
+            imageUrl,
+            caption: `Room image ${sortOrder + 1}`,
+            sortOrder: sortOrder++,
+            isCover: false,
+            uploadedBy: user?.email || provider.providerId,
+          });
+          console.log("✅ Room image Firestore doc created");
+        } catch (err) {
+          console.error("❌ Error uploading room image:", err);
+          throw err;
+        }
       }
 
+      console.log(`Uploading ${step4Data.commonRoomImages.length} common room images...`);
       for (const imageFile of step4Data.commonRoomImages) {
-        const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/common/${Date.now()}_${imageFile.name}`);
-        await uploadBytes(imageRef, imageFile);
-        const imageUrl = await getDownloadURL(imageRef);
+        try {
+          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/common/${Date.now()}_${imageFile.name}`);
+          console.log("Uploading to storage:", imageRef.fullPath);
+          await uploadBytes(imageRef, imageFile);
+          const imageUrl = await getDownloadURL(imageRef);
+          console.log("✅ Storage upload successful, creating Firestore doc...");
 
-        await createPropertyImage(provider.providerId, {
-          propertyId: property.propertyId,
-          imageUrl,
-          caption: `Common room image ${sortOrder + 1}`,
-          sortOrder: sortOrder++,
-          isCover: false,
-          uploadedBy: user?.email || provider.providerId,
-        });
+          await createPropertyImage(provider.providerId, {
+            propertyId: property.propertyId,
+            imageUrl,
+            caption: `Common room image ${sortOrder + 1}`,
+            sortOrder: sortOrder++,
+            isCover: false,
+            uploadedBy: user?.email || provider.providerId,
+          });
+          console.log("✅ Common room image Firestore doc created");
+        } catch (err) {
+          console.error("❌ Error uploading common room image:", err);
+          throw err;
+        }
       }
 
       // Upload ablution facilities images
+      console.log(`Uploading ${step4Data.ablutionImages.length} ablution images...`);
       for (const imageFile of step4Data.ablutionImages) {
-        const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/ablution/${Date.now()}_${imageFile.name}`);
-        await uploadBytes(imageRef, imageFile);
-        const imageUrl = await getDownloadURL(imageRef);
+        try {
+          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/ablution/${Date.now()}_${imageFile.name}`);
+          console.log("Uploading to storage:", imageRef.fullPath);
+          await uploadBytes(imageRef, imageFile);
+          const imageUrl = await getDownloadURL(imageRef);
+          console.log("✅ Storage upload successful, creating Firestore doc...");
 
-        await createPropertyImage(provider.providerId, {
-          propertyId: property.propertyId,
-          imageUrl,
-          caption: `Ablution facilities ${sortOrder + 1}`,
-          sortOrder: sortOrder++,
-          isCover: false,
-          uploadedBy: user?.email || provider.providerId,
-        });
+          await createPropertyImage(provider.providerId, {
+            propertyId: property.propertyId,
+            imageUrl,
+            caption: `Ablution facilities ${sortOrder + 1}`,
+            sortOrder: sortOrder++,
+            isCover: false,
+            uploadedBy: user?.email || provider.providerId,
+          });
+          console.log("✅ Ablution image Firestore doc created");
+        } catch (err) {
+          console.error("❌ Error uploading ablution image:", err);
+          throw err;
+        }
       }
 
       // Upload kitchen images
+      console.log(`Uploading ${step4Data.kitchenImages.length} kitchen images...`);
       for (const imageFile of step4Data.kitchenImages) {
-        const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/kitchen/${Date.now()}_${imageFile.name}`);
-        await uploadBytes(imageRef, imageFile);
-        const imageUrl = await getDownloadURL(imageRef);
+        try {
+          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/kitchen/${Date.now()}_${imageFile.name}`);
+          console.log("Uploading to storage:", imageRef.fullPath);
+          await uploadBytes(imageRef, imageFile);
+          const imageUrl = await getDownloadURL(imageRef);
+          console.log("✅ Storage upload successful, creating Firestore doc...");
 
-        await createPropertyImage(provider.providerId, {
-          propertyId: property.propertyId,
-          imageUrl,
-          caption: `Kitchen image ${sortOrder + 1}`,
-          sortOrder: sortOrder++,
-          isCover: false,
-          uploadedBy: user?.email || provider.providerId,
-        });
+          await createPropertyImage(provider.providerId, {
+            propertyId: property.propertyId,
+            imageUrl,
+            caption: `Kitchen image ${sortOrder + 1}`,
+            sortOrder: sortOrder++,
+            isCover: false,
+            uploadedBy: user?.email || provider.providerId,
+          });
+          console.log("✅ Kitchen image Firestore doc created");
+        } catch (err) {
+          console.error("❌ Error uploading kitchen image:", err);
+          throw err;
+        }
       }
 
       // Upload amenities images
+      console.log(`Uploading ${step4Data.amenitiesImages.length} amenities images...`);
       for (const imageFile of step4Data.amenitiesImages) {
-        const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/amenities/${Date.now()}_${imageFile.name}`);
-        await uploadBytes(imageRef, imageFile);
-        const imageUrl = await getDownloadURL(imageRef);
+        try {
+          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/amenities/${Date.now()}_${imageFile.name}`);
+          console.log("Uploading to storage:", imageRef.fullPath);
+          await uploadBytes(imageRef, imageFile);
+          const imageUrl = await getDownloadURL(imageRef);
+          console.log("✅ Storage upload successful, creating Firestore doc...");
 
-        await createPropertyImage(provider.providerId, {
-          propertyId: property.propertyId,
-          imageUrl,
-          caption: `Amenities image ${sortOrder + 1}`,
-          sortOrder: sortOrder++,
-          isCover: false,
-          uploadedBy: user?.email || provider.providerId,
-        });
+          await createPropertyImage(provider.providerId, {
+            propertyId: property.propertyId,
+            imageUrl,
+            caption: `Amenities image ${sortOrder + 1}`,
+            sortOrder: sortOrder++,
+            isCover: false,
+            uploadedBy: user?.email || provider.providerId,
+          });
+          console.log("✅ Amenities image Firestore doc created");
+        } catch (err) {
+          console.error("❌ Error uploading amenities image:", err);
+          throw err;
+        }
       }
+      console.log("✅ All property images uploaded successfully");
 
-      // 6. Upload documents
+      // 7. Upload documents
+      console.log("📄 Step 7: Uploading property documents...");
+
       if (step5Data.titleDeedFile) {
-        const docRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/documents/title_deed_${Date.now()}_${step5Data.titleDeedFile.name}`);
-        await uploadBytes(docRef, step5Data.titleDeedFile);
-        const docUrl = await getDownloadURL(docRef);
+        try {
+          console.log("Uploading title deed to storage...");
+          const docRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/documents/title_deed_${Date.now()}_${step5Data.titleDeedFile.name}`);
+          await uploadBytes(docRef, step5Data.titleDeedFile);
+          const docUrl = await getDownloadURL(docRef);
+          console.log("✅ Title deed uploaded to storage, creating Firestore doc...");
 
-        await createPropertyDocument(provider.providerId, {
-          propertyId: property.propertyId,
-          documentType: step1Data.ownershipType === "Leased" ? "LEASE_AGREEMENT" : "OTHER",
-          documentName: "Title Deed / Lease Agreement",
-          fileUrl: docUrl,
-          fileSize: step5Data.titleDeedFile.size,
-          mimeType: step5Data.titleDeedFile.type,
-          uploadedBy: user?.email || provider.providerId,
-        });
+          await createPropertyDocument(provider.providerId, {
+            propertyId: property.propertyId,
+            documentType: step1Data.ownershipType === "Leased" ? "LEASE_AGREEMENT" : "OTHER",
+            documentName: "Title Deed / Lease Agreement",
+            fileUrl: docUrl,
+            fileSize: step5Data.titleDeedFile.size,
+            mimeType: step5Data.titleDeedFile.type,
+            uploadedBy: user?.email || provider.providerId,
+          });
+          console.log("✅ Title deed Firestore doc created");
+        } catch (err) {
+          console.error("❌ Error uploading title deed:", err);
+          throw err;
+        }
       }
 
       if (step5Data.safetyCertFile) {
-        const docRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/documents/safety_cert_${Date.now()}_${step5Data.safetyCertFile.name}`);
-        await uploadBytes(docRef, step5Data.safetyCertFile);
-        const docUrl = await getDownloadURL(docRef);
+        try {
+          console.log("Uploading safety certificate to storage...");
+          const docRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/documents/safety_cert_${Date.now()}_${step5Data.safetyCertFile.name}`);
+          await uploadBytes(docRef, step5Data.safetyCertFile);
+          const docUrl = await getDownloadURL(docRef);
+          console.log("✅ Safety cert uploaded to storage, creating Firestore doc...");
 
-        await createPropertyDocument(provider.providerId, {
-          propertyId: property.propertyId,
-          documentType: "COMPLIANCE_CERTIFICATE",
-          documentName: "Electrical Safety Certificate",
-          fileUrl: docUrl,
-          fileSize: step5Data.safetyCertFile.size,
-          mimeType: step5Data.safetyCertFile.type,
-          uploadedBy: user?.email || provider.providerId,
-        });
+          await createPropertyDocument(provider.providerId, {
+            propertyId: property.propertyId,
+            documentType: "COMPLIANCE_CERTIFICATE",
+            documentName: "Electrical Safety Certificate",
+            fileUrl: docUrl,
+            fileSize: step5Data.safetyCertFile.size,
+            mimeType: step5Data.safetyCertFile.type,
+            uploadedBy: user?.email || provider.providerId,
+          });
+          console.log("✅ Safety cert Firestore doc created");
+        } catch (err) {
+          console.error("❌ Error uploading safety certificate:", err);
+          throw err;
+        }
       }
 
       if (step5Data.utilityBillFile) {
-        const docRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/documents/utility_bill_${Date.now()}_${step5Data.utilityBillFile.name}`);
-        await uploadBytes(docRef, step5Data.utilityBillFile);
-        const docUrl = await getDownloadURL(docRef);
+        try {
+          console.log("Uploading utility bill to storage...");
+          const docRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/documents/utility_bill_${Date.now()}_${step5Data.utilityBillFile.name}`);
+          await uploadBytes(docRef, step5Data.utilityBillFile);
+          const docUrl = await getDownloadURL(docRef);
+          console.log("✅ Utility bill uploaded to storage, creating Firestore doc...");
 
-        await createPropertyDocument(provider.providerId, {
-          propertyId: property.propertyId,
-          documentType: "OTHER",
-          documentName: "Municipal Utility Bill",
-          fileUrl: docUrl,
-          fileSize: step5Data.utilityBillFile.size,
-          mimeType: step5Data.utilityBillFile.type,
-          uploadedBy: user?.email || provider.providerId,
-        });
+          await createPropertyDocument(provider.providerId, {
+            propertyId: property.propertyId,
+            documentType: "OTHER",
+            documentName: "Municipal Utility Bill",
+            fileUrl: docUrl,
+            fileSize: step5Data.utilityBillFile.size,
+            mimeType: step5Data.utilityBillFile.type,
+            uploadedBy: user?.email || provider.providerId,
+          });
+          console.log("✅ Utility bill Firestore doc created");
+        } catch (err) {
+          console.error("❌ Error uploading utility bill:", err);
+          throw err;
+        }
       }
 
+      console.log("🎉 Property creation completed successfully!");
       toast.success("Property submitted for accreditation successfully!");
       router.push("/properties");
     } catch (err: any) {
-      console.error("Error creating property:", err);
+      console.error("❌ ERROR CREATING PROPERTY:", err);
+      console.error("Error code:", err.code);
+      console.error("Error message:", err.message);
+      console.error("Full error object:", JSON.stringify(err, null, 2));
       setError(err.message || "Failed to create property. Please try again.");
     } finally {
       setLoading(false);
