@@ -397,7 +397,7 @@ export async function getPropertyWithDetails(providerId: string, propertyId: str
 
 export async function createRoomConfiguration(
   providerId: string,
-  configData: Omit<RoomConfiguration, "configId" | "providerId" | "createdAt" | "totalRooms" | "totalBeds">
+  configData: Omit<RoomConfiguration, "configId" | "providerId" | "createdAt" | "totalRooms" | "totalBeds" | "potentialRevenue">
 ): Promise<RoomConfiguration> {
   if (!db) throw new Error("Database not initialized");
   
@@ -422,6 +422,16 @@ export async function createRoomConfiguration(
     configData.sharing2Beds_Standard * 2 +
     configData.sharing3Beds_EnSuite * 3 +
     configData.sharing3Beds_Standard * 3;
+
+  // Calculate potential monthly revenue (beds × price per bed)
+  const potentialRevenue = 
+    (configData.bachelor * 1 * configData.bachelorPrice) +
+    (configData.singleEnSuite * 1 * configData.singleEnSuitePrice) +
+    (configData.singleStandard * 1 * configData.singleStandardPrice) +
+    (configData.sharing2Beds_EnSuite * 2 * configData.sharing2Beds_EnSuitePrice) +
+    (configData.sharing2Beds_Standard * 2 * configData.sharing2Beds_StandardPrice) +
+    (configData.sharing3Beds_EnSuite * 3 * configData.sharing3Beds_EnSuitePrice) +
+    (configData.sharing3Beds_Standard * 3 * configData.sharing3Beds_StandardPrice);
   
   const config: RoomConfiguration = {
     ...configData,
@@ -429,6 +439,7 @@ export async function createRoomConfiguration(
     providerId,
     totalRooms,
     totalBeds,
+    potentialRevenue,
     createdAt: serverTimestamp() as Timestamp,
   };
 

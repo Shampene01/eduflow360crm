@@ -40,6 +40,25 @@ const provinces = [
   "Western Cape",
 ];
 
+const availableAmenities = [
+  "WiFi",
+  "24/7 Security",
+  "CCTV",
+  "Parking",
+  "Laundry",
+  "Study Room",
+  "Common Room",
+  "Kitchen",
+  "Backup Power",
+  "Water Tank",
+  "Cleaning Service",
+  "Meal Plan",
+  "Gym",
+  "Swimming Pool",
+  "Air Conditioning",
+  "Heating",
+];
+
 const institutions = [
   "University of Cape Town",
   "University of Witwatersrand",
@@ -117,6 +136,7 @@ function AddPropertyContent() {
     province: "",
     institution: "",
     description: "",
+    amenities: [] as string[],
     coverImageFile: null as File | null,
     coverImagePreview: "",
   });
@@ -132,7 +152,7 @@ function AddPropertyContent() {
     managerPhone: "",
   });
 
-  // Step 3: Room Configuration
+  // Step 3: Room Configuration (counts and prices)
   const [step3Data, setStep3Data] = useState({
     bachelor: 0,
     singleEnSuite: 0,
@@ -141,6 +161,14 @@ function AddPropertyContent() {
     sharing2Beds_Standard: 0,
     sharing3Beds_EnSuite: 0,
     sharing3Beds_Standard: 0,
+    // Bed prices per month (ZAR)
+    bachelorPrice: 0,
+    singleEnSuitePrice: 0,
+    singleStandardPrice: 0,
+    sharing2Beds_EnSuitePrice: 0,
+    sharing2Beds_StandardPrice: 0,
+    sharing3Beds_EnSuitePrice: 0,
+    sharing3Beds_StandardPrice: 0,
   });
 
   // Step 4: Property Images
@@ -544,7 +572,7 @@ function AddPropertyContent() {
         availableBeds: totalBeds, // Initially all beds are available
         status: "Pending", // Pending Accreditation
         nsfasApproved: false,
-        amenities: [],
+        amenities: step1Data.amenities,
       };
 
       // Only add optional fields if they have values
@@ -572,6 +600,13 @@ function AddPropertyContent() {
         sharing2Beds_Standard: step3Data.sharing2Beds_Standard,
         sharing3Beds_EnSuite: step3Data.sharing3Beds_EnSuite,
         sharing3Beds_Standard: step3Data.sharing3Beds_Standard,
+        bachelorPrice: step3Data.bachelorPrice,
+        singleEnSuitePrice: step3Data.singleEnSuitePrice,
+        singleStandardPrice: step3Data.singleStandardPrice,
+        sharing2Beds_EnSuitePrice: step3Data.sharing2Beds_EnSuitePrice,
+        sharing2Beds_StandardPrice: step3Data.sharing2Beds_StandardPrice,
+        sharing3Beds_EnSuitePrice: step3Data.sharing3Beds_EnSuitePrice,
+        sharing3Beds_StandardPrice: step3Data.sharing3Beds_StandardPrice,
       });
       console.log("✅ Room configuration created");
 
@@ -1005,6 +1040,37 @@ function AddPropertyContent() {
                         className="mt-2"
                       />
                     </div>
+
+                    <div>
+                      <Label>Property Amenities</Label>
+                      <p className="text-sm text-gray-500 mb-3">Select all amenities available at this property</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {availableAmenities.map((amenity) => (
+                          <label
+                            key={amenity}
+                            className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
+                              step1Data.amenities.includes(amenity)
+                                ? "bg-amber-50 border-amber-500 text-amber-700"
+                                : "bg-white border-gray-200 hover:border-gray-300"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={step1Data.amenities.includes(amenity)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setStep1Data({ ...step1Data, amenities: [...step1Data.amenities, amenity] });
+                                } else {
+                                  setStep1Data({ ...step1Data, amenities: step1Data.amenities.filter(a => a !== amenity) });
+                                }
+                              }}
+                              className="w-4 h-4 text-amber-500 rounded border-gray-300 focus:ring-amber-500"
+                            />
+                            <span className="text-sm">{amenity}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -1108,25 +1174,96 @@ function AddPropertyContent() {
               {currentStep === 3 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Room Configuration</CardTitle>
-                    <p className="text-sm text-gray-500">Enter the number of rooms for each type</p>
+                    <CardTitle>Room Configuration & Pricing</CardTitle>
+                    <p className="text-sm text-gray-500">Enter the number of rooms and bed price per month for each type</p>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {ROOM_TYPES.map((roomType) => (
-                      <div key={roomType.key} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-gray-900">{roomType.label}</h4>
-                          <p className="text-sm text-gray-500">{roomType.description}</p>
+                    {ROOM_TYPES.map((roomType) => {
+                      const countKey = roomType.key as keyof typeof step3Data;
+                      const priceKey = `${roomType.key}Price` as keyof typeof step3Data;
+                      const roomCount = step3Data[countKey] as number;
+                      const bedPrice = step3Data[priceKey] as number;
+                      const bedsPerRoom = roomType.key.includes("sharing3") ? 3 : roomType.key.includes("sharing2") ? 2 : 1;
+                      const totalBeds = roomCount * bedsPerRoom;
+                      const monthlyRevenue = totalBeds * bedPrice;
+                      
+                      return (
+                        <div key={roomType.key} className="p-4 border rounded-lg space-y-3">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-gray-900">{roomType.label}</h4>
+                              <p className="text-sm text-gray-500">{roomType.description}</p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                            <div>
+                              <Label className="text-xs text-gray-500">Number of Rooms</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                value={roomCount}
+                                onChange={(e) => setStep3Data({ ...step3Data, [countKey]: parseInt(e.target.value) || 0 })}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs text-gray-500">Bed Price/Month (R)</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                placeholder="0"
+                                value={bedPrice || ""}
+                                onChange={(e) => setStep3Data({ ...step3Data, [priceKey]: parseInt(e.target.value) || 0 })}
+                                disabled={roomCount === 0}
+                              />
+                            </div>
+                            <div className="text-center">
+                              <Label className="text-xs text-gray-500">Total Beds</Label>
+                              <p className="text-lg font-semibold text-gray-700">{totalBeds}</p>
+                            </div>
+                            <div className="text-center">
+                              <Label className="text-xs text-gray-500">Monthly Revenue</Label>
+                              <p className="text-lg font-semibold text-amber-600">R{monthlyRevenue.toLocaleString()}</p>
+                            </div>
+                          </div>
                         </div>
-                        <Input
-                          type="number"
-                          min="0"
-                          className="w-20"
-                          value={step3Data[roomType.key as keyof typeof step3Data]}
-                          onChange={(e) => setStep3Data({ ...step3Data, [roomType.key]: parseInt(e.target.value) || 0 })}
-                        />
+                      );
+                    })}
+                    
+                    {/* Summary */}
+                    <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <p className="text-sm text-gray-600">Total Rooms</p>
+                          <p className="text-2xl font-bold text-gray-900">
+                            {step3Data.bachelor + step3Data.singleEnSuite + step3Data.singleStandard + 
+                             step3Data.sharing2Beds_EnSuite + step3Data.sharing2Beds_Standard + 
+                             step3Data.sharing3Beds_EnSuite + step3Data.sharing3Beds_Standard}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Total Beds</p>
+                          <p className="text-2xl font-bold text-gray-900">
+                            {step3Data.bachelor + step3Data.singleEnSuite + step3Data.singleStandard + 
+                             (step3Data.sharing2Beds_EnSuite * 2) + (step3Data.sharing2Beds_Standard * 2) + 
+                             (step3Data.sharing3Beds_EnSuite * 3) + (step3Data.sharing3Beds_Standard * 3)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Potential Monthly Revenue</p>
+                          <p className="text-2xl font-bold text-amber-600">
+                            R{(
+                              (step3Data.bachelor * step3Data.bachelorPrice) +
+                              (step3Data.singleEnSuite * step3Data.singleEnSuitePrice) +
+                              (step3Data.singleStandard * step3Data.singleStandardPrice) +
+                              (step3Data.sharing2Beds_EnSuite * 2 * step3Data.sharing2Beds_EnSuitePrice) +
+                              (step3Data.sharing2Beds_Standard * 2 * step3Data.sharing2Beds_StandardPrice) +
+                              (step3Data.sharing3Beds_EnSuite * 3 * step3Data.sharing3Beds_EnSuitePrice) +
+                              (step3Data.sharing3Beds_Standard * 3 * step3Data.sharing3Beds_StandardPrice)
+                            ).toLocaleString()}
+                          </p>
+                        </div>
                       </div>
-                    ))}
+                    </div>
                   </CardContent>
                 </Card>
               )}

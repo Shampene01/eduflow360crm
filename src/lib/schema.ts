@@ -348,10 +348,20 @@ export interface RoomConfiguration {
   sharing2Beds_Standard: number;
   sharing3Beds_EnSuite: number;
   sharing3Beds_Standard: number;
+
+  // Bed prices per month (in ZAR)
+  bachelorPrice: number;
+  singleEnSuitePrice: number;
+  singleStandardPrice: number;
+  sharing2Beds_EnSuitePrice: number;
+  sharing2Beds_StandardPrice: number;
+  sharing3Beds_EnSuitePrice: number;
+  sharing3Beds_StandardPrice: number;
   
   // Calculated totals
   totalRooms: number;
   totalBeds: number;
+  potentialRevenue: number;          // Total monthly revenue if fully occupied
   
   createdAt: Timestamp;
   updatedAt?: Timestamp;
