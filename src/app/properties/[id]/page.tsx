@@ -21,14 +21,15 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
-import { Property, Address } from "@/lib/schema";
+import { Property, Address, RoomConfiguration } from "@/lib/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getProviderByUserId, getPropertyById, getAddressById } from "@/lib/db";
+import { getProviderByUserId, getPropertyById, getAddressById, getRoomConfiguration } from "@/lib/db";
 
 interface PropertyWithAddress extends Property {
   address?: Address;
+  roomConfig?: RoomConfiguration;
 }
 
 function PropertyDetailsContent() {
@@ -57,7 +58,9 @@ function PropertyDetailsContent() {
         if (propertyData) {
           // Fetch address if addressId exists
           const address = propertyData.addressId ? await getAddressById(propertyData.addressId) : null;
-          setProperty({ ...propertyData, address: address || undefined });
+          // Fetch room configuration for pricing
+          const roomConfig = await getRoomConfiguration(provider.providerId, id as string);
+          setProperty({ ...propertyData, address: address || undefined, roomConfig: roomConfig || undefined });
         }
       } catch (error) {
         console.error("Error fetching property:", error);
@@ -118,6 +121,22 @@ function PropertyDetailsContent() {
   const occupancyRate = totalBeds > 0
     ? Math.round(((totalBeds - availableBeds) / totalBeds) * 100)
     : 0;
+
+  // Calculate lowest bed price from room configuration
+  const getLowestBedPrice = () => {
+    if (!property.roomConfig) return 0;
+    const prices = [
+      property.roomConfig.bachelor > 0 ? property.roomConfig.bachelorPrice : null,
+      property.roomConfig.singleEnSuite > 0 ? property.roomConfig.singleEnSuitePrice : null,
+      property.roomConfig.singleStandard > 0 ? property.roomConfig.singleStandardPrice : null,
+      property.roomConfig.sharing2Beds_EnSuite > 0 ? property.roomConfig.sharing2Beds_EnSuitePrice : null,
+      property.roomConfig.sharing2Beds_Standard > 0 ? property.roomConfig.sharing2Beds_StandardPrice : null,
+      property.roomConfig.sharing3Beds_EnSuite > 0 ? property.roomConfig.sharing3Beds_EnSuitePrice : null,
+      property.roomConfig.sharing3Beds_Standard > 0 ? property.roomConfig.sharing3Beds_StandardPrice : null,
+    ].filter((p): p is number => p !== null && p > 0);
+    return prices.length > 0 ? Math.min(...prices) : 0;
+  };
+  const lowestBedPrice = getLowestBedPrice();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -198,15 +217,73 @@ function PropertyDetailsContent() {
                 </div>
               </Card>
 
-              {/* Description */}
+              {/* Description & Details */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Description</CardTitle>
+                  <CardTitle>About This Property</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 leading-relaxed">
-                    {property.description || "No description provided."}
-                  </p>
+                <CardContent className="space-y-6">
+                  {/* Description */}
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">Description</h4>
+                    <p className="text-gray-600 leading-relaxed">
+                      {property.description || "No description provided."}
+                    </p>
+                  </div>
+
+                  {/* Property Details */}
+                  <div className="border-t pt-4">
+                    <h4 className="font-semibold text-gray-900 mb-3">Property Details</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500">Property Type</p>
+                        <p className="font-medium text-gray-900">{property.propertyType || "Not specified"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Ownership Type</p>
+                        <p className="font-medium text-gray-900">{property.ownershipType || "Not specified"}</p>
+                      </div>
+                      {property.institution && (
+                        <div className="col-span-2">
+                          <p className="text-sm text-gray-500">Nearby Institution</p>
+                          <p className="font-medium text-gray-900">{property.institution}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Property Manager Details */}
+                  {(property.managerName || property.managerEmail || property.managerPhone) && (
+                    <div className="border-t pt-4">
+                      <h4 className="font-semibold text-gray-900 mb-3">Property Manager</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        {property.managerName && (
+                          <div>
+                            <p className="text-sm text-gray-500">Name</p>
+                            <p className="font-medium text-gray-900">{property.managerName}</p>
+                          </div>
+                        )}
+                        {property.managerId && (
+                          <div>
+                            <p className="text-sm text-gray-500">ID Number</p>
+                            <p className="font-medium text-gray-900">{property.managerId}</p>
+                          </div>
+                        )}
+                        {property.managerEmail && (
+                          <div>
+                            <p className="text-sm text-gray-500">Email</p>
+                            <p className="font-medium text-gray-900">{property.managerEmail}</p>
+                          </div>
+                        )}
+                        {property.managerPhone && (
+                          <div>
+                            <p className="text-sm text-gray-500">Phone</p>
+                            <p className="font-medium text-gray-900">{property.managerPhone}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -248,9 +325,12 @@ function PropertyDetailsContent() {
                       <DollarSign className="w-5 h-5 text-amber-500" />
                       <span className="text-gray-600">Monthly Rent</span>
                     </div>
-                    <span className="font-semibold text-gray-900">
-                      R{property.pricePerBedPerMonth?.toLocaleString() || 0}/bed
-                    </span>
+                    <div className="text-right">
+                      <span className="text-xs text-gray-500">Starts from</span>
+                      <p className="font-semibold text-gray-900">
+                        R{lowestBedPrice > 0 ? lowestBedPrice.toLocaleString() : "0"}/bed
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
