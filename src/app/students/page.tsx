@@ -16,6 +16,7 @@ import {
   GraduationCap,
   CreditCard,
   Loader2,
+  Download,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardFooter } from "@/components/DashboardFooter";
@@ -36,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { BulkImportDialog } from "@/components/students/BulkImportDialog";
 import { Student, StudentPropertyAssignment, Property } from "@/lib/schema";
+import * as XLSX from "xlsx";
 import {
   getProviderByUserId,
   getPropertiesByProvider,
@@ -118,6 +120,66 @@ function StudentsContent() {
       property.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Check if user can export (Provider or Administrator)
+  const canExport = user?.role === "provider" || user?.role === "administrator";
+
+  // Export to Excel function
+  const exportToExcel = () => {
+    if (!canExport) return;
+
+    // Prepare data for export
+    const exportData = filteredStudents.map(({ student, assignment, property }) => ({
+      "First Names": student.firstNames,
+      "Surname": student.surname,
+      "ID Number": student.idNumber,
+      "Student Number": student.studentNumber || "-",
+      "Email": student.email || "-",
+      "Phone": student.phoneNumber || "-",
+      "Property": property.name,
+      "Institution": student.institution || "-",
+      "NSFAS Funded": student.funded ? "Yes" : "No",
+      "Monthly Rent": assignment.monthlyRate || 0,
+      "Status": assignment.status,
+      "Room ID": assignment.roomId || "-",
+      "Bed ID": assignment.bedId || "-",
+      "Start Date": assignment.startDate ? new Date(assignment.startDate).toLocaleDateString() : "-",
+      "End Date": assignment.endDate ? new Date(assignment.endDate).toLocaleDateString() : "-",
+    }));
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(exportData);
+
+    // Set column widths
+    ws["!cols"] = [
+      { wch: 15 }, // First Names
+      { wch: 15 }, // Surname
+      { wch: 15 }, // ID Number
+      { wch: 15 }, // Student Number
+      { wch: 25 }, // Email
+      { wch: 15 }, // Phone
+      { wch: 20 }, // Property
+      { wch: 20 }, // Institution
+      { wch: 12 }, // NSFAS Funded
+      { wch: 12 }, // Monthly Rent
+      { wch: 10 }, // Status
+      { wch: 12 }, // Room Number
+      { wch: 12 }, // Bed Number
+      { wch: 12 }, // Start Date
+      { wch: 12 }, // End Date
+    ];
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, "Students");
+
+    // Generate filename with date
+    const date = new Date().toISOString().split("T")[0];
+    const filename = `Students_Export_${date}.xlsx`;
+
+    // Download file
+    XLSX.writeFile(wb, filename);
+  };
+
   // Calculate stats
   const totalStudents = studentsWithProperties.length;
   const fundedStudents = studentsWithProperties.filter(({ student }) => student.funded).length;
@@ -141,6 +203,16 @@ function StudentsContent() {
               <p className="text-gray-500">Manage students allocated to your properties</p>
             </div>
             <div className="flex gap-2">
+              {canExport && (
+                <Button
+                  onClick={exportToExcel}
+                  variant="outline"
+                  className="border-green-600 text-green-600 hover:bg-green-50"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export to Excel
+                </Button>
+              )}
               {(user?.role === "provider" || user?.role === "admin") && (
                 <Button
                   onClick={() => setBulkImportOpen(true)}

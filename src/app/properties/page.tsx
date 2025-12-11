@@ -23,12 +23,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { getProviderByUserId, getPropertiesByProvider, getAddressById } from "@/lib/db";
-import { Address } from "@/lib/schema";
+import { getProviderByUserId, getPropertiesByProvider, getAddressById, getRoomConfiguration } from "@/lib/db";
+import { Address, RoomConfiguration } from "@/lib/schema";
 
-// Extended property type with address data for display
+// Extended property type with address and room config data for display
 interface PropertyWithAddress extends Property {
   address?: Address;
+  roomConfiguration?: RoomConfiguration;
 }
 
 function PropertiesContent() {
@@ -57,15 +58,22 @@ function PropertiesContent() {
         // Use the db function to fetch properties from subcollection
         const propertiesData = await getPropertiesByProvider(provider.providerId);
         
-        // Fetch addresses for each property
-        const propertiesWithAddresses = await Promise.all(
+        // Fetch addresses and room configurations for each property
+        const propertiesWithDetails = await Promise.all(
           propertiesData.map(async (property) => {
-            const address = property.addressId ? await getAddressById(property.addressId) : null;
-            return { ...property, address: address || undefined };
+            const [address, roomConfig] = await Promise.all([
+              property.addressId ? getAddressById(property.addressId) : null,
+              getRoomConfiguration(provider.providerId, property.propertyId)
+            ]);
+            return { 
+              ...property, 
+              address: address || undefined,
+              roomConfiguration: roomConfig || undefined
+            };
           })
         );
         
-        setProperties(propertiesWithAddresses);
+        setProperties(propertiesWithDetails);
       } catch (error) {
         console.error("Error fetching properties:", error);
         setProperties([]);
@@ -205,11 +213,11 @@ function PropertiesContent() {
                       <div className="flex items-center gap-1 text-sm">
                         <Users className="w-4 h-4 text-gray-400" />
                         <span>
-                          {(property.totalBeds || 0) - (property.availableBeds || 0)}/{property.totalBeds || 0} beds occupied
+                          {(property.totalBeds || 0) - (property.availableBeds || 0)}/{property.totalBeds || 0} Students
                         </span>
                       </div>
                       <span className="font-semibold text-amber-600">
-                        R{property.pricePerBedPerMonth?.toLocaleString() || 0}/mo
+                        R{(property.roomConfiguration?.potentialRevenue || 0).toLocaleString()}/mo
                       </span>
                     </div>
 
