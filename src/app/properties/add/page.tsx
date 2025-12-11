@@ -542,6 +542,12 @@ function AddPropertyContent() {
       if (step1Data.institution) propertyPayload.institution = step1Data.institution;
       if (step1Data.description) propertyPayload.description = step1Data.description;
 
+      // Add manager details
+      if (step2Data.managerName) propertyPayload.managerName = step2Data.managerName;
+      if (step2Data.managerId) propertyPayload.managerId = step2Data.managerId;
+      if (step2Data.managerEmail) propertyPayload.managerEmail = step2Data.managerEmail;
+      if (step2Data.managerPhone) propertyPayload.managerPhone = step2Data.managerPhone;
+
       const property = await createProperty(propertyPayload);
 
       // 5. Create room configuration (totalRooms and totalBeds are calculated automatically)

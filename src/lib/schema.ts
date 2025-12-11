@@ -297,7 +297,13 @@ export interface Property {
   
   // Address
   addressId: string;                 // FK → Address
-  
+
+  // Property Manager
+  managerName?: string;              // Property manager full name
+  managerId?: string;                // Property manager ID number
+  managerEmail?: string;             // Property manager email
+  managerPhone?: string;             // Property manager phone number
+
   // Media
   coverImageUrl?: string;
 

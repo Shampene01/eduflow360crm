@@ -114,6 +114,64 @@ service cloud.firestore {
 
       // Delete: admin only
       allow delete: if isAdmin();
+
+      // ========================================================================
+      // PROPERTIES SUBCOLLECTION
+      // ========================================================================
+      match /properties/{propertyId} {
+        // Public read: active properties only
+        allow read: if resource.data.status == "Active";
+
+        // Authenticated read: owner or admin
+        allow read: if isAuthenticated() &&
+          exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+          get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
+        allow read: if isAdmin();
+
+        // Create: provider owner only - verify the provider belongs to the user
+        allow create: if isAuthenticated() &&
+          exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+          get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
+
+        // Update: admin can do anything
+        allow update: if isAdmin();
+
+        // Update: owner can update non-approval fields only
+        allow update: if isAuthenticated() &&
+          exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+          get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid &&
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['nsfasApproved', 'status']);
+
+        // Delete: owner (if Draft) or admin
+        allow delete: if isAdmin();
+        allow delete: if isAuthenticated() &&
+          exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+          get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid &&
+          resource.data.status == "Draft";
+
+        // ========================================================================
+        // PROPERTY IMAGES SUBCOLLECTION
+        // ========================================================================
+        match /images/{imageId} {
+          // Read: owner or admin
+          allow read: if isAuthenticated() &&
+            exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+            get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
+          allow read: if isAdmin();
+
+          // Create: provider owner only
+          allow create: if isAuthenticated() &&
+            exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+            get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
+
+          // Update/Delete: owner or admin
+          allow update, delete: if isAuthenticated() &&
+            exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+            get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
+          allow update, delete: if isAdmin();
+        }
+      }
     }
     
     // ========================================================================
@@ -240,30 +298,12 @@ service cloud.firestore {
     }
     
     // ========================================================================
-    // 11. PROPERTY IMAGES
+    // 11. PROPERTY IMAGES (MOVED TO SUBCOLLECTION UNDER PROPERTIES)
     // ========================================================================
-    match /propertyImages/{imageId} {
-      // Helper: check if user owns the property via provider
-      function userOwnsProperty(propId) {
-        return exists(/databases/$(database)/documents/properties/$(propId)) &&
-          exists(/databases/$(database)/documents/accommodationProviders/$(get(/databases/$(database)/documents/properties/$(propId)).data.providerId)) &&
-          get(/databases/$(database)/documents/accommodationProviders/$(get(/databases/$(database)/documents/properties/$(propId)).data.providerId)).data.userId == request.auth.uid;
-      }
-      
-      // Read: owner, admin, or if property is active
-      allow read: if isAuthenticated() && userOwnsProperty(resource.data.propertyId);
-      allow read: if isAdmin();
-      allow read: if exists(/databases/$(database)/documents/properties/$(resource.data.propertyId)) &&
-        get(/databases/$(database)/documents/properties/$(resource.data.propertyId)).data.status == "Active";
-      
-      // Create: user must own the property
-      allow create: if isAuthenticated() && userOwnsProperty(request.resource.data.propertyId);
-      
-      // Update/Delete: owner or admin
-      allow update, delete: if isAuthenticated() && userOwnsProperty(resource.data.propertyId);
-      allow update, delete: if isAdmin();
-    }
-    
+    // Property images are now stored as a subcollection under properties.
+    // See: accommodationProviders/{providerId}/properties/{propertyId}/images/{imageId}
+    // Rules are defined in the properties subcollection above (line 156)
+
     // ========================================================================
     // 12. STUDENTS
     // ========================================================================
