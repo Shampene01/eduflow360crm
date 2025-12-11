@@ -16,6 +16,8 @@ import {
   Car,
   Shield,
   Loader2,
+  UserPlus,
+  AlertTriangle,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
@@ -25,7 +27,19 @@ import { Property, Address, RoomConfiguration } from "@/lib/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getProviderByUserId, getPropertyById, getAddressById, getRoomConfiguration } from "@/lib/db";
+import { getProviderByUserId, getPropertyById, getAddressById, getRoomConfiguration, updateProperty } from "@/lib/db";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface PropertyWithAddress extends Property {
   address?: Address;
@@ -38,6 +52,8 @@ function PropertyDetailsContent() {
   const { user } = useAuth();
   const [property, setProperty] = useState<PropertyWithAddress | null>(null);
   const [loading, setLoading] = useState(true);
+  const [providerId, setProviderId] = useState<string>("");
+  const [deactivating, setDeactivating] = useState(false);
 
   useEffect(() => {
     const fetchProperty = async () => {
@@ -52,6 +68,7 @@ function PropertyDetailsContent() {
           setLoading(false);
           return;
         }
+        setProviderId(provider.providerId);
 
         // Fetch property from subcollection using provider ID
         const propertyData = await getPropertyById(provider.providerId, id as string);
@@ -71,6 +88,23 @@ function PropertyDetailsContent() {
 
     fetchProperty();
   }, [id, user?.userId, user?.uid]);
+
+  // Soft delete - set property status to Inactive
+  const handleDeactivateProperty = async () => {
+    if (!property || !providerId) return;
+    
+    setDeactivating(true);
+    try {
+      await updateProperty(providerId, property.propertyId, { status: "Inactive" });
+      setProperty({ ...property, status: "Inactive" });
+      toast.success("Property has been deactivated");
+    } catch (error) {
+      console.error("Error deactivating property:", error);
+      toast.error("Failed to deactivate property");
+    } finally {
+      setDeactivating(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -178,16 +212,48 @@ function PropertyDetailsContent() {
               </div>
             </div>
             <div className="flex gap-2">
+              <Button asChild className="bg-amber-500 hover:bg-amber-600 text-gray-900">
+                <Link href={`/properties/${property.propertyId}/students`}>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Students
+                </Link>
+              </Button>
               <Button asChild variant="outline">
                 <Link href={`/properties/${property.propertyId}/edit`}>
                   <Edit className="w-4 h-4 mr-2" />
                   Edit
                 </Link>
               </Button>
-              <Button variant="destructive">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" disabled={property.status === "Inactive" || deactivating}>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {property.status === "Inactive" ? "Deactivated" : "Deactivate"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-amber-500" />
+                      Deactivate Property
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to deactivate <strong>{property.name}</strong>? 
+                      This will set the property status to Inactive. Students will no longer be able to be assigned to this property.
+                      You can reactivate the property later from the edit page.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDeactivateProperty}
+                      className="bg-red-500 hover:bg-red-600"
+                    >
+                      {deactivating ? "Deactivating..." : "Yes, Deactivate"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
 
@@ -386,9 +452,11 @@ function PropertyDetailsContent() {
               {/* Actions */}
               <Card>
                 <CardContent className="p-4 space-y-2">
-                  <Button className="w-full bg-amber-500 hover:bg-amber-600 text-gray-900">
-                    <Users className="w-4 h-4 mr-2" />
-                    Manage Students
+                  <Button asChild className="w-full bg-amber-500 hover:bg-amber-600 text-gray-900">
+                    <Link href={`/properties/${property.propertyId}/students`}>
+                      <Users className="w-4 h-4 mr-2" />
+                      Manage Students
+                    </Link>
                   </Button>
                   <Button variant="outline" className="w-full">
                     View Invoices
