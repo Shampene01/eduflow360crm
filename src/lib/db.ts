@@ -703,6 +703,34 @@ export async function getPropertyImages(providerId: string, propertyId: string):
 }
 
 // ============================================================================
+// PROPERTY DOCUMENT OPERATIONS
+// ============================================================================
+
+export async function createPropertyDocument(
+  providerId: string,
+  docData: Omit<PropertyDoc, "documentId" | "uploadedAt" | "verified">
+): Promise<PropertyDoc> {
+  if (!db) throw new Error("Database not initialized");
+
+  const documentId = generateId();
+  const document: PropertyDoc = {
+    ...docData,
+    documentId,
+    verified: false,
+    uploadedAt: serverTimestamp() as Timestamp,
+  };
+
+  await setDoc(doc(db, `${getPropertyDocumentsPath(providerId, docData.propertyId)}/${documentId}`), document);
+  return document;
+}
+
+export async function getPropertyDocuments(providerId: string, propertyId: string): Promise<PropertyDoc[]> {
+  if (!db) return [];
+  const snap = await getDocs(collection(db, getPropertyDocumentsPath(providerId, propertyId)));
+  return snap.docs.map(d => d.data() as PropertyDoc);
+}
+
+// ============================================================================
 // DASHBOARD STATISTICS
 // ============================================================================
 
