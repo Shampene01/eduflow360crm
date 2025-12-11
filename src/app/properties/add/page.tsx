@@ -76,6 +76,9 @@ function AddPropertyContent() {
   const coverImageInputRef = useRef<HTMLInputElement>(null);
   const roomImagesInputRef = useRef<HTMLInputElement>(null);
   const commonRoomImagesInputRef = useRef<HTMLInputElement>(null);
+  const ablutionImagesInputRef = useRef<HTMLInputElement>(null);
+  const kitchenImagesInputRef = useRef<HTMLInputElement>(null);
+  const amenitiesImagesInputRef = useRef<HTMLInputElement>(null);
   const titleDeedInputRef = useRef<HTMLInputElement>(null);
   const safetyCertInputRef = useRef<HTMLInputElement>(null);
   const utilityBillInputRef = useRef<HTMLInputElement>(null);
@@ -147,6 +150,12 @@ function AddPropertyContent() {
     roomImagePreviews: [] as string[],
     commonRoomImages: [] as File[],
     commonRoomImagePreviews: [] as string[],
+    ablutionImages: [] as File[],
+    ablutionImagePreviews: [] as string[],
+    kitchenImages: [] as File[],
+    kitchenImagePreviews: [] as string[],
+    amenitiesImages: [] as File[],
+    amenitiesImagePreviews: [] as string[],
   });
 
   // Step 5: Documents
@@ -245,6 +254,111 @@ function AddPropertyContent() {
     const newImages = step4Data.commonRoomImages.filter((_, i) => i !== index);
     const newPreviews = step4Data.commonRoomImagePreviews.filter((_, i) => i !== index);
     setStep4Data({ ...step4Data, commonRoomImages: newImages, commonRoomImagePreviews: newPreviews });
+  };
+
+  const handleAblutionImagesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    if (step4Data.ablutionImages.length + files.length > 2) {
+      toast.error("Maximum 2 images allowed for ablution facilities");
+      return;
+    }
+
+    const validFiles = files.filter(f => {
+      if (!f.type.startsWith("image/")) {
+        toast.error(`${f.name} is not an image file`);
+        return false;
+      }
+      if (f.size > 5 * 1024 * 1024) {
+        toast.error(`${f.name} is larger than 5MB`);
+        return false;
+      }
+      return true;
+    });
+
+    const previews = validFiles.map(f => URL.createObjectURL(f));
+    setStep4Data({
+      ...step4Data,
+      ablutionImages: [...step4Data.ablutionImages, ...validFiles],
+      ablutionImagePreviews: [...step4Data.ablutionImagePreviews, ...previews],
+    });
+  };
+
+  const removeAblutionImage = (index: number) => {
+    const newImages = step4Data.ablutionImages.filter((_, i) => i !== index);
+    const newPreviews = step4Data.ablutionImagePreviews.filter((_, i) => i !== index);
+    setStep4Data({ ...step4Data, ablutionImages: newImages, ablutionImagePreviews: newPreviews });
+  };
+
+  const handleKitchenImagesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    if (step4Data.kitchenImages.length + files.length > 3) {
+      toast.error("Maximum 3 images allowed for kitchen");
+      return;
+    }
+
+    const validFiles = files.filter(f => {
+      if (!f.type.startsWith("image/")) {
+        toast.error(`${f.name} is not an image file`);
+        return false;
+      }
+      if (f.size > 5 * 1024 * 1024) {
+        toast.error(`${f.name} is larger than 5MB`);
+        return false;
+      }
+      return true;
+    });
+
+    const previews = validFiles.map(f => URL.createObjectURL(f));
+    setStep4Data({
+      ...step4Data,
+      kitchenImages: [...step4Data.kitchenImages, ...validFiles],
+      kitchenImagePreviews: [...step4Data.kitchenImagePreviews, ...previews],
+    });
+  };
+
+  const removeKitchenImage = (index: number) => {
+    const newImages = step4Data.kitchenImages.filter((_, i) => i !== index);
+    const newPreviews = step4Data.kitchenImagePreviews.filter((_, i) => i !== index);
+    setStep4Data({ ...step4Data, kitchenImages: newImages, kitchenImagePreviews: newPreviews });
+  };
+
+  const handleAmenitiesImagesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    if (step4Data.amenitiesImages.length + files.length > 2) {
+      toast.error("Maximum 2 images allowed for amenities");
+      return;
+    }
+
+    const validFiles = files.filter(f => {
+      if (!f.type.startsWith("image/")) {
+        toast.error(`${f.name} is not an image file`);
+        return false;
+      }
+      if (f.size > 5 * 1024 * 1024) {
+        toast.error(`${f.name} is larger than 5MB`);
+        return false;
+      }
+      return true;
+    });
+
+    const previews = validFiles.map(f => URL.createObjectURL(f));
+    setStep4Data({
+      ...step4Data,
+      amenitiesImages: [...step4Data.amenitiesImages, ...validFiles],
+      amenitiesImagePreviews: [...step4Data.amenitiesImagePreviews, ...previews],
+    });
+  };
+
+  const removeAmenitiesImage = (index: number) => {
+    const newImages = step4Data.amenitiesImages.filter((_, i) => i !== index);
+    const newPreviews = step4Data.amenitiesImagePreviews.filter((_, i) => i !== index);
+    setStep4Data({ ...step4Data, amenitiesImages: newImages, amenitiesImagePreviews: newPreviews });
   };
 
   const handleDocumentUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "titleDeed" | "safetyCert" | "utilityBill") => {
@@ -459,6 +573,54 @@ function AddPropertyContent() {
           propertyId: property.propertyId,
           imageUrl,
           caption: `Common room image ${sortOrder + 1}`,
+          sortOrder: sortOrder++,
+          isCover: false,
+          uploadedBy: user?.email || provider.providerId,
+        });
+      }
+
+      // Upload ablution facilities images
+      for (const imageFile of step4Data.ablutionImages) {
+        const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/ablution/${Date.now()}_${imageFile.name}`);
+        await uploadBytes(imageRef, imageFile);
+        const imageUrl = await getDownloadURL(imageRef);
+
+        await createPropertyImage(provider.providerId, {
+          propertyId: property.propertyId,
+          imageUrl,
+          caption: `Ablution facilities ${sortOrder + 1}`,
+          sortOrder: sortOrder++,
+          isCover: false,
+          uploadedBy: user?.email || provider.providerId,
+        });
+      }
+
+      // Upload kitchen images
+      for (const imageFile of step4Data.kitchenImages) {
+        const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/kitchen/${Date.now()}_${imageFile.name}`);
+        await uploadBytes(imageRef, imageFile);
+        const imageUrl = await getDownloadURL(imageRef);
+
+        await createPropertyImage(provider.providerId, {
+          propertyId: property.propertyId,
+          imageUrl,
+          caption: `Kitchen image ${sortOrder + 1}`,
+          sortOrder: sortOrder++,
+          isCover: false,
+          uploadedBy: user?.email || provider.providerId,
+        });
+      }
+
+      // Upload amenities images
+      for (const imageFile of step4Data.amenitiesImages) {
+        const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/amenities/${Date.now()}_${imageFile.name}`);
+        await uploadBytes(imageRef, imageFile);
+        const imageUrl = await getDownloadURL(imageRef);
+
+        await createPropertyImage(provider.providerId, {
+          propertyId: property.propertyId,
+          imageUrl,
+          caption: `Amenities image ${sortOrder + 1}`,
           sortOrder: sortOrder++,
           isCover: false,
           uploadedBy: user?.email || provider.providerId,
@@ -955,6 +1117,123 @@ function AddPropertyContent() {
                         {step4Data.commonRoomImages.length < 2 && (
                           <div
                             onClick={() => commonRoomImagesInputRef.current?.click()}
+                            className="border-2 border-dashed border-gray-300 rounded-lg h-32 flex flex-col items-center justify-center cursor-pointer hover:border-amber-500"
+                          >
+                            <Upload className="w-8 h-8 text-gray-400 mb-1" />
+                            <p className="text-sm text-gray-500">Add Photo</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Ablution Facilities Images */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold">Ablution Facilities</h3>
+                        <span className="text-sm text-gray-500">1-2 images</span>
+                      </div>
+                      <input
+                        ref={ablutionImagesInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleAblutionImagesUpload}
+                        className="hidden"
+                      />
+                      <div className="grid grid-cols-3 gap-4">
+                        {step4Data.ablutionImagePreviews.map((preview, index) => (
+                          <div key={index} className="relative">
+                            <img src={preview} alt={`Ablution ${index + 1}`} className="w-full h-32 object-cover rounded" />
+                            <button
+                              type="button"
+                              onClick={() => removeAblutionImage(index)}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                        {step4Data.ablutionImages.length < 2 && (
+                          <div
+                            onClick={() => ablutionImagesInputRef.current?.click()}
+                            className="border-2 border-dashed border-gray-300 rounded-lg h-32 flex flex-col items-center justify-center cursor-pointer hover:border-amber-500"
+                          >
+                            <Upload className="w-8 h-8 text-gray-400 mb-1" />
+                            <p className="text-sm text-gray-500">Add Photo</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Kitchen Images */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold">Kitchen</h3>
+                        <span className="text-sm text-gray-500">1-3 images</span>
+                      </div>
+                      <input
+                        ref={kitchenImagesInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleKitchenImagesUpload}
+                        className="hidden"
+                      />
+                      <div className="grid grid-cols-3 gap-4">
+                        {step4Data.kitchenImagePreviews.map((preview, index) => (
+                          <div key={index} className="relative">
+                            <img src={preview} alt={`Kitchen ${index + 1}`} className="w-full h-32 object-cover rounded" />
+                            <button
+                              type="button"
+                              onClick={() => removeKitchenImage(index)}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                        {step4Data.kitchenImages.length < 3 && (
+                          <div
+                            onClick={() => kitchenImagesInputRef.current?.click()}
+                            className="border-2 border-dashed border-gray-300 rounded-lg h-32 flex flex-col items-center justify-center cursor-pointer hover:border-amber-500"
+                          >
+                            <Upload className="w-8 h-8 text-gray-400 mb-1" />
+                            <p className="text-sm text-gray-500">Add Photo</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Amenities Images */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold">Amenities</h3>
+                        <span className="text-sm text-gray-500">1-2 images</span>
+                      </div>
+                      <input
+                        ref={amenitiesImagesInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleAmenitiesImagesUpload}
+                        className="hidden"
+                      />
+                      <div className="grid grid-cols-3 gap-4">
+                        {step4Data.amenitiesImagePreviews.map((preview, index) => (
+                          <div key={index} className="relative">
+                            <img src={preview} alt={`Amenity ${index + 1}`} className="w-full h-32 object-cover rounded" />
+                            <button
+                              type="button"
+                              onClick={() => removeAmenitiesImage(index)}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                        {step4Data.amenitiesImages.length < 2 && (
+                          <div
+                            onClick={() => amenitiesImagesInputRef.current?.click()}
                             className="border-2 border-dashed border-gray-300 rounded-lg h-32 flex flex-col items-center justify-center cursor-pointer hover:border-amber-500"
                           >
                             <Upload className="w-8 h-8 text-gray-400 mb-1" />

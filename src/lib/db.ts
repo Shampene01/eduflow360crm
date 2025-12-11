@@ -95,15 +95,24 @@ export async function updateUser(userId: string, data: Partial<User>): Promise<v
 
 export async function createAddress(addressData: Omit<Address, "addressId" | "createdAt">): Promise<Address> {
   if (!db) throw new Error("Database not initialized");
-  
+
   const addressId = generateId();
+
+  // Filter out undefined values to avoid Firestore errors
+  const cleanedData: Record<string, any> = {};
+  Object.entries(addressData).forEach(([key, value]) => {
+    if (value !== undefined) {
+      cleanedData[key] = value;
+    }
+  });
+
   const address: Address = {
-    ...addressData,
+    ...cleanedData,
     addressId,
-    country: addressData.country || "South Africa",
+    country: cleanedData.country || "South Africa",
     createdAt: serverTimestamp() as Timestamp,
-  };
-  
+  } as Address;
+
   await setDoc(doc(db, COLLECTIONS.ADDRESSES, addressId), address);
   return address;
 }

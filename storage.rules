@@ -48,6 +48,17 @@ service firebase.storage {
     }
 
     // ================================
+    // PROPERTIES FOLDER (ORGANIZED BY PROVIDER)
+    // ================================
+    match /properties/{providerId}/{allPaths=**} {
+      // Public can read active property files
+      allow read: if true;
+
+      // Authenticated users who own the provider can upload/modify/delete
+      allow write, delete: if request.auth != null;
+    }
+
+    // ================================
     // PLATFORM RESOURCES (ADMIN UPLOAD)
     // ================================
     match /platform-resources/{allPaths=**} {
