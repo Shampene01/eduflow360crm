@@ -141,7 +141,7 @@ function ManageStudentsContent() {
     fetchData();
   }, [id, user?.userId, user?.uid]);
 
-  // Verify NSFAS funding status
+  // Verify NSFAS funding status via Power Automate webhook
   const handleVerifyNsfas = async () => {
     if (!studentForm.idNumber || studentForm.idNumber.length !== 13) {
       toast.error("Please enter a valid 13-digit ID number");
@@ -152,34 +152,46 @@ function ManageStudentsContent() {
     setNsfasVerified(null);
 
     try {
-      // TODO: Replace with actual NSFAS API call
-      // For now, simulate API call with mock response
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Call Power Automate webhook to verify NSFAS funding status
+      const response = await fetch(
+        "https://2009c4ecf752ec149f8257b7de138b.5c.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/815f2361435b414ab0f565260398d275/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=BMrYgldVID2UaJbYHRO2CvgADy7-elokoa5Lc54rdPk",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            idNumber: studentForm.idNumber,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`NSFAS verification failed: ${response.status}`);
+      }
+
+      const data = await response.json();
       
-      // Mock NSFAS verification - in production, call actual API
-      // const response = await fetch(`/api/nsfas/verify?idNumber=${studentForm.idNumber}`);
-      // const data = await response.json();
-      
-      // Simulate: IDs starting with "9" are funded
-      const isFunded = studentForm.idNumber.startsWith("9");
-      const mockFundedAmount = isFunded ? 45000 : 0;
+      // Response format: { idNumber, funded, accomodationCosts }
+      const isFunded = data.funded === true;
+      const fundedAmount = isFunded ? parseFloat(data.accomodationCosts) || 0 : 0;
       
       setStudentForm(prev => ({
         ...prev,
         funded: isFunded,
-        fundedAmount: mockFundedAmount,
+        fundedAmount: fundedAmount,
         nsfasNumber: isFunded ? `NSFAS${studentForm.idNumber.slice(0, 6)}` : "",
       }));
       setNsfasVerified(isFunded);
       
       if (isFunded) {
-        toast.success("Student is NSFAS funded!");
+        toast.success(`Student is NSFAS funded! Accommodation allowance: R${fundedAmount.toLocaleString()}`);
       } else {
         toast.info("Student is not NSFAS funded");
       }
     } catch (error) {
       console.error("Error verifying NSFAS:", error);
-      toast.error("Failed to verify NSFAS status");
+      toast.error("Failed to verify NSFAS status. Please try again.");
       setNsfasVerified(false);
     } finally {
       setVerifyingNsfas(false);

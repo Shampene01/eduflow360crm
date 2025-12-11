@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getProviderByUserId } from "@/lib/db";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -42,30 +43,56 @@ export function ProtectedRoute({
   const isLoading = loading || profileLoading;
 
   useEffect(() => {
-    if (!isLoading) {
-      // Not logged in - redirect to login
-      if (!firebaseUser) {
-        router.push(redirectTo);
-        return;
-      }
+    const checkAccessAndRedirect = async () => {
+      if (!isLoading) {
+        // Not logged in - redirect to login
+        if (!firebaseUser) {
+          router.push(redirectTo);
+          return;
+        }
 
-      // Check email verification (skip for verify-email page itself)
-      if (requireEmailVerification && !firebaseUser.emailVerified && pathname !== "/verify-email") {
-        router.push("/verify-email");
-        return;
-      }
+        // Check email verification (skip for verify-email page itself)
+        if (requireEmailVerification && !firebaseUser.emailVerified && pathname !== "/verify-email") {
+          router.push("/verify-email");
+          return;
+        }
 
-      const effectiveUserType = getUserType(user);
-      
-      if (allowedUserTypes && effectiveUserType && !allowedUserTypes.includes(effectiveUserType as "student" | "provider" | "admin")) {
-        // Redirect to appropriate dashboard based on user type
-        if (effectiveUserType === "provider") {
-          router.push("/provider-dashboard");
-        } else {
-          router.push("/dashboard");
+        // Check if user has an approved accommodation provider linked
+        let isApprovedProvider = false;
+        if (user) {
+          try {
+            const provider = await getProviderByUserId(user.userId || (user as any).uid);
+            isApprovedProvider = provider?.approvalStatus === "Approved";
+          } catch (err) {
+            console.error("Error checking provider status:", err);
+          }
+        }
+
+        const effectiveUserType = getUserType(user);
+        
+        // Determine if user should be treated as provider
+        const shouldBeProvider = isApprovedProvider || effectiveUserType === "provider";
+        
+        if (allowedUserTypes && effectiveUserType) {
+          // If user is an approved provider but trying to access non-provider pages
+          if (shouldBeProvider && !allowedUserTypes.includes("provider")) {
+            router.push("/provider-dashboard");
+            return;
+          }
+          
+          // Standard type check
+          if (!allowedUserTypes.includes(effectiveUserType as "student" | "provider" | "admin")) {
+            if (shouldBeProvider) {
+              router.push("/provider-dashboard");
+            } else {
+              router.push("/dashboard");
+            }
+          }
         }
       }
-    }
+    };
+
+    checkAccessAndRedirect();
   }, [isLoading, firebaseUser, user, allowedUserTypes, router, redirectTo, requireEmailVerification, pathname]);
 
   const handleRetry = async () => {

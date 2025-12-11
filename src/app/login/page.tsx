@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { signIn, resetPassword, getAuthErrorMessage } from "@/lib/auth";
 import { useAuth } from "@/contexts/AuthContext";
 import { auth } from "@/lib/firebase";
+import { getProviderByUserId } from "@/lib/db";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -29,19 +30,35 @@ export default function LoginPage() {
 
   // Redirect if already logged in AND profile is fully loaded
   useEffect(() => {
-    if (isFullyLoaded && user && firebaseUser) {
-      // Check email verification first
-      if (!firebaseUser.emailVerified) {
-        router.push("/verify-email");
-        return;
-      }
+    const checkAndRedirect = async () => {
+      if (isFullyLoaded && user && firebaseUser) {
+        // Check email verification first
+        if (!firebaseUser.emailVerified) {
+          router.push("/verify-email");
+          return;
+        }
 
-      if (user.userType === "provider") {
-        router.push("/provider-dashboard");
-      } else {
-        router.push("/dashboard");
+        // Check if user has an approved accommodation provider linked
+        try {
+          const provider = await getProviderByUserId(user.userId || user.uid);
+          if (provider && provider.approvalStatus === "Approved") {
+            router.push("/provider-dashboard");
+            return;
+          }
+        } catch (err) {
+          console.error("Error checking provider status:", err);
+        }
+
+        // Fallback to userType check
+        if (user.userType === "provider") {
+          router.push("/provider-dashboard");
+        } else {
+          router.push("/dashboard");
+        }
       }
-    }
+    };
+
+    checkAndRedirect();
   }, [user, isFullyLoaded, firebaseUser, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
