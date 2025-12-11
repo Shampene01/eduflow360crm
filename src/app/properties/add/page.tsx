@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Upload, Loader2, X, CheckCircle } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
+import { DashboardFooter } from "@/components/DashboardFooter";
 import { Sidebar } from "@/components/Sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
@@ -114,8 +115,6 @@ function AddPropertyContent() {
     ownershipType: "" as OwnershipType | "",
     propertyType: "" as PropertyType | "",
     province: "",
-    totalRooms: "",
-    totalBeds: "",
     institution: "",
     description: "",
     coverImageFile: null as File | null,
@@ -497,35 +496,7 @@ function AddPropertyContent() {
         coverImageUrl = await getDownloadURL(coverRef);
       }
 
-      // 2. Create address
-      const address = await createAddress({
-        street: step2Data.street,
-        suburb: step2Data.suburb || undefined,
-        townCity: step2Data.city,
-        province: step1Data.province,
-        postalCode: undefined,
-        country: "South Africa",
-      });
-
-      // 3. Create property with "Pending" status for accreditation
-      const property = await createProperty({
-        providerId: provider.providerId,
-        name: step1Data.name,
-        ownershipType: step1Data.ownershipType as OwnershipType,
-        propertyType: step1Data.propertyType as PropertyType,
-        institution: step1Data.institution || undefined,
-        description: step1Data.description || undefined,
-        addressId: address.addressId,
-        coverImageUrl,
-        totalBeds: undefined,
-        availableBeds: undefined,
-        pricePerBedPerMonth: undefined,
-        status: "Pending", // Pending Accreditation
-        nsfasApproved: false,
-        amenities: [],
-      });
-
-      // 4. Create room configuration
+      // 2. Calculate total rooms and beds from room configuration
       const totalRooms = Object.values(step3Data).reduce((sum, val) => sum + val, 0);
       const totalBeds =
         step3Data.bachelor * 1 +
@@ -536,6 +507,36 @@ function AddPropertyContent() {
         step3Data.sharing3Beds_EnSuite * 3 +
         step3Data.sharing3Beds_Standard * 3;
 
+      // 3. Create address
+      const address = await createAddress({
+        street: step2Data.street,
+        suburb: step2Data.suburb || undefined,
+        townCity: step2Data.city,
+        province: step1Data.province,
+        postalCode: undefined,
+        country: "South Africa",
+      });
+
+      // 4. Create property with "Pending" status for accreditation
+      const property = await createProperty({
+        providerId: provider.providerId,
+        name: step1Data.name,
+        ownershipType: step1Data.ownershipType as OwnershipType,
+        propertyType: step1Data.propertyType as PropertyType,
+        institution: step1Data.institution || undefined,
+        description: step1Data.description || undefined,
+        addressId: address.addressId,
+        coverImageUrl,
+        totalRooms,
+        totalBeds,
+        availableBeds: totalBeds, // Initially all beds are available
+        pricePerBedPerMonth: undefined,
+        status: "Pending", // Pending Accreditation
+        nsfasApproved: false,
+        amenities: [],
+      });
+
+      // 5. Create room configuration (totalRooms and totalBeds are calculated automatically)
       await createRoomConfiguration(provider.providerId, {
         propertyId: property.propertyId,
         bachelor: step3Data.bachelor,
@@ -775,7 +776,7 @@ function AddPropertyContent() {
                   <CardHeader>
                     <CardTitle>Property Information</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-6">
                     <div>
                       <Label htmlFor="name">Property Name *</Label>
                       <Input
@@ -783,6 +784,7 @@ function AddPropertyContent() {
                         value={step1Data.name}
                         onChange={(e) => setStep1Data({ ...step1Data, name: e.target.value })}
                         placeholder="Enter property name"
+                        className="mt-2"
                       />
                     </div>
 
@@ -792,7 +794,7 @@ function AddPropertyContent() {
                         value={step1Data.ownershipType}
                         onValueChange={(value) => setStep1Data({ ...step1Data, ownershipType: value as OwnershipType })}
                       >
-                        <SelectTrigger id="ownership">
+                        <SelectTrigger id="ownership" className="mt-2">
                           <SelectValue placeholder="Select ownership type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -813,7 +815,7 @@ function AddPropertyContent() {
                       />
                       <div
                         onClick={() => coverImageInputRef.current?.click()}
-                        className="mt-2 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-amber-500 transition-colors"
+                        className="mt-3 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-amber-500 transition-colors"
                       >
                         {step1Data.coverImagePreview ? (
                           <div className="relative">
@@ -840,7 +842,7 @@ function AddPropertyContent() {
                         value={step1Data.propertyType}
                         onValueChange={(value) => setStep1Data({ ...step1Data, propertyType: value as PropertyType })}
                       >
-                        <SelectTrigger id="propertyType">
+                        <SelectTrigger id="propertyType" className="mt-2">
                           <SelectValue placeholder="Select property type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -859,7 +861,7 @@ function AddPropertyContent() {
                         value={step1Data.province}
                         onValueChange={(value) => setStep1Data({ ...step1Data, province: value })}
                       >
-                        <SelectTrigger id="province">
+                        <SelectTrigger id="province" className="mt-2">
                           <SelectValue placeholder="Select province" />
                         </SelectTrigger>
                         <SelectContent>
@@ -870,38 +872,13 @@ function AddPropertyContent() {
                       </Select>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="totalRooms">Number of Rooms</Label>
-                        <Input
-                          id="totalRooms"
-                          type="number"
-                          min="0"
-                          value={step1Data.totalRooms}
-                          onChange={(e) => setStep1Data({ ...step1Data, totalRooms: e.target.value })}
-                          placeholder="0"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="totalBeds">Number of Beds</Label>
-                        <Input
-                          id="totalBeds"
-                          type="number"
-                          min="0"
-                          value={step1Data.totalBeds}
-                          onChange={(e) => setStep1Data({ ...step1Data, totalBeds: e.target.value })}
-                          placeholder="0"
-                        />
-                      </div>
-                    </div>
-
                     <div>
                       <Label htmlFor="institution">Select Institution</Label>
                       <Select
                         value={step1Data.institution}
                         onValueChange={(value) => setStep1Data({ ...step1Data, institution: value })}
                       >
-                        <SelectTrigger id="institution">
+                        <SelectTrigger id="institution" className="mt-2">
                           <SelectValue placeholder="Select nearby institution" />
                         </SelectTrigger>
                         <SelectContent>
@@ -920,6 +897,7 @@ function AddPropertyContent() {
                         onChange={(e) => setStep1Data({ ...step1Data, description: e.target.value })}
                         placeholder="Describe the property features and amenities"
                         rows={4}
+                        className="mt-2"
                       />
                     </div>
                   </CardContent>
@@ -932,7 +910,7 @@ function AddPropertyContent() {
                   <CardContent className="space-y-6 pt-6">
                     <div>
                       <h3 className="text-lg font-semibold mb-4">Property Address</h3>
-                      <div className="space-y-4">
+                      <div className="space-y-5">
                         <div>
                           <Label htmlFor="street">Street Address *</Label>
                           <Input
@@ -940,6 +918,7 @@ function AddPropertyContent() {
                             value={step2Data.street}
                             onChange={(e) => setStep2Data({ ...step2Data, street: e.target.value })}
                             placeholder="123 Main Street"
+                            className="mt-2"
                           />
                         </div>
 
@@ -950,6 +929,7 @@ function AddPropertyContent() {
                             value={step2Data.suburb}
                             onChange={(e) => setStep2Data({ ...step2Data, suburb: e.target.value })}
                             placeholder="Downtown"
+                            className="mt-2"
                           />
                         </div>
 
@@ -960,6 +940,7 @@ function AddPropertyContent() {
                             value={step2Data.city}
                             onChange={(e) => setStep2Data({ ...step2Data, city: e.target.value })}
                             placeholder="Johannesburg"
+                            className="mt-2"
                           />
                         </div>
                       </div>
@@ -967,7 +948,7 @@ function AddPropertyContent() {
 
                     <div>
                       <h3 className="text-lg font-semibold mb-4">Property Manager Details</h3>
-                      <div className="space-y-4">
+                      <div className="space-y-5">
                         <div>
                           <Label htmlFor="managerName">Manager Name *</Label>
                           <Input
@@ -975,6 +956,7 @@ function AddPropertyContent() {
                             value={step2Data.managerName}
                             onChange={(e) => setStep2Data({ ...step2Data, managerName: e.target.value })}
                             placeholder="John Smith"
+                            className="mt-2"
                           />
                         </div>
 
@@ -985,6 +967,7 @@ function AddPropertyContent() {
                             value={step2Data.managerId}
                             onChange={(e) => setStep2Data({ ...step2Data, managerId: e.target.value })}
                             placeholder="Enter Id Number of Property Manager"
+                            className="mt-2"
                           />
                         </div>
 
@@ -996,6 +979,7 @@ function AddPropertyContent() {
                             value={step2Data.managerEmail}
                             onChange={(e) => setStep2Data({ ...step2Data, managerEmail: e.target.value })}
                             placeholder="john.smith@property.com"
+                            className="mt-2"
                           />
                         </div>
 
@@ -1006,6 +990,7 @@ function AddPropertyContent() {
                             value={step2Data.managerPhone}
                             onChange={(e) => setStep2Data({ ...step2Data, managerPhone: e.target.value })}
                             placeholder="0127345678"
+                            className="mt-2"
                           />
                         </div>
                       </div>
@@ -1404,6 +1389,7 @@ function AddPropertyContent() {
           </div>
         </main>
       </div>
+      <DashboardFooter />
     </div>
   );
 }

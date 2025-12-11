@@ -300,11 +300,12 @@ export interface Property {
   
   // Media
   coverImageUrl?: string;
-  
+
   // Capacity (calculated from rooms/beds)
+  totalRooms?: number;
   totalBeds?: number;
   availableBeds?: number;
-  
+
   // Pricing
   pricePerBedPerMonth?: number;
   
