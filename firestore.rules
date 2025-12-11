@@ -58,6 +58,14 @@ service cloud.firestore {
         isProviderOwner(providerId);
     }
     
+    // Helper to check property ownership via top-level properties collection
+    // Use this when you only have propertyId (no providerId)
+    function isPropertyOwnerByPropertyId(propertyId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/properties/$(propertyId)) &&
+        isProviderOwner(get(/databases/$(database)/documents/properties/$(propertyId)).data.providerId);
+    }
+    
     // ========================================================================
     // 1. USERS
     // ========================================================================
@@ -282,7 +290,11 @@ service cloud.firestore {
     match /roomConfigurations/{configId} {
       allow read: if isPropertyOwner(resource.data.providerId, resource.data.propertyId) || isAdmin();
 
-      allow create: if isPropertyOwner(request.resource.data.providerId, request.resource.data.propertyId);
+      // Create: verify provider ownership - use direct check to avoid function call issues
+      allow create: if isAuthenticated() &&
+        request.resource.data.providerId != null &&
+        exists(/databases/$(database)/documents/accommodationProviders/$(request.resource.data.providerId)) &&
+        get(/databases/$(database)/documents/accommodationProviders/$(request.resource.data.providerId)).data.userId == request.auth.uid;
 
       allow update, delete: if isPropertyOwner(resource.data.providerId, resource.data.propertyId) || isAdmin();
     }
@@ -291,43 +303,43 @@ service cloud.firestore {
     // 8. PROPERTY ROOMS
     // ========================================================================
     match /propertyRooms/{roomId} {
-      allow read: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      allow read: if isPropertyOwnerByPropertyId(resource.data.propertyId) || isAdmin();
       
-      allow create: if isPropertyOwner(request.resource.data.propertyId);
+      allow create: if isPropertyOwnerByPropertyId(request.resource.data.propertyId);
       
-      allow update, delete: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      allow update, delete: if isPropertyOwnerByPropertyId(resource.data.propertyId) || isAdmin();
     }
     
     // ========================================================================
     // 9. PROPERTY BEDS
     // ========================================================================
     match /propertyBeds/{bedId} {
-      allow read: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      allow read: if isPropertyOwnerByPropertyId(resource.data.propertyId) || isAdmin();
       
-      allow create: if isPropertyOwner(request.resource.data.propertyId);
+      allow create: if isPropertyOwnerByPropertyId(request.resource.data.propertyId);
       
-      allow update, delete: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      allow update, delete: if isPropertyOwnerByPropertyId(resource.data.propertyId) || isAdmin();
     }
     
     // ========================================================================
     // 10. PROPERTY DOCUMENTS
     // ========================================================================
     match /propertyDocuments/{documentId} {
-      allow read: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      allow read: if isPropertyOwnerByPropertyId(resource.data.propertyId) || isAdmin();
       
-      allow create: if isPropertyOwner(request.resource.data.propertyId) &&
+      allow create: if isPropertyOwnerByPropertyId(request.resource.data.propertyId) &&
         request.resource.data.verified == false;
       
       // Admin can update anything
       allow update: if isAdmin();
       
       // Owner can update non-verification fields only
-      allow update: if isPropertyOwner(resource.data.propertyId) &&
+      allow update: if isPropertyOwnerByPropertyId(resource.data.propertyId) &&
         !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['verified', 'verifiedAt', 'verifiedBy']);
       
       allow delete: if isAdmin();
-      allow delete: if isPropertyOwner(resource.data.propertyId) && 
+      allow delete: if isPropertyOwnerByPropertyId(resource.data.propertyId) && 
         resource.data.verified == false;
     }
     
@@ -357,11 +369,11 @@ service cloud.firestore {
     // 13. STUDENT PROPERTY ASSIGNMENTS
     // ========================================================================
     match /studentPropertyAssignments/{assignmentId} {
-      allow read: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      allow read: if isPropertyOwnerByPropertyId(resource.data.propertyId) || isAdmin();
       
-      allow create: if isPropertyOwner(request.resource.data.propertyId) || isAdmin();
+      allow create: if isPropertyOwnerByPropertyId(request.resource.data.propertyId) || isAdmin();
       
-      allow update, delete: if isPropertyOwner(resource.data.propertyId) || isAdmin();
+      allow update, delete: if isPropertyOwnerByPropertyId(resource.data.propertyId) || isAdmin();
     }
     
     // ========================================================================

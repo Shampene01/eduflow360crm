@@ -395,7 +395,7 @@ export async function getPropertyWithDetails(providerId: string, propertyId: str
 
 export async function createRoomConfiguration(
   providerId: string,
-  configData: Omit<RoomConfiguration, "configId" | "createdAt" | "totalRooms" | "totalBeds">
+  configData: Omit<RoomConfiguration, "configId" | "providerId" | "createdAt" | "totalRooms" | "totalBeds">
 ): Promise<RoomConfiguration> {
   if (!db) throw new Error("Database not initialized");
   
