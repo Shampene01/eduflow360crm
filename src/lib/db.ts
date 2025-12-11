@@ -312,16 +312,25 @@ export async function createProperty(
   propertyData: Omit<Property, "propertyId" | "createdAt">
 ): Promise<Property> {
   if (!db) throw new Error("Database not initialized");
-  
+
   const propertyId = generateId();
+
+  // Filter out undefined values to avoid Firestore errors
+  const cleanedData: Record<string, any> = {};
+  Object.entries(propertyData).forEach(([key, value]) => {
+    if (value !== undefined) {
+      cleanedData[key] = value;
+    }
+  });
+
   const property: Property = {
-    ...propertyData,
+    ...cleanedData,
     propertyId,
-    status: "Draft",
-    nsfasApproved: false,
+    status: cleanedData.status || "Draft",
+    nsfasApproved: cleanedData.nsfasApproved !== undefined ? cleanedData.nsfasApproved : false,
     createdAt: serverTimestamp() as Timestamp,
-  };
-  
+  } as Property;
+
   // Store in subcollection: accommodationProviders/{providerId}/properties/{propertyId}
   await setDoc(doc(db, getPropertyPath(propertyData.providerId, propertyId)), property);
   return property;

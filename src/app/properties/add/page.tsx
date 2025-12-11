@@ -508,33 +508,41 @@ function AddPropertyContent() {
         step3Data.sharing3Beds_Standard * 3;
 
       // 3. Create address
-      const address = await createAddress({
+      // Note: createAddress already filters out undefined values
+      const addressPayload: any = {
         street: step2Data.street,
-        suburb: step2Data.suburb || undefined,
         townCity: step2Data.city,
         province: step1Data.province,
-        postalCode: undefined,
         country: "South Africa",
-      });
+      };
+
+      // Only add optional fields if they have values
+      if (step2Data.suburb) addressPayload.suburb = step2Data.suburb;
+
+      const address = await createAddress(addressPayload);
 
       // 4. Create property with "Pending" status for accreditation
-      const property = await createProperty({
+      // Note: Optional fields with undefined values will be filtered out by createProperty
+      const propertyPayload: any = {
         providerId: provider.providerId,
         name: step1Data.name,
         ownershipType: step1Data.ownershipType as OwnershipType,
         propertyType: step1Data.propertyType as PropertyType,
-        institution: step1Data.institution || undefined,
-        description: step1Data.description || undefined,
         addressId: address.addressId,
         coverImageUrl,
         totalRooms,
         totalBeds,
         availableBeds: totalBeds, // Initially all beds are available
-        pricePerBedPerMonth: undefined,
         status: "Pending", // Pending Accreditation
         nsfasApproved: false,
         amenities: [],
-      });
+      };
+
+      // Only add optional fields if they have values
+      if (step1Data.institution) propertyPayload.institution = step1Data.institution;
+      if (step1Data.description) propertyPayload.description = step1Data.description;
+
+      const property = await createProperty(propertyPayload);
 
       // 5. Create room configuration (totalRooms and totalBeds are calculated automatically)
       await createRoomConfiguration(provider.providerId, {
