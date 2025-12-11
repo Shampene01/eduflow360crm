@@ -171,6 +171,40 @@ service cloud.firestore {
             get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
           allow update, delete: if isAdmin();
         }
+
+        // ========================================================================
+        // PROPERTY DOCUMENTS SUBCOLLECTION
+        // ========================================================================
+        match /documents/{documentId} {
+          // Read: owner or admin
+          allow read: if isAuthenticated() &&
+            exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+            get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
+          allow read: if isAdmin();
+
+          // Create: provider owner only, must set verified to false
+          allow create: if isAuthenticated() &&
+            exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+            get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid &&
+            request.resource.data.verified == false;
+
+          // Admin can update anything
+          allow update: if isAdmin();
+
+          // Owner can update non-verification fields only
+          allow update: if isAuthenticated() &&
+            exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+            get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid &&
+            !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['verified', 'verifiedAt', 'verifiedBy', 'verificationNotes']);
+
+          // Delete: owner (if not verified) or admin
+          allow delete: if isAdmin();
+          allow delete: if isAuthenticated() &&
+            exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+            get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid &&
+            resource.data.verified == false;
+        }
       }
     }
     
