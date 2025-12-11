@@ -670,6 +670,14 @@ export function getPropertyDocumentsPath(providerId: string, propertyId: string)
   return `${getPropertyPath(providerId, propertyId)}/${COLLECTIONS.PROPERTY_DOCUMENTS}`;
 }
 
+/**
+ * Get the path to a property's room configuration subcollection
+ * Note: Each property has exactly one room configuration document
+ */
+export function getRoomConfigurationPath(providerId: string, propertyId: string): string {
+  return `${getPropertyPath(providerId, propertyId)}/${COLLECTIONS.ROOM_CONFIGURATIONS}`;
+}
+
 // ============================================================================
 // LEGACY TYPE MAPPING (for backward compatibility during migration)
 // ============================================================================

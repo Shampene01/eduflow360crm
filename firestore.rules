@@ -213,6 +213,35 @@ service cloud.firestore {
             get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid &&
             resource.data.verified == false;
         }
+
+        // ========================================================================
+        // ROOM CONFIGURATIONS SUBCOLLECTION
+        // Each property has exactly one room configuration document
+        // ========================================================================
+        match /roomConfigurations/{configId} {
+          // Read: owner or admin
+          allow read: if isAuthenticated() &&
+            exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+            get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
+          allow read: if isAdmin();
+
+          // Create: provider owner only
+          allow create: if isAuthenticated() &&
+            exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+            get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
+
+          // Update: owner or admin
+          allow update: if isAuthenticated() &&
+            exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+            get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
+          allow update: if isAdmin();
+
+          // Delete: owner or admin
+          allow delete: if isAuthenticated() &&
+            exists(/databases/$(database)/documents/accommodationProviders/$(providerId)) &&
+            get(/databases/$(database)/documents/accommodationProviders/$(providerId)).data.userId == request.auth.uid;
+          allow delete: if isAdmin();
+        }
       }
     }
     
@@ -285,18 +314,14 @@ service cloud.firestore {
     }
     
     // ========================================================================
-    // 7. ROOM CONFIGURATIONS
+    // 7. ROOM CONFIGURATIONS (LEGACY - Now a subcollection under properties)
+    // Kept for backward compatibility with existing data
+    // New data goes to: accommodationProviders/{providerId}/properties/{propertyId}/roomConfigurations/{configId}
     // ========================================================================
     match /roomConfigurations/{configId} {
       allow read: if isPropertyOwner(resource.data.providerId, resource.data.propertyId) || isAdmin();
-
-      // Create: verify provider ownership - use direct check to avoid function call issues
-      allow create: if isAuthenticated() &&
-        request.resource.data.providerId != null &&
-        exists(/databases/$(database)/documents/accommodationProviders/$(request.resource.data.providerId)) &&
-        get(/databases/$(database)/documents/accommodationProviders/$(request.resource.data.providerId)).data.userId == request.auth.uid;
-
       allow update, delete: if isPropertyOwner(resource.data.providerId, resource.data.propertyId) || isAdmin();
+      // No create - new configs go to subcollection
     }
     
     // ========================================================================

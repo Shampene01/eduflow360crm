@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import {
   Building2,
   ArrowLeft,
@@ -23,26 +21,43 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
-import { Property } from "@/lib/types";
+import { Property, Address } from "@/lib/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getProviderByUserId, getPropertyById, getAddressById } from "@/lib/db";
+
+interface PropertyWithAddress extends Property {
+  address?: Address;
+}
 
 function PropertyDetailsContent() {
   const { id } = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const [property, setProperty] = useState<Property | null>(null);
+  const [property, setProperty] = useState<PropertyWithAddress | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProperty = async () => {
-      if (!id || !db) return;
+      const uid = user?.userId || user?.uid;
+      if (!id || !uid) return;
 
       try {
-        const propertyDoc = await getDoc(doc(db, "properties", id as string));
-        if (propertyDoc.exists()) {
-          setProperty({ id: propertyDoc.id, ...propertyDoc.data() } as Property);
+        // First get the provider for this user
+        const provider = await getProviderByUserId(uid);
+        if (!provider) {
+          console.error("No provider found for user");
+          setLoading(false);
+          return;
+        }
+
+        // Fetch property from subcollection using provider ID
+        const propertyData = await getPropertyById(provider.providerId, id as string);
+        if (propertyData) {
+          // Fetch address if addressId exists
+          const address = propertyData.addressId ? await getAddressById(propertyData.addressId) : null;
+          setProperty({ ...propertyData, address: address || undefined });
         }
       } catch (error) {
         console.error("Error fetching property:", error);
@@ -52,7 +67,7 @@ function PropertyDetailsContent() {
     };
 
     fetchProperty();
-  }, [id]);
+  }, [id, user?.userId, user?.uid]);
 
   if (loading) {
     return (
@@ -98,8 +113,10 @@ function PropertyDetailsContent() {
     );
   }
 
-  const occupancyRate = property.totalRooms > 0
-    ? Math.round(((property.totalRooms - property.availableRooms) / property.totalRooms) * 100)
+  const totalBeds = property.totalBeds || 0;
+  const availableBeds = property.availableBeds || 0;
+  const occupancyRate = totalBeds > 0
+    ? Math.round(((totalBeds - availableBeds) / totalBeds) * 100)
     : 0;
 
   return (
@@ -123,10 +140,12 @@ function PropertyDetailsContent() {
                   <h1 className="text-2xl font-bold text-gray-900">{property.name}</h1>
                   <Badge
                     className={
-                      property.status === "active"
+                      property.status === "Active"
                         ? "bg-green-500"
-                        : property.status === "pending"
+                        : property.status === "Pending"
                         ? "bg-yellow-500"
+                        : property.status === "Draft"
+                        ? "bg-blue-500"
                         : "bg-gray-500"
                     }
                   >
@@ -135,13 +154,13 @@ function PropertyDetailsContent() {
                 </div>
                 <div className="flex items-center gap-1 text-gray-500 mt-1">
                   <MapPin className="w-4 h-4" />
-                  {property.address}, {property.city}, {property.province}
+                  {property.address?.townCity || "Location not set"}{property.address?.province ? `, ${property.address.province}` : ""}
                 </div>
               </div>
             </div>
             <div className="flex gap-2">
               <Button asChild variant="outline">
-                <Link href={`/properties/${property.id}/edit`}>
+                <Link href={`/properties/${property.propertyId}/edit`}>
                   <Edit className="w-4 h-4 mr-2" />
                   Edit
                 </Link>
@@ -159,9 +178,9 @@ function PropertyDetailsContent() {
               {/* Property Image */}
               <Card className="overflow-hidden">
                 <div className="h-64 md:h-80 bg-gradient-to-br from-gray-200 to-gray-300 relative">
-                  {property.images?.[0] ? (
+                  {property.coverImageUrl ? (
                     <img
-                      src={property.images[0]}
+                      src={property.coverImageUrl}
                       alt={property.name}
                       className="w-full h-full object-cover"
                     />
@@ -197,7 +216,7 @@ function PropertyDetailsContent() {
                   <CardTitle>Amenities</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {property.amenities?.length > 0 ? (
+                  {property.amenities && property.amenities.length > 0 ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {property.amenities.map((amenity) => (
                         <div
@@ -230,27 +249,27 @@ function PropertyDetailsContent() {
                       <span className="text-gray-600">Monthly Rent</span>
                     </div>
                     <span className="font-semibold text-gray-900">
-                      R{property.pricePerMonth?.toLocaleString()}
+                      R{property.pricePerBedPerMonth?.toLocaleString() || 0}/bed
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-2">
                       <Building2 className="w-5 h-5 text-blue-500" />
-                      <span className="text-gray-600">Total Rooms</span>
+                      <span className="text-gray-600">Total Beds</span>
                     </div>
                     <span className="font-semibold text-gray-900">
-                      {property.totalRooms}
+                      {totalBeds}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-2">
                       <Users className="w-5 h-5 text-green-500" />
-                      <span className="text-gray-600">Available</span>
+                      <span className="text-gray-600">Available Beds</span>
                     </div>
                     <span className="font-semibold text-gray-900">
-                      {property.availableRooms}
+                      {availableBeds}
                     </span>
                   </div>
 
@@ -270,12 +289,12 @@ function PropertyDetailsContent() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2 text-sm">
-                    <p className="text-gray-600">{property.address}</p>
+                    <p className="text-gray-600">{property.address?.street || "Address not set"}</p>
                     <p className="text-gray-600">
-                      {property.city}, {property.province}
+                      {property.address?.townCity || ""}{property.address?.province ? `, ${property.address.province}` : ""}
                     </p>
-                    {property.postalCode && (
-                      <p className="text-gray-600">{property.postalCode}</p>
+                    {property.address?.postalCode && (
+                      <p className="text-gray-600">{property.address.postalCode}</p>
                     )}
                   </div>
                   <div className="mt-4 h-40 bg-gray-100 rounded-lg flex items-center justify-center">

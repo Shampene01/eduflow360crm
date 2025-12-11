@@ -49,6 +49,7 @@ import {
   getPropertyBedsPath,
   getPropertyImagesPath,
   getPropertyDocumentsPath,
+  getRoomConfigurationPath,
 } from "./schema";
 
 // ============================================================================
@@ -374,7 +375,7 @@ export async function getPropertyWithDetails(providerId: string, propertyId: str
   const [address, provider, roomConfig, rooms, images] = await Promise.all([
     getAddressById(property.addressId),
     getProviderById(providerId),
-    getRoomConfiguration(propertyId),
+    getRoomConfiguration(providerId, propertyId),
     getPropertyRooms(providerId, propertyId),
     getPropertyImages(providerId, propertyId),
   ]);
@@ -390,7 +391,8 @@ export async function getPropertyWithDetails(providerId: string, propertyId: str
 }
 
 // ============================================================================
-// ROOM CONFIGURATION OPERATIONS
+// ROOM CONFIGURATION OPERATIONS (Subcollection: .../properties/{propertyId}/roomConfigurations)
+// Each property has exactly one room configuration document with a fixed ID "config"
 // ============================================================================
 
 export async function createRoomConfiguration(
@@ -399,7 +401,8 @@ export async function createRoomConfiguration(
 ): Promise<RoomConfiguration> {
   if (!db) throw new Error("Database not initialized");
   
-  const configId = generateId();
+  // Use a fixed configId since each property has exactly one configuration
+  const configId = "config";
   
   // Calculate totals
   const totalRooms = 
@@ -423,13 +426,14 @@ export async function createRoomConfiguration(
   const config: RoomConfiguration = {
     ...configData,
     configId,
-    providerId, // Add providerId for Firestore rules
+    providerId,
     totalRooms,
     totalBeds,
     createdAt: serverTimestamp() as Timestamp,
   };
 
-  await setDoc(doc(db, COLLECTIONS.ROOM_CONFIGURATIONS, configId), config);
+  // Store in subcollection: accommodationProviders/{providerId}/properties/{propertyId}/roomConfigurations/config
+  await setDoc(doc(db, getRoomConfigurationPath(providerId, configData.propertyId), configId), config);
   
   // Update property with bed counts
   await updateProperty(providerId, configData.propertyId, { totalBeds, availableBeds: totalBeds });
@@ -437,20 +441,20 @@ export async function createRoomConfiguration(
   return config;
 }
 
-export async function getRoomConfiguration(propertyId: string): Promise<RoomConfiguration | null> {
+export async function getRoomConfiguration(providerId: string, propertyId: string): Promise<RoomConfiguration | null> {
   if (!db) return null;
-  const q = query(
-    collection(db, COLLECTIONS.ROOM_CONFIGURATIONS),
-    where("propertyId", "==", propertyId),
-    limit(1)
-  );
-  const snap = await getDocs(q);
-  return snap.empty ? null : (snap.docs[0].data() as RoomConfiguration);
+  // Fetch the single "config" document from the subcollection
+  const docSnap = await getDoc(doc(db, getRoomConfigurationPath(providerId, propertyId), "config"));
+  return docSnap.exists() ? (docSnap.data() as RoomConfiguration) : null;
 }
 
-export async function updateRoomConfiguration(configId: string, data: Partial<RoomConfiguration>): Promise<void> {
+export async function updateRoomConfiguration(
+  providerId: string, 
+  propertyId: string, 
+  data: Partial<RoomConfiguration>
+): Promise<void> {
   if (!db) throw new Error("Database not initialized");
-  await updateDoc(doc(db, COLLECTIONS.ROOM_CONFIGURATIONS, configId), { 
+  await updateDoc(doc(db, getRoomConfigurationPath(providerId, propertyId), "config"), { 
     ...data, 
     updatedAt: serverTimestamp() 
   });
