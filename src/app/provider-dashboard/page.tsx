@@ -145,19 +145,21 @@ function ProviderDashboardContent() {
         });
 
         // Fetch all active student assignments across all properties
+        // Only count assignments where the student still exists (handles external deletions)
         let totalStudents = 0;
         const allStudentsWithProperties: StudentWithProperty[] = [];
         
         for (const property of properties) {
           const assignments = await getPropertyAssignments(property.propertyId);
           const activeAssignments = assignments.filter(a => a.status === "Active");
-          totalStudents += activeAssignments.length;
           
-          // Get student details for each assignment (limit total to 10)
+          // Verify each student exists before counting
           for (const assignment of activeAssignments) {
-            if (allStudentsWithProperties.length < 10) {
-              const student = await getStudentById(assignment.studentId);
-              if (student) {
+            const student = await getStudentById(assignment.studentId);
+            if (student) {
+              totalStudents += 1;
+              // Store for display (limit to 10)
+              if (allStudentsWithProperties.length < 10) {
                 allStudentsWithProperties.push({
                   student,
                   assignment,

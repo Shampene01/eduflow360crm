@@ -983,7 +983,7 @@ function ManageStudentsContent() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Available Beds</p>
-                    <p className="text-2xl font-bold text-gray-900">{property.availableBeds || 0}</p>
+                    <p className="text-2xl font-bold text-gray-900">{Math.max(0, (property.totalBeds || 0) - students.filter(s => s.assignment.status === "Active").length)}</p>
                   </div>
                 </div>
               </CardContent>
