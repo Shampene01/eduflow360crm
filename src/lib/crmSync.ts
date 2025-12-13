@@ -17,11 +17,13 @@ import {
   AccommodationProvider, 
   Address, 
   ProviderContactPerson,
+  ProviderDocument,
   Property,
   Student,
   StudentPropertyAssignment,
 } from "./schema";
 import { doc, updateDoc } from "firebase/firestore";
+import { providerDisplayId } from "./utils/maskId";
 
 // ============================================================================
 // TYPES
@@ -216,73 +218,96 @@ function formatTimestamp(timestamp: any): string {
 /**
  * Payload for syncing accommodation provider to Dataverse
  * Links provider to the user's existing Dataverse contact record
+ * 
+ * Required fields: userDataverseId, firebaseUserId, firebaseProviderId, companyName
+ * All other fields are nullable
  */
 export interface ProviderSyncPayload {
-  // Link to existing Dataverse contact (user)
-  userDataverseId: string;           // The logged-in user's Dataverse ID (returned on registration)
-  firebaseUserId: string;            // Firebase Auth UID of the user
-  firebaseProviderId: string;        // Firebase providerId from accommodationProviders collection
-  
-  // Company Information
+  // Required fields
+  userDataverseId: string;             // The Dataverse Contact ID of the logged-in user (links provider to user)
+  firebaseUserId: string;              // Firebase Auth UID of the user
+  firebaseProviderId: string;          // Firebase providerId from accommodationProviders collection
+  providerId: string;                  // Shortened providerId from accommodationProviders collection
   companyName: string;
-  tradingName: string;
-  legalForm: string;
-  industryClassification: string;
-  companyRegistrationNumber: string;
-  yearsInOperation: number;
   
-  // Tax Information
-  taxReferenceNumber: string;
-  vatRegistered: boolean;
-  vatNumber: string;
+  // Company Information (nullable)
+  tradingName: string | null;
+  legalForm: string | null;
+  providerType: number | null;           // Mapped: 0=Private Company, 1=Public Company, 3=Trust, 4=Sole Proprietor, 5=Non Profit Company
+  industryClassification: string | null;
+  companyRegistrationNumber: string | null;
+  yearsInOperation: number | null;
   
-  // Banking Information
-  bankName: string;
-  accountType: string;
-  accountNumber: string;
-  branchCode: string;
-  accountHolder: string;
+  // Campus & Contact Info (nullable)
+  preferredInstitution: string | null;
+  preferredCampus: string | null;
+  officeTelephone: string | null;
+  website: string | null;
+  customerServiceEmail: string | null;
   
-  // B-BBEE Information
-  bbbeeLevel: number;
-  bbbeeCertificateExpiry: string;
-  blackOwnershipPercentage: number;
-  blackYouthOwnershipPercentage: number;
-  blackWomenOwnershipPercentage: number;
-  disabledPersonOwnershipPercentage: number;
+  // Tax Information (nullable)
+  taxReferenceNumber: string | null;
+  vatRegistered: number | null;        // 0=No, 1=Yes (Dataverse requires integer)
+  vatNumber: string | null;
   
-  // Physical Address (flattened)
-  physicalStreet: string;
-  physicalSuburb: string;
-  physicalTownCity: string;
-  physicalProvince: string;
-  physicalPostalCode: string;
-  physicalCountry: string;
+  // Banking Information (nullable)
+  bankName: string | null;
+  accountType: string | null;
+  accountNumber: string | null;
+  branchCode: string | null;
+  accountHolder: string | null;
+  
+  // B-BBEE Information (nullable)
+  bbbeeLevel: number | null;
+  bbbeeCertificateExpiry: string | null;
+  blackOwnershipPercentage: number | null;
+  blackYouthOwnershipPercentage: number | null;
+  blackWomenOwnershipPercentage: number | null;
+  disabledPersonOwnershipPercentage: number | null;
+  
+  // Physical Address (nullable)
+  physicalStreet: string | null;
+  physicalSuburb: string | null;
+  physicalTownCity: string | null;
+  physicalProvince: string | null;
+  physicalPostalCode: string | null;
+  physicalCountry: string | null;
   physicalLatitude: number | null;
   physicalLongitude: number | null;
   
-  // Primary Contact
-  primaryContactFirstNames: string;
-  primaryContactSurname: string;
-  primaryContactPosition: string;
-  primaryContactPhone: string;
-  primaryContactEmail: string;
-  primaryContactIdNumber: string;
+  // Primary Contact (nullable)
+  primaryContactFirstNames: string | null;
+  primaryContactSurname: string | null;
+  primaryContactPosition: string | null;
+  primaryContactPhone: string | null;
+  primaryContactEmail: string | null;
+  primaryContactIdNumber: string | null;
   
-  // Secondary Contact (optional)
-  secondaryContactFirstNames: string;
-  secondaryContactSurname: string;
-  secondaryContactPhone: string;
-  secondaryContactEmail: string;
+  // Secondary Contact (nullable)
+  secondaryContactFirstNames: string | null;
+  secondaryContactSurname: string | null;
+  secondaryContactPosition: string | null;
+  secondaryContactPhone: string | null;
+  secondaryContactEmail: string | null;
+  secondaryContactIdNumber: string | null;
   
-  // Status
-  approvalStatus: string;
-  nsfasAccredited: boolean;
-  nsfasAccreditedSince: string;
-  accreditationExpiry: string;
+  // Status (nullable)
+  approvalStatus: string | null;
+  nsfasAccredited: boolean | null;
+  nsfasAccreditedSince: string | null;
+  accreditationExpiry: string | null;
   
-  // Timestamps
-  createdAt: string;
+  // Timestamps (nullable)
+  createdAt: string | null;
+  
+  // Documents (URLs to uploaded files - nullable)
+  documentIdCopy: string | null;
+  documentCipcCertificate: string | null;
+  documentBankLetter: string | null;
+  documentProofOfAddress: string | null;
+  documentTaxClearance: string | null;
+  documentBbbeeCertificate: string | null;
+  documentCompanyProfile: string | null;
 }
 
 export interface ProviderSyncResult {
@@ -293,6 +318,39 @@ export interface ProviderSyncResult {
 }
 
 /**
+ * Maps legal form string to Dataverse provider type numeric value
+ * Private Company = 0, Public Company = 1, Trust = 3, Sole Proprietor = 4, Non Profit Company = 5
+ */
+function mapLegalFormToProviderType(legalForm: string | undefined | null): number | null {
+  if (!legalForm) return null;
+  
+  const normalizedForm = legalForm.toLowerCase().trim();
+  
+  if (normalizedForm.includes("public") && normalizedForm.includes("company")) {
+    return 1;
+  }
+  if (normalizedForm.includes("trust")) {
+    return 3;
+  }
+  if (normalizedForm.includes("sole") || normalizedForm.includes("proprietor")) {
+    return 4;
+  }
+  if (normalizedForm.includes("non profit") || normalizedForm.includes("nonprofit") || normalizedForm.includes("npo") || normalizedForm.includes("npc")) {
+    return 5;
+  }
+  // Default to Private Company (includes Pty Ltd, CC, etc.)
+  return 0;
+}
+
+/**
+ * Helper to find document URL by type from documents array
+ */
+function getDocumentUrl(documents: ProviderDocument[], type: string): string {
+  const doc = documents.find(d => d.documentType === type);
+  return doc?.fileUrl || "";
+}
+
+/**
  * Sync accommodation provider data to Power Automate Flow for D365 CRM
  * 
  * @param provider - AccommodationProvider data
@@ -300,6 +358,7 @@ export interface ProviderSyncResult {
  * @param physicalAddress - Physical address of the provider
  * @param primaryContact - Primary contact person
  * @param secondaryContact - Optional secondary contact person
+ * @param documents - Provider documents array
  * @returns Promise<ProviderSyncResult>
  */
 export async function syncProviderToCRM(
@@ -307,7 +366,8 @@ export async function syncProviderToCRM(
   userDataverseId: string,
   physicalAddress?: Address | null,
   primaryContact?: ProviderContactPerson | null,
-  secondaryContact?: ProviderContactPerson | null
+  secondaryContact?: ProviderContactPerson | null,
+  documents?: ProviderDocument[]
 ): Promise<ProviderSyncResult> {
   // Check if webhook URL is configured
   if (!DATAVERSE_PROVIDER_SYNC_URL) {
@@ -328,73 +388,101 @@ export async function syncProviderToCRM(
   }
 
   try {
+    // Helper to return null for empty/undefined values
+    const toNullableString = (val: string | undefined | null): string | null => val || null;
+    const toNullableNumber = (val: number | undefined | null): number | null => val ?? null;
+    const toNullableDocUrl = (docs: ProviderDocument[], type: string): string | null => {
+      const url = getDocumentUrl(docs, type);
+      return url || null;
+    };
+
     // Prepare payload for Power Automate
     const payload: ProviderSyncPayload = {
-      // Link to user's Dataverse contact
+      // Required fields
       userDataverseId: String(userDataverseId),
       firebaseUserId: String(provider.userId || ""),
       firebaseProviderId: String(provider.providerId || ""),
-      
-      // Company Information
+      providerId: providerDisplayId(provider.providerId),
       companyName: String(provider.companyName || ""),
-      tradingName: String(provider.tradingName || ""),
-      legalForm: String(provider.legalForm || ""),
-      industryClassification: String(provider.industryClassification || ""),
-      companyRegistrationNumber: String(provider.companyRegistrationNumber || ""),
-      yearsInOperation: Number(provider.yearsInOperation || 0),
       
-      // Tax Information
-      taxReferenceNumber: String(provider.taxReferenceNumber || ""),
-      vatRegistered: Boolean(provider.vatRegistered === true),
-      vatNumber: String(provider.vatNumber || ""),
+      // Company Information (nullable)
+      tradingName: toNullableString(provider.tradingName),
+      legalForm: toNullableString(provider.legalForm),
+      providerType: mapLegalFormToProviderType(provider.legalForm),
+      industryClassification: toNullableString(provider.industryClassification),
+      companyRegistrationNumber: toNullableString(provider.companyRegistrationNumber),
+      yearsInOperation: toNullableNumber(provider.yearsInOperation),
       
-      // Banking Information
-      bankName: String(provider.bankName || ""),
-      accountType: String(provider.accountType || ""),
-      accountNumber: String(provider.accountNumber || ""),
-      branchCode: String(provider.branchCode || ""),
-      accountHolder: String(provider.accountHolder || ""),
+      // Campus & Contact Info (nullable)
+      preferredInstitution: toNullableString((provider as any).preferredInstitution),
+      preferredCampus: toNullableString((provider as any).preferredCampus),
+      officeTelephone: toNullableString((provider as any).officeTelephone),
+      website: toNullableString((provider as any).website),
+      customerServiceEmail: toNullableString((provider as any).customerServiceEmail),
       
-      // B-BBEE Information
-      bbbeeLevel: Number(provider.bbbeeLevel || 0),
-      bbbeeCertificateExpiry: String(provider.bbbeeCertificateExpiry || ""),
-      blackOwnershipPercentage: Number(provider.blackOwnershipPercentage || 0),
-      blackYouthOwnershipPercentage: Number(provider.blackYouthOwnershipPercentage || 0),
-      blackWomenOwnershipPercentage: Number(provider.blackWomenOwnershipPercentage || 0),
-      disabledPersonOwnershipPercentage: Number(provider.disabledPersonOwnershipPercentage || 0),
+      // Tax Information (nullable)
+      taxReferenceNumber: toNullableString(provider.taxReferenceNumber),
+      vatRegistered: provider.vatRegistered === true ? 1 : (provider.vatRegistered === false ? 0 : null),
+      vatNumber: toNullableString(provider.vatNumber),
       
-      // Physical Address
-      physicalStreet: String(physicalAddress?.street || ""),
-      physicalSuburb: String(physicalAddress?.suburb || ""),
-      physicalTownCity: String(physicalAddress?.townCity || ""),
-      physicalProvince: String(physicalAddress?.province || ""),
-      physicalPostalCode: String(physicalAddress?.postalCode || ""),
-      physicalCountry: String(physicalAddress?.country || "South Africa"),
+      // Banking Information (nullable)
+      bankName: toNullableString(provider.bankName),
+      accountType: toNullableString(provider.accountType),
+      accountNumber: toNullableString(provider.accountNumber),
+      branchCode: toNullableString(provider.branchCode),
+      accountHolder: toNullableString(provider.accountHolder),
+      
+      // B-BBEE Information (nullable)
+      bbbeeLevel: toNullableNumber(provider.bbbeeLevel),
+      bbbeeCertificateExpiry: toNullableString(provider.bbbeeCertificateExpiry),
+      blackOwnershipPercentage: toNullableNumber(provider.blackOwnershipPercentage),
+      blackYouthOwnershipPercentage: toNullableNumber(provider.blackYouthOwnershipPercentage),
+      blackWomenOwnershipPercentage: toNullableNumber(provider.blackWomenOwnershipPercentage),
+      disabledPersonOwnershipPercentage: toNullableNumber(provider.disabledPersonOwnershipPercentage),
+      
+      // Physical Address (nullable)
+      physicalStreet: toNullableString(physicalAddress?.street),
+      physicalSuburb: toNullableString(physicalAddress?.suburb),
+      physicalTownCity: toNullableString(physicalAddress?.townCity),
+      physicalProvince: toNullableString(physicalAddress?.province),
+      physicalPostalCode: toNullableString(physicalAddress?.postalCode),
+      physicalCountry: toNullableString(physicalAddress?.country),
       physicalLatitude: physicalAddress?.latitude ?? null,
       physicalLongitude: physicalAddress?.longitude ?? null,
       
-      // Primary Contact
-      primaryContactFirstNames: String(primaryContact?.firstNames || ""),
-      primaryContactSurname: String(primaryContact?.surname || ""),
-      primaryContactPosition: String(primaryContact?.position || ""),
-      primaryContactPhone: String(primaryContact?.phoneNumber || ""),
-      primaryContactEmail: String(primaryContact?.email || ""),
-      primaryContactIdNumber: String(primaryContact?.idNumber || ""),
+      // Primary Contact (nullable)
+      primaryContactFirstNames: toNullableString(primaryContact?.firstNames),
+      primaryContactSurname: toNullableString(primaryContact?.surname),
+      primaryContactPosition: toNullableString(primaryContact?.position),
+      primaryContactPhone: toNullableString(primaryContact?.phoneNumber),
+      primaryContactEmail: toNullableString(primaryContact?.email),
+      primaryContactIdNumber: toNullableString(primaryContact?.idNumber),
       
-      // Secondary Contact
-      secondaryContactFirstNames: String(secondaryContact?.firstNames || ""),
-      secondaryContactSurname: String(secondaryContact?.surname || ""),
-      secondaryContactPhone: String(secondaryContact?.phoneNumber || ""),
-      secondaryContactEmail: String(secondaryContact?.email || ""),
+      // Secondary Contact (nullable)
+      secondaryContactFirstNames: toNullableString(secondaryContact?.firstNames),
+      secondaryContactSurname: toNullableString(secondaryContact?.surname),
+      secondaryContactPosition: toNullableString(secondaryContact?.position),
+      secondaryContactPhone: toNullableString(secondaryContact?.phoneNumber),
+      secondaryContactEmail: toNullableString(secondaryContact?.email),
+      secondaryContactIdNumber: toNullableString(secondaryContact?.idNumber),
       
-      // Status
-      approvalStatus: String(provider.approvalStatus || "Pending"),
-      nsfasAccredited: Boolean(provider.nsfasAccredited === true),
-      nsfasAccreditedSince: String(provider.nsfasAccreditedSince || ""),
-      accreditationExpiry: String(provider.accreditationExpiry || ""),
+      // Status (nullable)
+      approvalStatus: toNullableString(provider.approvalStatus),
+      nsfasAccredited: provider.nsfasAccredited ?? null,
+      nsfasAccreditedSince: toNullableString(provider.nsfasAccreditedSince),
+      accreditationExpiry: toNullableString(provider.accreditationExpiry),
       
-      // Timestamps
-      createdAt: provider.createdAt ? formatTimestamp(provider.createdAt) : new Date().toISOString(),
+      // Timestamps (nullable)
+      createdAt: provider.createdAt ? formatTimestamp(provider.createdAt) : null,
+      
+      // Documents (nullable)
+      documentIdCopy: toNullableDocUrl(documents || [], "ID_COPY"),
+      documentCipcCertificate: toNullableDocUrl(documents || [], "CIPC_COR14_3"),
+      documentBankLetter: toNullableDocUrl(documents || [], "BANK_LETTER"),
+      documentProofOfAddress: toNullableDocUrl(documents || [], "PROOF_OF_ADDRESS"),
+      documentTaxClearance: toNullableDocUrl(documents || [], "TAX_CLEARANCE"),
+      documentBbbeeCertificate: toNullableDocUrl(documents || [], "BBBEE_CERTIFICATE"),
+      documentCompanyProfile: toNullableDocUrl(documents || [], "COMPANY_PROFILE"),
     };
 
     // Send to Power Automate webhook
@@ -415,8 +503,8 @@ export async function syncProviderToCRM(
       };
     }
 
-    // Parse response - Power Automate returns { message: "OK", providerDataverseId: "..." }
-    let responseData: { message?: string; providerDataverseId?: string } = {};
+    // Parse response - Power Automate returns { message: "OK", dataverseId: "..." }
+    let responseData: { message?: string; dataverseId?: string; providerDataverseId?: string } = {};
     try {
       responseData = await response.json();
     } catch {
@@ -424,8 +512,8 @@ export async function syncProviderToCRM(
       responseData = { message: "Sync completed" };
     }
 
-    // Save providerDataverseId to Firestore if returned
-    const providerDataverseId = responseData.providerDataverseId;
+    // Save dataverseId to Firestore if returned (handle both field names)
+    const providerDataverseId = responseData.dataverseId || responseData.providerDataverseId;
     if (providerDataverseId && provider.providerId) {
       try {
         const providerRef = doc(db, "accommodationProviders", provider.providerId);
@@ -459,10 +547,11 @@ export function syncProviderToCRMBackground(
   userDataverseId: string,
   physicalAddress?: Address | null,
   primaryContact?: ProviderContactPerson | null,
-  secondaryContact?: ProviderContactPerson | null
+  secondaryContact?: ProviderContactPerson | null,
+  documents?: ProviderDocument[]
 ): void {
   // Fire and forget - don't await
-  syncProviderToCRM(provider, userDataverseId, physicalAddress, primaryContact, secondaryContact)
+  syncProviderToCRM(provider, userDataverseId, physicalAddress, primaryContact, secondaryContact, documents)
     .then((result) => {
       if (result.success) {
         console.log("Provider synced to CRM:", result.providerDataverseId);

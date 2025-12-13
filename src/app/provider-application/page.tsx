@@ -33,7 +33,7 @@ import {
 import { syncProviderToCRMBackground } from "@/lib/crmSync";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
-import { LegalForm, AccountType, DocumentType } from "@/lib/schema";
+import { LegalForm, AccountType, DocumentType, ProviderDocument } from "@/lib/schema";
 
 const TOTAL_STEPS = 6;
 
@@ -66,6 +66,12 @@ interface FormData {
   legalForm: string;
   companyRegistrationNumber: string;
   yearsInOperation: string;
+  // Campus & Contact Info (Optional)
+  preferredInstitution: string;
+  preferredCampus: string;
+  officeTelephone: string;
+  website: string;
+  customerServiceEmail: string;
   // Tax & B-BBEE
   taxReferenceNumber: string;
   vatRegistered: string;
@@ -94,8 +100,10 @@ interface FormData {
   // Secondary Contact
   secondaryFirstNames: string;
   secondarySurname: string;
+  secondaryPosition: string;
   secondaryPhone: string;
   secondaryEmail: string;
+  secondaryIdNumber: string;
   // Banking
   bankName: string;
   accountType: string;
@@ -116,6 +124,11 @@ const initialFormData: FormData = {
   legalForm: "",
   companyRegistrationNumber: "",
   yearsInOperation: "",
+  preferredInstitution: "",
+  preferredCampus: "",
+  officeTelephone: "",
+  website: "",
+  customerServiceEmail: "",
   taxReferenceNumber: "",
   vatRegistered: "",
   vatNumber: "",
@@ -140,8 +153,10 @@ const initialFormData: FormData = {
   primaryIdNumber: "",
   secondaryFirstNames: "",
   secondarySurname: "",
+  secondaryPosition: "",
   secondaryPhone: "",
   secondaryEmail: "",
+  secondaryIdNumber: "",
   bankName: "",
   accountType: "",
   accountNumber: "",
@@ -206,16 +221,29 @@ function ProviderApplicationContent() {
     setError("");
     switch (stepNum) {
       case 1:
-        if (!formData.companyName || !formData.legalForm) {
-          setError("Please enter company name and legal form.");
+        if (!formData.companyName || !formData.legalForm || !formData.companyRegistrationNumber) {
+          setError("Please enter company name, legal form, and registration number (Sole Proprietors can use ID Number).");
           return false;
         }
         return true;
       case 2:
-        return true; // Tax info is optional
+        if (!formData.taxReferenceNumber) {
+          setError("Please enter your Tax Reference Number.");
+          return false;
+        }
+        if (!formData.bbbeeLevel || !formData.bbbeeCertificateExpiry) {
+          setError("Please enter B-BBEE Level and Certificate Expiry Date.");
+          return false;
+        }
+        if (!formData.blackOwnershipPercentage || !formData.blackYouthOwnershipPercentage || 
+            !formData.blackWomenOwnershipPercentage || !formData.disabledPersonOwnershipPercentage) {
+          setError("Please fill in all B-BBEE ownership percentages.");
+          return false;
+        }
+        return true;
       case 3:
-        if (!formData.street || !formData.townCity || !formData.province) {
-          setError("Please fill in the required address fields.");
+        if (!formData.street || !formData.suburb || !formData.townCity || !formData.province) {
+          setError("Please fill in all required address fields including suburb.");
           return false;
         }
         return true;
@@ -230,10 +258,26 @@ function ProviderApplicationContent() {
         }
         return true;
       case 5:
-        return true; // Banking is optional
+        if (!formData.bankName || !formData.accountType || !formData.accountNumber || !formData.branchCode || !formData.accountHolder) {
+          setError("Please fill in all banking details.");
+          return false;
+        }
+        return true;
       case 6:
         if (!formData.idDocument || !formData.cipcCertificate) {
           setError("Please upload ID Document and CIPC Certificate.");
+          return false;
+        }
+        if (!formData.proofOfAddress) {
+          setError("Please upload Proof of Address (utility bill, bank statement not older than 3 months).");
+          return false;
+        }
+        if (!formData.bankLetter) {
+          setError("Please upload Bank Confirmation Letter.");
+          return false;
+        }
+        if (!formData.bbbeeCertificate) {
+          setError("Please upload B-BBEE Certificate or Sworn Affidavit.");
           return false;
         }
         return true;
@@ -313,6 +357,13 @@ function ProviderApplicationContent() {
       if (formData.branchCode) providerData.branchCode = formData.branchCode;
       if (formData.accountHolder) providerData.accountHolder = formData.accountHolder;
 
+      // Campus & Contact Info (Optional)
+      if (formData.preferredInstitution) providerData.preferredInstitution = formData.preferredInstitution;
+      if (formData.preferredCampus) providerData.preferredCampus = formData.preferredCampus;
+      if (formData.officeTelephone) providerData.officeTelephone = formData.officeTelephone;
+      if (formData.website) providerData.website = formData.website;
+      if (formData.customerServiceEmail) providerData.customerServiceEmail = formData.customerServiceEmail;
+
       const provider = await createProvider(providerData);
 
       // 3. Create primary contact (only include optional fields with values)
@@ -332,7 +383,7 @@ function ProviderApplicationContent() {
 
       // 4. Create secondary contact if provided
       if (formData.secondaryFirstNames && formData.secondaryPhone) {
-        await createProviderContact({
+        const secondaryContactData: any = {
           providerId: provider.providerId,
           firstNames: formData.secondaryFirstNames,
           surname: formData.secondarySurname || "",
@@ -340,7 +391,11 @@ function ProviderApplicationContent() {
           email: formData.secondaryEmail || "",
           isPrimary: false,
           isActive: true,
-        });
+        };
+        if (formData.secondaryPosition) secondaryContactData.position = formData.secondaryPosition;
+        if (formData.secondaryIdNumber) secondaryContactData.idNumber = formData.secondaryIdNumber;
+        
+        await createProviderContact(secondaryContactData);
       }
 
       // 5. Upload documents
@@ -362,11 +417,14 @@ function ProviderApplicationContent() {
         documentUploads.push({ file: formData.bbbeeCertificate, type: "BBBEE_CERTIFICATE", name: "B-BBEE Certificate" });
       }
 
+      // Store created documents for CRM sync
+      const createdDocuments: ProviderDocument[] = [];
+      
       for (const doc of documentUploads) {
         const path = `provider-documents/${uid}/${doc.type}_${Date.now()}`;
         const fileUrl = await uploadFile(doc.file, path);
         
-        await createProviderDocument({
+        const createdDoc = await createProviderDocument({
           providerId: provider.providerId,
           documentType: doc.type,
           documentName: doc.file.name,
@@ -375,6 +433,7 @@ function ProviderApplicationContent() {
           mimeType: doc.file.type,
           uploadedBy: uid,
         });
+        createdDocuments.push(createdDoc);
       }
 
       // Note: User role update is handled by admin during provider approval
@@ -405,8 +464,10 @@ function ProviderApplicationContent() {
           providerId: provider.providerId,
           firstNames: formData.secondaryFirstNames,
           surname: formData.secondarySurname || "",
+          position: formData.secondaryPosition || "",
           phoneNumber: formData.secondaryPhone,
           email: formData.secondaryEmail || "",
+          idNumber: formData.secondaryIdNumber || "",
           isPrimary: false,
           isActive: true,
           createdAt: provider.createdAt,
@@ -417,7 +478,8 @@ function ProviderApplicationContent() {
           userDataverseId,
           address,
           primaryContactForSync,
-          secondaryContactForSync
+          secondaryContactForSync,
+          createdDocuments
         );
       } else {
         console.warn("User does not have a Dataverse ID - provider will not be synced to CRM");
@@ -481,7 +543,7 @@ function ProviderApplicationContent() {
         <DashboardHeader />
         <div className="flex">
           <Sidebar />
-          <main className="flex-1 p-8 ml-0 lg:ml-64 flex items-center justify-center">
+          <main className="flex-1 p-8 flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
           </main>
         </div>
@@ -495,7 +557,7 @@ function ProviderApplicationContent() {
         <DashboardHeader />
         <div className="flex">
           <Sidebar />
-          <main className="flex-1 p-8 ml-0 lg:ml-64">
+          <main className="flex-1 p-8">
             <div className="max-w-2xl mx-auto">
               <Card>
                 <CardHeader>
@@ -525,8 +587,8 @@ function ProviderApplicationContent() {
       <DashboardHeader />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-6 lg:p-8 ml-0 lg:ml-64">
-          <div className="max-w-4xl mx-auto">
+        <main className="flex-1 p-6 lg:p-8">
+          <div className="max-w-3xl mx-auto">
             {/* Header */}
             <div className="mb-6">
               <h1 className="text-2xl font-bold text-gray-900">Provider Application</h1>
@@ -597,6 +659,35 @@ function ProviderApplicationContent() {
                       <div className="space-y-2 max-w-[200px]">
                         <Label>Years in Operation</Label>
                         <Input type="number" min="0" value={formData.yearsInOperation} onChange={(e) => updateFormData("yearsInOperation", e.target.value)} placeholder="5" className="bg-gray-50" />
+                      </div>
+                      
+                      {/* Campus & Contact Info (Optional) */}
+                      <div className="border-t pt-4 mt-4">
+                        <h4 className="font-medium text-gray-900 mb-4">Campus & Contact Information (Optional)</h4>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Preferred Institution</Label>
+                            <Input value={formData.preferredInstitution} onChange={(e) => updateFormData("preferredInstitution", e.target.value)} placeholder="e.g. Wits University" className="bg-gray-50" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Preferred Campus</Label>
+                            <Input value={formData.preferredCampus} onChange={(e) => updateFormData("preferredCampus", e.target.value)} placeholder="e.g. Main Campus" className="bg-gray-50" />
+                          </div>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4 mt-4">
+                          <div className="space-y-2">
+                            <Label>Office Telephone</Label>
+                            <Input type="tel" value={formData.officeTelephone} onChange={(e) => updateFormData("officeTelephone", e.target.value)} placeholder="e.g. 0127458100" className="bg-gray-50" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Customer Service Email</Label>
+                            <Input type="email" value={formData.customerServiceEmail} onChange={(e) => updateFormData("customerServiceEmail", e.target.value)} placeholder="e.g. info@company.co.za" className="bg-gray-50" />
+                          </div>
+                        </div>
+                        <div className="space-y-2 mt-4">
+                          <Label>Website</Label>
+                          <Input type="url" value={formData.website} onChange={(e) => updateFormData("website", e.target.value)} placeholder="https://www.yourcompany.co.za" className="bg-gray-50" />
+                        </div>
                       </div>
                     </div>
                   )}
@@ -762,6 +853,16 @@ function ProviderApplicationContent() {
                           <div className="space-y-2">
                             <Label>Surname</Label>
                             <Input value={formData.secondarySurname} onChange={(e) => updateFormData("secondarySurname", e.target.value)} className="bg-gray-50" />
+                          </div>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-4 mt-4">
+                          <div className="space-y-2">
+                            <Label>Position/Title</Label>
+                            <Input value={formData.secondaryPosition} onChange={(e) => updateFormData("secondaryPosition", e.target.value)} placeholder="e.g. Manager" className="bg-gray-50" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>ID Number</Label>
+                            <Input value={formData.secondaryIdNumber} onChange={(e) => updateFormData("secondaryIdNumber", e.target.value)} placeholder="SA ID Number" className="bg-gray-50" />
                           </div>
                         </div>
                         <div className="grid md:grid-cols-2 gap-4 mt-4">

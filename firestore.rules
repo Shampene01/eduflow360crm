@@ -94,7 +94,9 @@ service cloud.firestore {
     match /addresses/{addressId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update, delete: if isAdmin();
+      // Allow update by authenticated users (ownership checked in app logic)
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
     }
     
     // ========================================================================

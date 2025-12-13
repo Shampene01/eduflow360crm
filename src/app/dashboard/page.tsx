@@ -213,9 +213,9 @@ function DashboardContent() {
   const applicationProgress = calculateApplicationProgress();
 
   const quickActions = [
-    { icon: Building2, title: "Apply as Provider", description: "Register your accommodation business", href: "/provider-application" },
+    { icon: Building2, title: "Apply as Provider", description: "Register your accommodation business", href: "/provider-guidelines" },
+    { icon: FileText, title: "Registration Guide", description: "Requirements & documents checklist", href: "/provider-guidelines" },
     { icon: BarChart3, title: "View Progress", description: "Track your application status", href: "/dashboard" },
-    { icon: FileText, title: "Documentation", description: "View required documents", href: "/dashboard" },
     { icon: MessageSquare, title: "Get Support", description: "Create a support ticket", href: "/tickets/create" },
   ];
 
@@ -263,7 +263,7 @@ function DashboardContent() {
                       </div>
                     </div>
                     <Button asChild className="bg-amber-500 hover:bg-amber-600 text-gray-900">
-                      <Link href="/provider-application">
+                      <Link href="/provider-guidelines">
                         Apply Now <ArrowRight className="ml-2 w-4 h-4" />
                       </Link>
                     </Button>

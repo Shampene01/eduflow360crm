@@ -498,11 +498,23 @@ export interface StudentPropertyAssignment {
 // PROPERTY DOCUMENTS TABLE (for property-specific documents)
 // ============================================================================
 
+export type PropertyDocumentType = 
+  | "TITLE_DEED"
+  | "LEASE_AGREEMENT" 
+  | "COMPLIANCE_CERTIFICATE" 
+  | "FIRE_CERTIFICATE"
+  | "INSPECTION_REPORT"
+  | "FLOOR_PLAN" 
+  | "ZONING_CERTIFICATE"
+  | "ELECTRICAL_CERTIFICATE"
+  | "GAS_CERTIFICATE"
+  | "OTHER";
+
 export interface PropertyDocument {
   documentId: string;                // UUID, PK
   propertyId: string;                // FK → Property
   
-  documentType: "LEASE_AGREEMENT" | "COMPLIANCE_CERTIFICATE" | "FLOOR_PLAN" | "OTHER";
+  documentType: PropertyDocumentType;
   documentName: string;
   fileUrl: string;
   fileSize?: number;

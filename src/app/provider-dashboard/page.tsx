@@ -21,6 +21,11 @@ import {
   Shield,
   CheckCircle,
   Clock,
+  RefreshCw,
+  Pencil,
+  Loader2,
+  Settings,
+  FolderOpen,
 } from "lucide-react";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -33,6 +38,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -42,8 +50,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getProviderByUserId, getAddressById, getProviderContacts, getPropertiesByProvider, getPropertyAssignments } from "@/lib/db";
-import { AccommodationProvider, Address, ProviderContactPerson, Property, Student, StudentPropertyAssignment } from "@/lib/schema";
+import { getProviderByUserId, getAddressById, getProviderContacts, getProviderDocuments, getPropertiesByProvider, getPropertyAssignments, updateProviderContact } from "@/lib/db";
+import { syncProviderToCRM } from "@/lib/crmSync";
+import { toast } from "sonner";
+import { AccommodationProvider, Address, ProviderContactPerson, ProviderDocument, Property, Student, StudentPropertyAssignment } from "@/lib/schema";
 import { getStudentById } from "@/lib/db";
 import { providerDisplayId } from "@/lib/utils/maskId";
 import { OnlineStatus } from "@/components/OnlineStatus";
@@ -69,6 +79,7 @@ function ProviderDashboardContent() {
   const [providerStatus, setProviderStatus] = useState<AccommodationProvider | null>(null);
   const [providerAddress, setProviderAddress] = useState<Address | null>(null);
   const [providerContacts, setProviderContacts] = useState<ProviderContactPerson[]>([]);
+  const [providerDocuments, setProviderDocuments] = useState<ProviderDocument[]>([]);
   const [loadingProvider, setLoadingProvider] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     totalProperties: 0,
@@ -81,6 +92,100 @@ function ProviderDashboardContent() {
   const [loading, setLoading] = useState(true);
   const [propertiesList, setPropertiesList] = useState<Property[]>([]);
   const [studentsList, setStudentsList] = useState<StudentWithProperty[]>([]);
+  const [syncingToDataverse, setSyncingToDataverse] = useState(false);
+  
+  // Edit Contact Modal State
+  const [editingContact, setEditingContact] = useState<ProviderContactPerson | null>(null);
+  const [editContactForm, setEditContactForm] = useState({
+    firstNames: "",
+    surname: "",
+    position: "",
+    phoneNumber: "",
+    email: "",
+    idNumber: "",
+  });
+  const [savingContact, setSavingContact] = useState(false);
+
+  const openEditContactModal = (contact: ProviderContactPerson) => {
+    setEditingContact(contact);
+    setEditContactForm({
+      firstNames: contact.firstNames || "",
+      surname: contact.surname || "",
+      position: contact.position || "",
+      phoneNumber: contact.phoneNumber || "",
+      email: contact.email || "",
+      idNumber: contact.idNumber || "",
+    });
+  };
+
+  const handleSaveContact = async () => {
+    if (!editingContact) return;
+    
+    setSavingContact(true);
+    try {
+      await updateProviderContact(editingContact.contactId, {
+        firstNames: editContactForm.firstNames,
+        surname: editContactForm.surname,
+        position: editContactForm.position,
+        phoneNumber: editContactForm.phoneNumber,
+        email: editContactForm.email,
+        idNumber: editContactForm.idNumber,
+      });
+      
+      // Update local state
+      setProviderContacts(prev => prev.map(c => 
+        c.contactId === editingContact.contactId 
+          ? { ...c, ...editContactForm }
+          : c
+      ));
+      
+      toast.success("Contact updated successfully");
+      setEditingContact(null);
+    } catch (error) {
+      console.error("Error updating contact:", error);
+      toast.error("Failed to update contact");
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
+  // Handle Sync to Dataverse
+  const handleSyncToDataverse = async () => {
+    if (!providerStatus || !user) return;
+    
+    setSyncingToDataverse(true);
+    try {
+      const primaryContact = providerContacts.find(c => c.isPrimary);
+      const secondaryContact = providerContacts.find(c => !c.isPrimary);
+      
+      // Fetch latest documents before sync
+      const latestDocs = await getProviderDocuments(providerStatus.providerId);
+      
+      const result = await syncProviderToCRM(
+        providerStatus,
+        user.dataverseId || "",
+        providerAddress,
+        primaryContact,
+        secondaryContact,
+        latestDocs
+      );
+      
+      if (result.success) {
+        toast.success("Provider synced to Dataverse successfully");
+        if (result.providerDataverseId) {
+          setProviderStatus({ ...providerStatus, dataverseId: result.providerDataverseId });
+        }
+      } else {
+        toast.error(result.message || "Failed to sync to Dataverse");
+        console.error("Dataverse sync error:", result.error);
+      }
+    } catch (error) {
+      console.error("Error syncing to Dataverse:", error);
+      toast.error("Failed to sync to Dataverse");
+    } finally {
+      setSyncingToDataverse(false);
+    }
+  };
 
   // Check if user has approved provider status and fetch related data
   useEffect(() => {
@@ -267,26 +372,63 @@ function ProviderDashboardContent() {
           {/* Provider Header Card */}
           <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-sm p-8 mb-8 relative overflow-hidden">
             <div className="absolute -top-1/2 -right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
-            <div className="relative z-10 text-white">
-              <div className="flex items-center gap-3 mb-3">
-                <h1 className="text-2xl font-semibold">
-                  Welcome, {providerStatus?.companyName || (primaryContact ? `${primaryContact.firstNames} ${primaryContact.surname}` : "Provider")}
-                </h1>
-                <OnlineStatus userId={user?.userId || user?.uid} showLabel size="md" />
+            <div className="relative z-10 text-white flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <h1 className="text-2xl font-semibold">
+                    Welcome, {providerStatus?.companyName || (primaryContact ? `${primaryContact.firstNames} ${primaryContact.surname}` : "Provider")}
+                  </h1>
+                  <OnlineStatus userId={user?.userId || user?.uid} showLabel size="md" />
+                </div>
+                <div className="flex flex-wrap gap-6 text-sm opacity-90">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-amber-500" />
+                    {providerAddress?.townCity || "Location not set"}{providerAddress?.province ? `, ${providerAddress.province}` : ""}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-amber-500" />
+                    {primaryContact?.email || user?.email || "Email not set"}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-amber-500" />
+                    Member since {providerStatus?.createdAt ? new Date(providerStatus.createdAt.toDate()).getFullYear() : user?.createdAt ? new Date(user.createdAt.toDate()).getFullYear() : "2024"}
+                  </div>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-6 text-sm opacity-90">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-amber-500" />
-                  {providerAddress?.townCity || "Location not set"}{providerAddress?.province ? `, ${providerAddress.province}` : ""}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-amber-500" />
-                  {primaryContact?.email || user?.email || "Email not set"}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-amber-500" />
-                  Member since {providerStatus?.createdAt ? new Date(providerStatus.createdAt.toDate()).getFullYear() : user?.createdAt ? new Date(user.createdAt.toDate()).getFullYear() : "2024"}
-                </div>
+              {/* Action buttons */}
+              <div className="flex items-center gap-2">
+                <Button asChild variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+                  <Link href="/provider-documents">
+                    <FolderOpen className="w-4 h-4 mr-2" />
+                    Documents
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+                  <Link href="/provider-settings">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Settings
+                  </Link>
+                </Button>
+                {/* Sync to Dataverse button - only visible for shampene@lebonconsulting.co.za */}
+                {user?.email === "shampene@lebonconsulting.co.za" && (
+                  <Button
+                    onClick={handleSyncToDataverse}
+                    disabled={syncingToDataverse}
+                    className="bg-amber-500 hover:bg-amber-600 text-white"
+                  >
+                    {syncingToDataverse ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Syncing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Sync To Dataverse
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -853,14 +995,23 @@ function ProviderDashboardContent() {
                 {/* Contact Information */}
                 <Card className="dark:bg-gray-800 dark:border-gray-700">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 dark:text-gray-100">
-                      <Phone className="w-5 h-5 text-amber-500" />
-                      Contact Information
+                    <CardTitle className="flex items-center justify-between dark:text-gray-100">
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-5 h-5 text-amber-500" />
+                        Contact Information
+                      </div>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="border-b dark:border-gray-700 pb-4">
-                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-2">PRIMARY CONTACT</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">PRIMARY CONTACT</p>
+                        {primaryContact && (
+                          <Button variant="ghost" size="sm" onClick={() => openEditContactModal(primaryContact)} className="h-7 px-2">
+                            <Pencil className="w-3 h-3 mr-1" /> Edit
+                          </Button>
+                        )}
+                      </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <p className="text-sm text-gray-500 dark:text-gray-400">Name</p>
@@ -882,19 +1033,76 @@ function ProviderDashboardContent() {
                     </div>
                     {secondaryContact && (
                       <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-2">SECONDARY CONTACT</p>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">SECONDARY CONTACT</p>
+                          <Button variant="ghost" size="sm" onClick={() => openEditContactModal(secondaryContact)} className="h-7 px-2">
+                            <Pencil className="w-3 h-3 mr-1" /> Edit
+                          </Button>
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Name</p>
                             <p className="font-medium dark:text-gray-100">{`${secondaryContact.firstNames} ${secondaryContact.surname}`}</p>
                           </div>
                           <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Position</p>
+                            <p className="font-medium dark:text-gray-100">{secondaryContact.position || "-"}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">ID Number</p>
+                            <p className="font-medium dark:text-gray-100">{secondaryContact.idNumber || "-"}</p>
+                          </div>
+                          <div>
                             <p className="text-sm text-gray-500 dark:text-gray-400">Phone</p>
                             <p className="font-medium dark:text-gray-100">{secondaryContact.phoneNumber}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
+                            <p className="font-medium dark:text-gray-100">{secondaryContact.email || "-"}</p>
                           </div>
                         </div>
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+
+                {/* Campus & Contact Info */}
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 dark:text-gray-100">
+                      <Building2 className="w-5 h-5 text-amber-500" />
+                      Campus & Contact Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Preferred Institution</p>
+                        <p className="font-medium dark:text-gray-100">{(providerStatus as any)?.preferredInstitution || "Not set"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Preferred Campus</p>
+                        <p className="font-medium dark:text-gray-100">{(providerStatus as any)?.preferredCampus || "Not set"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Office Telephone</p>
+                        <p className="font-medium dark:text-gray-100">{(providerStatus as any)?.officeTelephone || "Not set"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Customer Service Email</p>
+                        <p className="font-medium dark:text-gray-100">{(providerStatus as any)?.customerServiceEmail || "Not set"}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Website</p>
+                        <p className="font-medium dark:text-gray-100">
+                          {(providerStatus as any)?.website ? (
+                            <a href={(providerStatus as any).website} target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:underline">
+                              {(providerStatus as any).website}
+                            </a>
+                          ) : "Not set"}
+                        </p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -990,6 +1198,92 @@ function ProviderDashboardContent() {
         </main>
       </div>
       <DashboardFooter />
+
+      {/* Edit Contact Modal */}
+      <Dialog open={!!editingContact} onOpenChange={(open) => !open && setEditingContact(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Edit {editingContact?.isPrimary ? "Primary" : "Secondary"} Contact
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstNames">First Name(s)</Label>
+                <Input
+                  id="firstNames"
+                  value={editContactForm.firstNames}
+                  onChange={(e) => setEditContactForm(prev => ({ ...prev, firstNames: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="surname">Surname</Label>
+                <Input
+                  id="surname"
+                  value={editContactForm.surname}
+                  onChange={(e) => setEditContactForm(prev => ({ ...prev, surname: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="position">Position/Title</Label>
+                <Input
+                  id="position"
+                  value={editContactForm.position}
+                  onChange={(e) => setEditContactForm(prev => ({ ...prev, position: e.target.value }))}
+                  placeholder="e.g. Director, Manager"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="idNumber">ID Number</Label>
+                <Input
+                  id="idNumber"
+                  value={editContactForm.idNumber}
+                  onChange={(e) => setEditContactForm(prev => ({ ...prev, idNumber: e.target.value }))}
+                  placeholder="SA ID Number"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phoneNumber">Phone Number</Label>
+                <Input
+                  id="phoneNumber"
+                  type="tel"
+                  value={editContactForm.phoneNumber}
+                  onChange={(e) => setEditContactForm(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={editContactForm.email}
+                  onChange={(e) => setEditContactForm(prev => ({ ...prev, email: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingContact(null)} disabled={savingContact}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveContact} disabled={savingContact} className="bg-amber-500 hover:bg-amber-600">
+              {savingContact ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
