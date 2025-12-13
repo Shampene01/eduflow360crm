@@ -110,6 +110,18 @@ export type ResourceSubCategory =
 
 export type ResourceFileType = "pdf" | "docx" | "xlsx" | "video";
 
+// Ticket System Types
+export type TicketStatus = "Open" | "In Progress" | "Resolved" | "Closed";
+export type TicketPriority = "Low" | "Medium" | "High" | "Critical";
+export type TicketCategory = 
+  | "Technical Issue"
+  | "Billing"
+  | "Property"
+  | "Student"
+  | "Account"
+  | "Feature Request"
+  | "Other";
+
 // ============================================================================
 // 1. USER TABLE (Natural Person Only)
 // ============================================================================
@@ -622,6 +634,82 @@ export interface StudentWithAssignment extends Student {
 }
 
 // ============================================================================
+// 12. SUPPORT TICKETS TABLE
+// ============================================================================
+
+export interface TicketAttachment {
+  attachmentId: string;              // UUID
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  mimeType: string;
+  uploadedAt: Timestamp;
+}
+
+export interface Ticket {
+  ticketId: string;                  // UUID, PK
+  dataverseId?: string;              // ID returned from Dataverse after sync
+  
+  // Ticket Information
+  subject: string;
+  description: string;
+  category: TicketCategory;
+  priority: TicketPriority;
+  status: TicketStatus;
+  
+  // Reference (optional - link to related entity)
+  referenceType?: "property" | "student" | "invoice" | "provider";
+  referenceId?: string;
+  referenceName?: string;
+  
+  // Attachments (images, screenshots, etc.)
+  attachments: TicketAttachment[];
+  
+  // Submitter Information
+  submittedBy: string;               // userId
+  submittedByEmail: string;
+  submittedByName: string;
+  providerId?: string;               // If submitted by provider
+  
+  // Resolution
+  resolvedAt?: Timestamp;
+  resolvedBy?: string;
+  resolutionNotes?: string;
+  
+  // Audit
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+  closedAt?: Timestamp;
+}
+
+// Subcollection: tickets/{ticketId}/updates
+export interface TicketUpdate {
+  updateId: string;                  // UUID, PK
+  ticketId: string;                  // FK → Ticket
+  
+  // Update Content
+  message: string;
+  isInternal: boolean;               // Internal note vs public update
+  
+  // Attachments for this update
+  attachments: TicketAttachment[];
+  
+  // Author
+  authorId: string;
+  authorEmail: string;
+  authorName: string;
+  authorRole: "user" | "support" | "admin";
+  
+  // Audit
+  createdAt: Timestamp;
+}
+
+// Ticket with updates for display
+export interface TicketWithUpdates extends Ticket {
+  updates?: TicketUpdate[];
+}
+
+// ============================================================================
 // COLLECTION NAMES (for Firestore)
 // ============================================================================
 
@@ -652,7 +740,10 @@ export const COLLECTIONS = {
   
   // Legacy
   INVOICES: "invoices",
+  
+  // Support Tickets
   TICKETS: "tickets",
+  TICKET_UPDATES: "updates",  // Subcollection: tickets/{ticketId}/updates
   
   // Platform Resources
   PLATFORM_RESOURCES: "platformResources",
@@ -710,6 +801,13 @@ export function getPropertyDocumentsPath(providerId: string, propertyId: string)
  */
 export function getRoomConfigurationPath(providerId: string, propertyId: string): string {
   return `${getPropertyPath(providerId, propertyId)}/${COLLECTIONS.ROOM_CONFIGURATIONS}`;
+}
+
+/**
+ * Get the path to a ticket's updates subcollection
+ */
+export function getTicketUpdatesPath(ticketId: string): string {
+  return `${COLLECTIONS.TICKETS}/${ticketId}/${COLLECTIONS.TICKET_UPDATES}`;
 }
 
 // ============================================================================

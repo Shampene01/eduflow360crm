@@ -223,7 +223,19 @@ export interface Invoice {
   notes?: string;
 }
 
-export interface Ticket {
+// Re-export Ticket types from schema for consistency
+export type { 
+  Ticket, 
+  TicketUpdate, 
+  TicketAttachment, 
+  TicketWithUpdates,
+  TicketStatus,
+  TicketPriority,
+  TicketCategory,
+} from "./schema";
+
+// Legacy Ticket interface (deprecated - use schema.Ticket instead)
+export interface LegacyTicket {
   id: string;
   userId: string;
   userType: UserType;

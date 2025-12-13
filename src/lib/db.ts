@@ -39,6 +39,11 @@ import {
   PropertyDocument as PropertyDoc,
   PlatformResource,
   ResourceCategory,
+  Ticket,
+  TicketUpdate,
+  TicketAttachment,
+  TicketStatus,
+  TicketWithUpdates,
   COLLECTIONS,
   ProviderWithDetails,
   PropertyWithDetails,
@@ -50,6 +55,7 @@ import {
   getPropertyImagesPath,
   getPropertyDocumentsPath,
   getRoomConfigurationPath,
+  getTicketUpdatesPath,
 } from "./schema";
 
 // ============================================================================
@@ -890,4 +896,152 @@ export async function incrementDownloadCount(resourceId: string): Promise<void> 
   await updateDoc(doc(db, COLLECTIONS.PLATFORM_RESOURCES, resourceId), {
     downloadCount: increment(1),
   });
+}
+
+// ============================================================================
+// SUPPORT TICKETS
+// ============================================================================
+
+export async function createTicket(ticket: Ticket): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  await setDoc(doc(db, COLLECTIONS.TICKETS, ticket.ticketId), {
+    ...ticket,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function getTicketById(ticketId: string): Promise<Ticket | null> {
+  if (!db) return null;
+  console.log("getTicketById: Fetching from", COLLECTIONS.TICKETS, ticketId);
+  const snap = await getDoc(doc(db, COLLECTIONS.TICKETS, ticketId));
+  console.log("getTicketById: Document exists?", snap.exists());
+  return snap.exists() ? (snap.data() as Ticket) : null;
+}
+
+export async function getTicketsByProvider(providerId: string): Promise<Ticket[]> {
+  if (!db) return [];
+  const q = query(
+    collection(db, COLLECTIONS.TICKETS),
+    where("providerId", "==", providerId),
+    orderBy("createdAt", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data() as Ticket);
+}
+
+export async function getTicketsByUser(userId: string): Promise<Ticket[]> {
+  if (!db) return [];
+  const q = query(
+    collection(db, COLLECTIONS.TICKETS),
+    where("submittedBy", "==", userId),
+    orderBy("createdAt", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data() as Ticket);
+}
+
+export async function getAllTickets(): Promise<Ticket[]> {
+  if (!db) return [];
+  const q = query(
+    collection(db, COLLECTIONS.TICKETS),
+    orderBy("createdAt", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data() as Ticket);
+}
+
+export async function updateTicket(
+  ticketId: string,
+  updates: Partial<Ticket>
+): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  await updateDoc(doc(db, COLLECTIONS.TICKETS, ticketId), {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function updateTicketStatus(
+  ticketId: string,
+  status: TicketStatus,
+  resolvedBy?: string,
+  resolutionNotes?: string
+): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  const updates: Record<string, unknown> = {
+    status,
+    updatedAt: serverTimestamp(),
+  };
+  
+  if (status === "Resolved" || status === "Closed") {
+    updates.resolvedAt = serverTimestamp();
+    if (resolvedBy) updates.resolvedBy = resolvedBy;
+    if (resolutionNotes) updates.resolutionNotes = resolutionNotes;
+  }
+  
+  if (status === "Closed") {
+    updates.closedAt = serverTimestamp();
+  }
+  
+  await updateDoc(doc(db, COLLECTIONS.TICKETS, ticketId), updates);
+}
+
+export async function updateTicketDataverseId(
+  ticketId: string,
+  dataverseId: string
+): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  await updateDoc(doc(db, COLLECTIONS.TICKETS, ticketId), {
+    dataverseId,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ============================================================================
+// TICKET UPDATES (Subcollection)
+// ============================================================================
+
+export async function createTicketUpdate(update: TicketUpdate): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  const path = getTicketUpdatesPath(update.ticketId);
+  await setDoc(doc(db, path, update.updateId), {
+    ...update,
+    createdAt: serverTimestamp(),
+  });
+  
+  // Also update the parent ticket's updatedAt
+  await updateDoc(doc(db, COLLECTIONS.TICKETS, update.ticketId), {
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function getTicketUpdates(ticketId: string): Promise<TicketUpdate[]> {
+  if (!db) return [];
+  const path = getTicketUpdatesPath(ticketId);
+  console.log("getTicketUpdates: Fetching from path", path);
+  const q = query(collection(db, path), orderBy("createdAt", "asc"));
+  const snap = await getDocs(q);
+  console.log("getTicketUpdates: Found", snap.docs.length, "updates");
+  return snap.docs.map(d => d.data() as TicketUpdate);
+}
+
+export async function getTicketWithUpdates(ticketId: string): Promise<TicketWithUpdates | null> {
+  const ticket = await getTicketById(ticketId);
+  if (!ticket) return null;
+  
+  const updates = await getTicketUpdates(ticketId);
+  return { ...ticket, updates };
+}
+
+export async function deleteTicket(ticketId: string): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  
+  // Delete all updates in the subcollection first
+  const updatesPath = getTicketUpdatesPath(ticketId);
+  const updatesSnap = await getDocs(collection(db, updatesPath));
+  const deletePromises = updatesSnap.docs.map(doc => deleteDoc(doc.ref));
+  await Promise.all(deletePromises);
+  
+  // Delete the ticket document
+  await deleteDoc(doc(db, COLLECTIONS.TICKETS, ticketId));
 }

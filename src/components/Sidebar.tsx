@@ -15,6 +15,13 @@ import {
   FileText,
   Ticket,
   BookOpen,
+  BedDouble,
+  CreditCard,
+  ShieldCheck,
+  ClipboardCheck,
+  Wrench,
+  BarChart3,
+  Settings,
   LucideIcon,
 } from "lucide-react";
 
@@ -39,12 +46,6 @@ const providerSections: SidebarSection[] = [
       { label: "Invoices", href: "/invoices", icon: FileText },
       { label: "Tickets", href: "/tickets", icon: Ticket },
       { label: "Resources", href: "/resources", icon: BookOpen },
-    ],
-  },
-  {
-    title: "Account",
-    items: [
-      { label: "Support Tickets", href: "/tickets", icon: Ticket },
     ],
   },
 ];
