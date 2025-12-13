@@ -510,8 +510,26 @@ function TicketDetailContent() {
             </CardContent>
           </Card>
 
-          {/* Reply Form */}
-          {ticket.status !== "Closed" && (
+          {/* Reply Form or Closed Ticket Warning */}
+          {(ticket.status === "Resolved" || ticket.status === "Closed") ? (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h3 className="font-semibold text-amber-800 mb-1">This ticket is {ticket.status.toLowerCase()}</h3>
+                    <p className="text-amber-700 text-sm">
+                      Replies are disabled for resolved tickets. If you have a new issue, please{" "}
+                      <Link href="/tickets/new" className="font-medium underline hover:text-amber-900">
+                        open a new ticket
+                      </Link>
+                      . If you feel your current issue is not resolved, please contact support.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
             <Card>
               <CardContent className="p-6">
                 <h3 className="font-semibold text-gray-900 mb-4">Add Reply</h3>
