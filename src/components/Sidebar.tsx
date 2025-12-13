@@ -42,10 +42,27 @@ const providerSections: SidebarSection[] = [
     items: [
       { label: "Dashboard", href: "/provider-dashboard", icon: Home },
       { label: "Properties", href: "/properties", icon: Building2 },
+      { label: "Rooms & Allocations", href: "/rooms", icon: BedDouble },
       { label: "Students", href: "/students", icon: Users },
+      { label: "Payments", href: "/payments", icon: CreditCard },
       { label: "Invoices", href: "/invoices", icon: FileText },
+    ],
+  },
+  {
+    title: "Operations",
+    items: [
+      { label: "Compliance Centre", href: "/compliance", icon: ShieldCheck },
+      { label: "Inspections", href: "/inspections", icon: ClipboardCheck },
+      { label: "Maintenance", href: "/maintenance", icon: Wrench },
+      { label: "Reports", href: "/reports", icon: BarChart3 },
+    ],
+  },
+  {
+    title: "Support",
+    items: [
       { label: "Tickets", href: "/tickets", icon: Ticket },
       { label: "Resources", href: "/resources", icon: BookOpen },
+      { label: "Settings", href: "/settings", icon: Settings },
     ],
   },
 ];

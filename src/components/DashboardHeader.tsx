@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, Settings, LogOut, User, ChevronDown } from "lucide-react";
+import { Bell, Settings, LogOut, User, ChevronDown, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -118,6 +118,14 @@ export function DashboardHeader() {
                   Settings
                 </Link>
               </DropdownMenuItem>
+              {user?.email === "shampene@lebonconsulting.co.za" && (
+                <DropdownMenuItem asChild>
+                  <Link href="/admin" className="cursor-pointer text-purple-600">
+                    <Shield size={16} className="mr-2" />
+                    Admin Portal
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleSignOut}

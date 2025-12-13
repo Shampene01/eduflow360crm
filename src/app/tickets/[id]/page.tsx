@@ -454,16 +454,27 @@ function TicketDetailContent() {
                     <div
                       key={update.updateId}
                       className={`p-4 rounded-lg ${
-                        update.authorRole === "user" 
-                          ? "bg-slate-50 border-l-4 border-slate-400" 
-                          : "bg-emerald-50 border-l-4 border-emerald-500"
+                        update.authorRole === "admin" 
+                          ? "bg-purple-50 border-l-4 border-purple-500" 
+                          : update.authorRole === "support"
+                          ? "bg-emerald-50 border-l-4 border-emerald-500"
+                          : "bg-slate-50 border-l-4 border-slate-400"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-gray-900">{update.authorName}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {update.authorRole === "user" ? "You" : "Support"}
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs ${
+                              update.authorRole === "admin" 
+                                ? "border-purple-500 text-purple-700 bg-purple-100" 
+                                : update.authorRole === "support"
+                                ? "border-emerald-500 text-emerald-700"
+                                : ""
+                            }`}
+                          >
+                            {update.authorRole === "admin" ? "Admin" : update.authorRole === "support" ? "Support" : "You"}
                           </Badge>
                         </div>
                         <span className="text-xs text-gray-500">
