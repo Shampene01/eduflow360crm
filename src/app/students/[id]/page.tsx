@@ -18,6 +18,7 @@ import {
   Loader2,
   CheckCircle,
   XCircle,
+  RefreshCw,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
@@ -34,6 +35,7 @@ import {
   getPropertyById,
   getProviderByUserId,
 } from "@/lib/db";
+import { syncStudentToCRM } from "@/lib/crmSync";
 
 interface AssignmentWithProperty {
   assignment: StudentPropertyAssignment;
@@ -48,6 +50,8 @@ function StudentDetailContent() {
   const [assignments, setAssignments] = useState<AssignmentWithProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [providerId, setProviderId] = useState<string>("");
+  const [syncingToDataverse, setSyncingToDataverse] = useState(false);
+  const [providerDataverseId, setProviderDataverseId] = useState<string>("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -59,6 +63,7 @@ function StudentDetailContent() {
         const provider = await getProviderByUserId(uid);
         if (provider) {
           setProviderId(provider.providerId);
+          setProviderDataverseId(provider.dataverseId || "");
         }
 
         // Fetch student
@@ -93,6 +98,55 @@ function StudentDetailContent() {
 
     fetchData();
   }, [id, user?.userId, user?.uid, router]);
+
+  // Handle sync to Dataverse
+  const handleSyncToDataverse = async () => {
+    if (!student || !providerDataverseId) {
+      toast.error("Provider must be synced to Dataverse first");
+      return;
+    }
+
+    // Get the active assignment (if any)
+    const activeAssignment = assignments.find(a => a.assignment.status === "Active");
+    if (!activeAssignment) {
+      toast.error("Student must have an active property assignment to sync");
+      return;
+    }
+
+    // Check if property has Dataverse ID
+    const propertyDataverseId = activeAssignment.property?.dataverseId;
+    if (!propertyDataverseId) {
+      toast.error("Property must be synced to Dataverse first");
+      return;
+    }
+
+    setSyncingToDataverse(true);
+    try {
+      const result = await syncStudentToCRM(
+        student,
+        activeAssignment.assignment,
+        propertyDataverseId,
+        providerDataverseId,
+        user?.dataverseId || "",
+        providerId
+      );
+
+      if (result.success) {
+        toast.success("Student synced to Dataverse successfully!");
+        // Update local state with new Dataverse ID
+        if (result.studentDataverseId) {
+          setStudent({ ...student, dataverseId: result.studentDataverseId });
+        }
+      } else {
+        toast.error(result.error || "Failed to sync student to Dataverse");
+      }
+    } catch (error) {
+      console.error("Error syncing to Dataverse:", error);
+      toast.error("Failed to sync student to Dataverse");
+    } finally {
+      setSyncingToDataverse(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -173,6 +227,27 @@ function StudentDetailContent() {
             </div>
             <div className="flex items-center gap-3">
               {getStatusBadge(student.status)}
+              {/* Sync to Dataverse button - only visible for shampene@lebonconsulting.co.za */}
+              {user?.email === "shampene@lebonconsulting.co.za" && (
+                <Button
+                  onClick={handleSyncToDataverse}
+                  disabled={syncingToDataverse}
+                  variant="outline"
+                  className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                >
+                  {syncingToDataverse ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Sync to Dataverse
+                    </>
+                  )}
+                </Button>
+              )}
               <Button variant="outline">
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Student

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
@@ -37,6 +37,9 @@ export function ProtectedRoute({
   const router = useRouter();
   const pathname = usePathname();
   const [retrying, setRetrying] = useState(false);
+  
+  // Track if we've already checked access for the current user/path combination
+  const lastCheckedRef = useRef<string | null>(null);
 
   // Combined loading state: wait for both auth AND profile to be ready
   // Use isFullyLoaded to ensure user profile is available before rendering children
@@ -47,6 +50,15 @@ export function ProtectedRoute({
     
     const checkAccessAndRedirect = async () => {
       if (!isLoading && isMounted) {
+        // Create a unique key for this check to prevent repeated checks
+        const userId = user?.userId || (user as any)?.uid || "";
+        const checkKey = `${userId}-${pathname}-${firebaseUser?.uid || ""}`;
+        
+        // Skip if we've already checked this combination
+        if (lastCheckedRef.current === checkKey) {
+          return;
+        }
+        
         // Not logged in - redirect to login
         if (!firebaseUser) {
           router.push(redirectTo);
@@ -58,6 +70,9 @@ export function ProtectedRoute({
           router.push("/verify-email");
           return;
         }
+
+        // Mark this combination as checked BEFORE the async call
+        lastCheckedRef.current = checkKey;
 
         // Check if user has an approved accommodation provider linked
         let isApprovedProvider = false;
