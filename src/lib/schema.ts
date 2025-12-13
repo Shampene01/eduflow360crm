@@ -670,6 +670,7 @@ export interface Ticket {
   submittedByEmail: string;
   submittedByName: string;
   providerId?: string;               // If submitted by provider
+  providerName?: string;             // Provider name if submitted by provider
   
   // Resolution
   resolvedAt?: Timestamp;
@@ -680,6 +681,7 @@ export interface Ticket {
   createdAt: Timestamp;
   updatedAt?: Timestamp;
   closedAt?: Timestamp;
+  closedBy?: string;                 // userId of admin who closed the ticket
 }
 
 // Subcollection: tickets/{ticketId}/updates
