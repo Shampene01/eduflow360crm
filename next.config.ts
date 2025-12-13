@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
   // Enable Turbopack explicitly (Next.js 16 default)
   turbopack: {},
 
+  // Allow cross-origin requests from local network devices in development
+  allowedDevOrigins: ["192.168.3.91"],
+
   generateBuildId: async () => {
     // Use Git commit hash for deterministic build IDs
     // Falls back to timestamp if Git is not available
