@@ -520,7 +520,7 @@ function TicketDetailContent() {
                     <h3 className="font-semibold text-amber-800 mb-1">This ticket is {ticket.status.toLowerCase()}</h3>
                     <p className="text-amber-700 text-sm">
                       Replies are disabled for resolved tickets. If you have a new issue, please{" "}
-                      <Link href="/tickets/new" className="font-medium underline hover:text-amber-900">
+                      <Link href="/tickets" className="font-medium underline hover:text-amber-900">
                         open a new ticket
                       </Link>
                       . If you feel your current issue is not resolved, please contact support.

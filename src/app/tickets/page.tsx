@@ -295,6 +295,17 @@ function TicketsContent() {
   const openTickets = tickets.filter((t) => t.status === "Open" || t.status === "In Progress");
   const resolvedTickets = tickets.filter((t) => t.status === "Resolved" || t.status === "Closed");
 
+  // Filter tickets by search term (subject, category, or ticketId)
+  const filteredTickets = tickets.filter((ticket) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      ticket.subject.toLowerCase().includes(term) ||
+      ticket.category.toLowerCase().includes(term) ||
+      ticket.ticketId.toLowerCase().includes(term)
+    );
+  });
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <DashboardHeader />
@@ -435,10 +446,15 @@ function TicketsContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {tickets.map((ticket) => (
+                    {filteredTickets.map((ticket) => (
                       <TableRow key={ticket.ticketId}>
                         <TableCell className="font-medium font-mono text-xs">
-                          {ticket.ticketId.slice(0, 8).toUpperCase()}
+                          <Link 
+                            href={`/tickets/${ticket.ticketId}`}
+                            className="text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            {ticket.ticketId.slice(0, 8).toUpperCase()}
+                          </Link>
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate">
                           {ticket.subject}

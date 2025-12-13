@@ -96,6 +96,36 @@ export async function updateUser(userId: string, data: Partial<User>): Promise<v
   await updateDoc(doc(db, COLLECTIONS.USERS, userId), { ...data, updatedAt: serverTimestamp() });
 }
 
+export async function getAllUsers(): Promise<User[]> {
+  if (!db) return [];
+  const snap = await getDocs(collection(db, COLLECTIONS.USERS));
+  return snap.docs.map(d => d.data() as User);
+}
+
+// SuperAdmin email constant
+const SUPER_ADMIN_EMAIL = "shampene@lebonconsulting.co.za";
+
+// Secure role update - only SuperAdmin can change roles
+export async function updateUserRole(
+  userId: string, 
+  newRole: string, 
+  newRoleCode: number,
+  requestingUserEmail: string
+): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  
+  // Security check: Only SuperAdmin can update roles
+  if (requestingUserEmail !== SUPER_ADMIN_EMAIL) {
+    throw new Error("Unauthorized: Only SuperAdmin can modify user roles");
+  }
+  
+  await updateDoc(doc(db, COLLECTIONS.USERS, userId), { 
+    role: newRole,
+    roleCode: newRoleCode,
+    updatedAt: serverTimestamp() 
+  });
+}
+
 // ============================================================================
 // ADDRESS OPERATIONS
 // ============================================================================

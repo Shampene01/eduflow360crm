@@ -92,10 +92,21 @@ service cloud.firestore {
     // 2. ADDRESSES
     // ========================================================================
     match /addresses/{addressId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      // Allow update by authenticated users (ownership checked in app logic)
-      allow update: if isAuthenticated();
+      // Read: owner or admin
+      allow read: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
+      
+      // Create: authenticated users can create addresses they own
+      allow create: if isAuthenticated() && 
+        request.resource.data.ownerId == request.auth.uid;
+      
+      // Update: owner only (or admin)
+      allow update: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid || isAdmin()
+      );
+      
+      // Delete: admin only
       allow delete: if isAdmin();
     }
     
@@ -380,19 +391,26 @@ service cloud.firestore {
     // ========================================================================
     // 12. STUDENTS
     // ========================================================================
+    // 🔒 SECURED: Only admins and providers with assigned students can access
     match /students/{studentId} {
-      // Read: own record (if linked), admin, or provider
+      // Read: admin always
+      allow read: if isAdmin();
+      
+      // Read: own record (if linked via userId)
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow read: if isAdmin() || isProvider();
       
-      // Read: any user with an approved accommodation provider can read students
-      allow read: if isAuthenticated();
+      // Read: provider who has this student assigned to their property
+      // This requires a query check via studentPropertyAssignments
+      allow read: if isAuthenticated() && isProvider() &&
+        resource.data.providerId == getUserData().providerId;
       
-      // Create: any authenticated user with accommodation provider can create
-      allow create: if isAuthenticated();
+      // Create: only providers can create students
+      allow create: if isProvider() && 
+        request.resource.data.createdBy == request.auth.uid;
       
-      // Update: provider or admin
-      allow update: if isAuthenticated() || isAdmin();
+      // Update: provider who owns the student record or admin
+      allow update: if isAdmin();
+      allow update: if isProvider() && resource.data.providerId == getUserData().providerId;
       
       // Delete: admin only
       allow delete: if isAdmin();
@@ -401,15 +419,28 @@ service cloud.firestore {
     // ========================================================================
     // 13. STUDENT PROPERTY ASSIGNMENTS
     // ========================================================================
+    // 🔒 SECURED: Strictly scoped to property ownership
     match /studentPropertyAssignments/{assignmentId} {
-      // Read: authenticated users can read (property ownership checked in app)
-      allow read: if isAuthenticated();
+      // Read: admin always
+      allow read: if isAdmin();
       
-      // Create: authenticated users can create assignments
-      allow create: if isAuthenticated();
+      // Read: property owner can read assignments for their properties
+      allow read: if isAuthenticated() && 
+        isPropertyOwnerByPropertyId(resource.data.propertyId);
       
-      // Update/Delete: authenticated users or admin
-      allow update, delete: if isAuthenticated() || isAdmin();
+      // Create: only property owner can create assignments for their properties
+      allow create: if isAuthenticated() && 
+        isPropertyOwnerByPropertyId(request.resource.data.propertyId);
+      
+      // Update: property owner or admin
+      allow update: if isAdmin();
+      allow update: if isAuthenticated() && 
+        isPropertyOwnerByPropertyId(resource.data.propertyId);
+      
+      // Delete: property owner or admin
+      allow delete: if isAdmin();
+      allow delete: if isAuthenticated() && 
+        isPropertyOwnerByPropertyId(resource.data.propertyId);
     }
     
     // ========================================================================
@@ -426,17 +457,58 @@ service cloud.firestore {
     }
     
     // ========================================================================
-    // LEGACY: TICKETS
+    // TICKETS
     // ========================================================================
+    // 🔒 SECURED: Proper ownership and role-based access
     match /tickets/{ticketId} {
-      allow read: if isOwner(resource.data.userId) || isAdmin();
+      // Read: admin always
+      allow read: if isAdmin();
       
+      // Read: ticket submitter can read their own tickets
+      allow read: if isAuthenticated() && 
+        resource.data.submittedBy == request.auth.uid;
+      
+      // Read: provider can read tickets they submitted or are assigned to
+      allow read: if isAuthenticated() && isProvider() && (
+        resource.data.submittedBy == request.auth.uid ||
+        resource.data.providerId == getUserData().providerId
+      );
+      
+      // Create: authenticated users can create tickets for themselves
       allow create: if isAuthenticated() && 
-        request.resource.data.userId == request.auth.uid;
+        request.resource.data.submittedBy == request.auth.uid;
       
-      allow update: if isOwner(resource.data.userId) || isAdmin();
+      // Update: admin can update any ticket
+      allow update: if isAdmin();
       
+      // Update: submitter can update their own ticket (limited fields)
+      allow update: if isAuthenticated() && 
+        resource.data.submittedBy == request.auth.uid &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['status', 'priority', 'assignedTo', 'closedAt', 'closedBy', 'resolvedAt', 'resolvedBy']);
+      
+      // Delete: admin only
       allow delete: if isAdmin();
+      
+      // TICKET UPDATES SUBCOLLECTION
+      match /updates/{updateId} {
+        // Read: admin or ticket submitter/provider
+        allow read: if isAdmin();
+        allow read: if isAuthenticated() && 
+          get(/databases/$(database)/documents/tickets/$(ticketId)).data.submittedBy == request.auth.uid;
+        allow read: if isAuthenticated() && isProvider() &&
+          get(/databases/$(database)/documents/tickets/$(ticketId)).data.providerId == getUserData().providerId;
+        
+        // Create: authenticated users can add updates to tickets they have access to
+        allow create: if isAuthenticated() && (
+          isAdmin() ||
+          get(/databases/$(database)/documents/tickets/$(ticketId)).data.submittedBy == request.auth.uid ||
+          (isProvider() && get(/databases/$(database)/documents/tickets/$(ticketId)).data.providerId == getUserData().providerId)
+        );
+        
+        // Update/Delete: admin only (updates should be immutable)
+        allow update, delete: if isAdmin();
+      }
     }
     
     // ========================================================================
