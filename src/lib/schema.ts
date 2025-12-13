@@ -225,6 +225,9 @@ export interface AccommodationProvider {
   // CRM Sync
   dataverseId?: string;              // Dataverse account ID (returned from Power Automate)
   
+  // Branding
+  companyLogoUrl?: string;           // URL to company logo (stored in Firebase Storage)
+  
   // Metadata
   metadata?: Record<string, unknown>;
   createdAt: Timestamp;
@@ -438,7 +441,9 @@ export interface Student {
   
   // NSFAS Information
   nsfasNumber?: string;
-  funded: boolean;
+  funded: boolean;                   // Whether student is NSFAS funded
+  nsfasFunded?: boolean;             // Explicit NSFAS funded indicator (for routing)
+  nsfasDataverseId?: string;         // Dataverse ID from NSFAS lookup (crf10_student_2id)
   fundedAmount?: number;
   fundingYear?: number;
   

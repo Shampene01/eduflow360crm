@@ -11,6 +11,17 @@ const nextConfig: NextConfig = {
   // Allow cross-origin requests from local network devices in development
   allowedDevOrigins: ["192.168.3.91"],
 
+  // Configure allowed image domains for next/image
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "firebasestorage.googleapis.com",
+        pathname: "/v0/b/**",
+      },
+    ],
+  },
+
   generateBuildId: async () => {
     // Use Git commit hash for deterministic build IDs
     // Falls back to timestamp if Git is not available

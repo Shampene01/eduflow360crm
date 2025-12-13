@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   FileText,
@@ -15,6 +15,8 @@ import {
   Clock,
   XCircle,
   DollarSign,
+  Loader2,
+  Trash2,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardFooter } from "@/components/DashboardFooter";
@@ -35,13 +37,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getProviderByUserId } from "@/lib/db";
+import { getProviderByUserId, getAddressById } from "@/lib/db";
+import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
+import { AccommodationProvider, Address } from "@/lib/schema";
+import { toast } from "sonner";
 
 function InvoicesContent() {
   const { user } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [provider, setProvider] = useState<AccommodationProvider | null>(null);
+  const [address, setAddress] = useState<Address | null>(null);
+  const [generatingPDF, setGeneratingPDF] = useState<string | null>(null);
+  const [deletingInvoice, setDeletingInvoice] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -53,17 +62,24 @@ function InvoicesContent() {
 
       try {
         // First get the provider for this user
-        const provider = await getProviderByUserId(uid);
-        if (!provider) {
+        const providerData = await getProviderByUserId(uid);
+        if (!providerData) {
           setInvoices([]);
           setLoading(false);
           return;
+        }
+        setProvider(providerData);
+
+        // Fetch address if available
+        if (providerData.physicalAddressId) {
+          const addressData = await getAddressById(providerData.physicalAddressId);
+          setAddress(addressData);
         }
 
         // Use provider ID to fetch invoices
         const invoicesQuery = query(
           collection(db, "invoices"),
-          where("providerId", "==", provider.providerId),
+          where("providerId", "==", providerData.providerId),
           orderBy("submittedAt", "desc")
         );
         const snapshot = await getDocs(invoicesQuery);
@@ -96,6 +112,75 @@ function InvoicesContent() {
         return <Badge variant="destructive">Rejected</Badge>;
       default:
         return <Badge variant="secondary">Draft</Badge>;
+    }
+  };
+
+  // Convert image URL to base64
+  const fetchLogoAsBase64 = async (url: string): Promise<string | null> => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
+    }
+  };
+
+  // Handle PDF generation
+  const handleGeneratePDF = async (invoice: Invoice) => {
+    if (!provider) {
+      toast.error("Provider information not available");
+      return;
+    }
+
+    setGeneratingPDF(invoice.id);
+    try {
+      // Fetch logo as base64 if available
+      let logoBase64: string | undefined;
+      if (provider.companyLogoUrl) {
+        const base64 = await fetchLogoAsBase64(provider.companyLogoUrl);
+        if (base64) {
+          logoBase64 = base64;
+        }
+      }
+
+      generateInvoicePDF({
+        invoice,
+        provider,
+        logoBase64,
+        address,
+      });
+      toast.success("Invoice PDF generated successfully!");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF");
+    } finally {
+      setGeneratingPDF(null);
+    }
+  };
+
+  // Handle invoice deletion
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    if (!db) return;
+    
+    const confirmed = window.confirm("Are you sure you want to delete this invoice? This action cannot be undone.");
+    if (!confirmed) return;
+
+    setDeletingInvoice(invoiceId);
+    try {
+      await deleteDoc(doc(db, "invoices", invoiceId));
+      setInvoices(invoices.filter(inv => inv.id !== invoiceId));
+      toast.success("Invoice deleted successfully");
+    } catch (error) {
+      console.error("Error deleting invoice:", error);
+      toast.error("Failed to delete invoice");
+    } finally {
+      setDeletingInvoice(null);
     }
   };
 
@@ -267,11 +352,37 @@ function InvoicesContent() {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
-                            <Button variant="ghost" size="sm">
-                              <Eye className="w-4 h-4" />
+                            <Button variant="ghost" size="sm" asChild title="View Invoice">
+                              <Link href={`/invoices/${invoice.id}`}>
+                                <Eye className="w-4 h-4" />
+                              </Link>
                             </Button>
-                            <Button variant="ghost" size="sm">
-                              <Download className="w-4 h-4" />
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleGeneratePDF(invoice)}
+                              disabled={generatingPDF === invoice.id}
+                              title="Download PDF"
+                            >
+                              {generatingPDF === invoice.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Download className="w-4 h-4" />
+                              )}
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleDeleteInvoice(invoice.id)}
+                              disabled={deletingInvoice === invoice.id || invoice.status === "paid"}
+                              title={invoice.status === "paid" ? "Cannot delete paid invoice" : "Delete Invoice"}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              {deletingInvoice === invoice.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
                             </Button>
                           </div>
                         </TableCell>

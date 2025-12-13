@@ -947,6 +947,8 @@ export interface StudentSyncPayload {
   // NSFAS Information
   nsfasNumber: string;
   funded: boolean;
+  nsfasFunded: boolean;              // Explicit indicator for NSFAS vs non-NSFAS routing
+  nsfasDataverseId: string;          // Dataverse ID from NSFAS lookup
   fundedAmount: number;
   fundingYear: number;
   
@@ -1047,6 +1049,8 @@ export async function syncStudentToCRM(
       // NSFAS Information
       nsfasNumber: String(student.nsfasNumber || ""),
       funded: Boolean(student.funded === true),
+      nsfasFunded: Boolean(student.nsfasFunded === true || student.funded === true),
+      nsfasDataverseId: String(student.nsfasDataverseId || ""),
       fundedAmount: Number(student.fundedAmount || 0),
       fundingYear: Number(student.fundingYear || 0),
       

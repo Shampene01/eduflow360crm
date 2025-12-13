@@ -33,17 +33,39 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
     
+    console.log("NSFAS API response:", JSON.stringify(data));
+    
     // Return the response from Power Automate
-    // Expected format: { idNumber, funded, accomodationCosts }
+    // Expected format when funded: 
+    // { idNumber, funded: true, accomodationCosts, studentName, surname, email, phoneNumber, dateOfBirth, gender, dataverseId }
+    // When not funded: { funded: false, accomodationCosts: "0" }
+    
+    // Handle funded as boolean or string
+    const isFunded = data.funded === true || data.funded === "true";
+    
     return NextResponse.json({
-      idNumber: data.idNumber,
-      funded: data.funded === true,
-      accommodationCosts: data.funded ? parseFloat(data.accomodationCosts) || 0 : 0,
+      idNumber: data.idNumber || idNumber,
+      funded: isFunded,
+      accommodationCosts: isFunded ? parseFloat(data.accomodationCosts) || 0 : 0,
+      // Personal info fields
+      studentName: data.studentName || "",
+      surname: data.surname || "",
+      email: data.email || "",
+      phoneNumber: data.phoneNumber || "",
+      dateOfBirth: data.dateOfBirth || "",
+      gender: data.gender || "",
+      dataverseId: data.dataverseId || "",
+      // Academic info fields
+      institution: data.institution || "",
+      fieldOfStudy: data.fieldOfStudy || "",
+      levelOfStudy: data.levelOfStudy || "",
+      studentNumber: data.studentNumber || "",
     });
   } catch (error) {
     console.error("NSFAS verification error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Failed to verify NSFAS status";
     return NextResponse.json(
-      { error: "Failed to verify NSFAS status" },
+      { error: errorMessage, funded: false, accommodationCosts: 0 },
       { status: 500 }
     );
   }

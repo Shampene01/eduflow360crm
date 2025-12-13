@@ -24,11 +24,17 @@ import {
   ArrowLeft,
   CreditCard,
   AlertCircle,
+  Upload,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getProviderByUserId, getAddressById, updateProvider, updateAddress } from "@/lib/db";
 import { AccommodationProvider, Address } from "@/lib/schema";
+import { storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import Link from "next/link";
+import Image from "next/image";
 
 const provinces = [
   "Western Cape", "Eastern Cape", "Northern Cape",
@@ -44,6 +50,8 @@ function ProviderSettingsContent() {
   const [provider, setProvider] = useState<AccommodationProvider | null>(null);
   const [address, setAddress] = useState<Address | null>(null);
   const [error, setError] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   // Editable form state
   const [formData, setFormData] = useState({
@@ -91,6 +99,11 @@ function ProviderSettingsContent() {
         if (providerData.physicalAddressId) {
           const addressData = await getAddressById(providerData.physicalAddressId);
           setAddress(addressData);
+        }
+
+        // Set logo URL if exists
+        if (providerData.companyLogoUrl) {
+          setLogoUrl(providerData.companyLogoUrl);
         }
 
         // Populate form with existing data
@@ -141,6 +154,75 @@ function ProviderSettingsContent() {
       }));
     }
   }, [address]);
+
+  // Handle logo upload
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !provider || !storage) return;
+
+    // Validate file type
+    const validTypes = ["image/jpeg", "image/png", "image/jpg"];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Please upload a JPEG or PNG image");
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image must be less than 2MB");
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      // Create storage reference
+      const logoRef = ref(storage, `providers/${provider.providerId}/logo/${file.name}`);
+      
+      // Upload file
+      await uploadBytes(logoRef, file);
+      
+      // Get download URL
+      const downloadUrl = await getDownloadURL(logoRef);
+      
+      // Update provider with logo URL
+      await updateProvider(provider.providerId, { companyLogoUrl: downloadUrl });
+      
+      setLogoUrl(downloadUrl);
+      toast.success("Company logo uploaded successfully!");
+    } catch (err) {
+      console.error("Error uploading logo:", err);
+      toast.error("Failed to upload logo");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  // Handle logo removal
+  const handleRemoveLogo = async () => {
+    if (!provider || !logoUrl || !storage) return;
+
+    setUploadingLogo(true);
+    try {
+      // Try to delete from storage (may fail if URL is external)
+      try {
+        const logoRef = ref(storage, logoUrl);
+        await deleteObject(logoRef);
+      } catch {
+        // Ignore deletion errors - URL might be external or already deleted
+      }
+
+      // Update provider to remove logo URL
+      await updateProvider(provider.providerId, { companyLogoUrl: "" });
+      
+      setLogoUrl(null);
+      toast.success("Company logo removed");
+    } catch (err) {
+      console.error("Error removing logo:", err);
+      toast.error("Failed to remove logo");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!provider) return;
@@ -306,6 +388,90 @@ function ProviderSettingsContent() {
                   <CreditCard className="w-3 h-3 inline mr-1" />
                   Banking details and tax numbers require verification and can only be changed by contacting support.
                 </p>
+              </CardContent>
+            </Card>
+
+            {/* Company Logo */}
+            <Card className="mb-6 dark:bg-gray-800 dark:border-gray-700">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 dark:text-white">
+                  <ImageIcon className="w-5 h-5 text-amber-500" />
+                  Company Logo
+                </CardTitle>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Upload your company logo to appear on invoices and documents
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-start gap-6">
+                  {/* Logo Preview */}
+                  <div className="w-32 h-32 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center overflow-hidden bg-gray-50 dark:bg-gray-700">
+                    {logoUrl ? (
+                      <Image
+                        src={logoUrl}
+                        alt="Company Logo"
+                        width={128}
+                        height={128}
+                        className="object-contain w-full h-full"
+                      />
+                    ) : (
+                      <div className="text-center text-gray-400">
+                        <ImageIcon className="w-8 h-8 mx-auto mb-1" />
+                        <p className="text-xs">No logo</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upload Controls */}
+                  <div className="flex-1 space-y-3">
+                    <div className="flex gap-2">
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/jpg"
+                          onChange={handleLogoUpload}
+                          className="hidden"
+                          disabled={uploadingLogo}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={uploadingLogo}
+                          className="pointer-events-none"
+                        >
+                          {uploadingLogo ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2" />
+                              Upload Logo
+                            </>
+                          )}
+                        </Button>
+                      </label>
+                      {logoUrl && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleRemoveLogo}
+                          disabled={uploadingLogo}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Accepted formats: JPEG, PNG. Max size: 2MB.
+                      <br />
+                      Recommended: Square image, at least 200x200 pixels.
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 

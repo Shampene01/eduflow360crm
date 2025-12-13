@@ -103,6 +103,8 @@ function ManageStudentsContent() {
     // NSFAS Info
     nsfasNumber: "",
     funded: false,
+    nsfasFunded: false,
+    nsfasDataverseId: "",
     fundedAmount: 0,
     // Room Assignment
     roomType: "" as string,
@@ -224,23 +226,76 @@ function ManageStudentsContent() {
         throw new Error(data.error || `NSFAS verification failed: ${response.status}`);
       }
       
-      // Response format: { idNumber, funded, accommodationCosts }
+      // Response format: { idNumber, funded, accommodationCosts, studentName, surname, email, phoneNumber, dateOfBirth, gender, dataverseId }
       const isFunded = data.funded === true;
       const fundedAmount = data.accommodationCosts || 0;
       
-      setStudentForm(prev => ({
-        ...prev,
-        funded: isFunded,
-        fundedAmount: fundedAmount,
-        nsfasNumber: isFunded ? `NSFAS${studentForm.idNumber.slice(0, 6)}` : "",
-      }));
-      setNsfasVerified(isFunded);
-      
       if (isFunded) {
-        toast.success(`Student is NSFAS funded! Accommodation allowance: R${fundedAmount.toLocaleString()}`);
+        // Auto-populate form fields with NSFAS data
+        // Parse gender from NSFAS response (could be "Male", "Female", or numeric)
+        let genderValue: "Male" | "Female" | "Other" | "" = "";
+        if (data.gender) {
+          const g = String(data.gender).toLowerCase();
+          if (g === "male" || g === "m" || g === "0") genderValue = "Male";
+          else if (g === "female" || g === "f" || g === "1") genderValue = "Female";
+          else genderValue = "Other";
+        }
+        
+        // Format date of birth if provided (could be ISO string or other format)
+        let dobValue = "";
+        if (data.dateOfBirth) {
+          try {
+            const dob = new Date(data.dateOfBirth);
+            if (!isNaN(dob.getTime())) {
+              dobValue = dob.toISOString().split("T")[0];
+            }
+          } catch {
+            dobValue = "";
+          }
+        }
+        
+        // Parse year of study from levelOfStudy (e.g., "Year 2" -> 2)
+        let yearValue = 1;
+        if (data.levelOfStudy) {
+          const match = data.levelOfStudy.match(/\d+/);
+          if (match) yearValue = parseInt(match[0]) || 1;
+        }
+        
+        setStudentForm(prev => ({
+          ...prev,
+          funded: true,
+          nsfasFunded: true,
+          nsfasDataverseId: data.dataverseId || "",
+          fundedAmount: fundedAmount,
+          nsfasNumber: data.dataverseId || `NSFAS${studentForm.idNumber.slice(0, 6)}`,
+          // Personal info from NSFAS
+          firstNames: data.studentName || prev.firstNames,
+          surname: data.surname || prev.surname,
+          email: data.email || prev.email,
+          phoneNumber: data.phoneNumber || prev.phoneNumber,
+          dateOfBirth: dobValue || prev.dateOfBirth,
+          gender: genderValue || prev.gender,
+          // Academic info from NSFAS
+          institution: data.institution || prev.institution,
+          program: data.fieldOfStudy || prev.program,
+          yearOfStudy: yearValue || prev.yearOfStudy,
+          studentNumber: data.studentNumber || prev.studentNumber,
+        }));
+        
+        toast.success(`Student is NSFAS funded! Accommodation allowance: R${fundedAmount.toLocaleString()}. Form auto-populated.`);
       } else {
-        toast.info("Student is not NSFAS funded");
+        setStudentForm(prev => ({
+          ...prev,
+          funded: false,
+          nsfasFunded: false,
+          nsfasDataverseId: "",
+          fundedAmount: 0,
+          nsfasNumber: "",
+        }));
+        toast.info("Student is not NSFAS funded. Please fill in details manually.");
       }
+      
+      setNsfasVerified(isFunded);
     } catch (error: any) {
       console.error("Error verifying NSFAS:", error);
       toast.error(error.message || "Failed to verify NSFAS status. Please try again.");
@@ -266,6 +321,8 @@ function ManageStudentsContent() {
       yearOfStudy: 1,
       nsfasNumber: "",
       funded: false,
+      nsfasFunded: false,
+      nsfasDataverseId: "",
       fundedAmount: 0,
       roomType: "",
       monthlyRent: 0,
@@ -324,6 +381,8 @@ function ManageStudentsContent() {
           yearOfStudy: studentForm.yearOfStudy || undefined,
           nsfasNumber: studentForm.nsfasNumber || undefined,
           funded: studentForm.funded,
+          nsfasFunded: studentForm.nsfasFunded,
+          nsfasDataverseId: studentForm.nsfasDataverseId || undefined,
           fundedAmount: studentForm.fundedAmount || undefined,
           fundingYear: studentForm.funded ? new Date().getFullYear() : undefined,
           gender: studentForm.gender || undefined,

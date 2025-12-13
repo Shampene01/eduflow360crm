@@ -165,18 +165,61 @@ export interface StudentDocument {
   uploadedAt: Timestamp;
 }
 
+export interface InvoiceLineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  includesVat: boolean;
+  vatAmount: number;
+  lineTotal: number;
+}
+
+export interface InvoiceBillTo {
+  name: string;
+  attention?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
+  country?: string;
+}
+
 export interface Invoice {
   id: string;
   providerId: string;
-  propertyId: string;
+  propertyId?: string;
   studentId?: string;
-  month: string;
-  year: number;
-  amount: number;
+  
+  // Bill To details
+  billTo: InvoiceBillTo;
+  
+  // Line items
+  lineItems: InvoiceLineItem[];
+  
+  // Totals
+  subtotal: number;
+  vatRate: number;
+  vatAmount: number;
+  total: number;
+  
+  // Legacy fields for backward compatibility
+  month?: string;
+  year?: number;
+  amount?: number;
+  description?: string;
+  
+  // Invoice metadata
+  invoiceDate: string;
+  dueDate: string;
+  reference?: string;
+  
   status: "draft" | "submitted" | "approved" | "paid" | "rejected";
   submittedAt?: Timestamp;
   approvedAt?: Timestamp;
   paidAt?: Timestamp;
+  createdAt?: Timestamp;
   notes?: string;
 }
 
