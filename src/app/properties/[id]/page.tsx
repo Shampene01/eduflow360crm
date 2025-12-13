@@ -18,16 +18,18 @@ import {
   Loader2,
   UserPlus,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { Sidebar } from "@/components/Sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
-import { Property, Address, RoomConfiguration } from "@/lib/schema";
+import { Property, Address, RoomConfiguration, PropertyDocument, PropertyImage } from "@/lib/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getProviderByUserId, getPropertyById, getAddressById, getRoomConfiguration, updateProperty, getPropertyAssignments } from "@/lib/db";
+import { getProviderByUserId, getPropertyById, getAddressById, getRoomConfiguration, updateProperty, getPropertyAssignments, getPropertyDocuments, getPropertyImages } from "@/lib/db";
+import { syncPropertyToCRM } from "@/lib/crmSync";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -44,6 +46,8 @@ import {
 interface PropertyWithAddress extends Property {
   address?: Address;
   roomConfig?: RoomConfiguration;
+  documents?: PropertyDocument[];
+  images?: PropertyImage[];
 }
 
 function PropertyDetailsContent() {
@@ -55,6 +59,9 @@ function PropertyDetailsContent() {
   const [providerId, setProviderId] = useState<string>("");
   const [deactivating, setDeactivating] = useState(false);
   const [assignedStudentsCount, setAssignedStudentsCount] = useState<number>(0);
+  const [syncingToDataverse, setSyncingToDataverse] = useState(false);
+  const [providerDataverseId, setProviderDataverseId] = useState<string>("");
+  const [userDataverseId, setUserDataverseId] = useState<string>("");
 
   useEffect(() => {
     const fetchProperty = async () => {
@@ -71,6 +78,10 @@ function PropertyDetailsContent() {
         }
         setProviderId(provider.providerId);
 
+        // Store provider and user Dataverse IDs for sync
+        setProviderDataverseId(provider.dataverseId || "");
+        setUserDataverseId(user?.dataverseId || "");
+
         // Fetch property from subcollection using provider ID
         const propertyData = await getPropertyById(provider.providerId, id as string);
         if (propertyData) {
@@ -78,7 +89,16 @@ function PropertyDetailsContent() {
           const address = propertyData.addressId ? await getAddressById(propertyData.addressId) : null;
           // Fetch room configuration for pricing
           const roomConfig = await getRoomConfiguration(provider.providerId, id as string);
-          setProperty({ ...propertyData, address: address || undefined, roomConfig: roomConfig || undefined });
+          // Fetch documents and images for the property
+          const documents = await getPropertyDocuments(provider.providerId, id as string);
+          const images = await getPropertyImages(provider.providerId, id as string);
+          setProperty({ 
+            ...propertyData, 
+            address: address || undefined, 
+            roomConfig: roomConfig || undefined,
+            documents: documents || [],
+            images: images || []
+          });
           
           // Fetch active student assignments to calculate occupancy
           const assignments = await getPropertyAssignments(id as string);
@@ -109,6 +129,49 @@ function PropertyDetailsContent() {
       toast.error("Failed to deactivate property");
     } finally {
       setDeactivating(false);
+    }
+  };
+
+  // Handle Sync to Dataverse
+  const handleSyncToDataverse = async () => {
+    if (!property || !providerId) return;
+    
+    // Check if provider has been synced to Dataverse first
+    if (!providerDataverseId) {
+      toast.error("Provider must be synced to Dataverse first");
+      return;
+    }
+    
+    setSyncingToDataverse(true);
+    try {
+      // Fetch latest documents and images before sync
+      const latestDocs = await getPropertyDocuments(providerId, property.propertyId);
+      const latestImages = await getPropertyImages(providerId, property.propertyId);
+      
+      const result = await syncPropertyToCRM(
+        property,
+        providerDataverseId,
+        userDataverseId,
+        property.address || null,
+        latestDocs,
+        latestImages,
+        property.roomConfig || null
+      );
+      
+      if (result.success) {
+        toast.success("Property synced to Dataverse successfully");
+        if (result.propertyDataverseId) {
+          setProperty({ ...property, dataverseId: result.propertyDataverseId });
+        }
+      } else {
+        toast.error(result.message || "Failed to sync to Dataverse");
+        console.error("Dataverse sync error:", result.error);
+      }
+    } catch (error) {
+      console.error("Error syncing to Dataverse:", error);
+      toast.error("Failed to sync to Dataverse");
+    } finally {
+      setSyncingToDataverse(false);
     }
   };
 
@@ -230,6 +293,27 @@ function PropertyDetailsContent() {
                   Edit
                 </Link>
               </Button>
+              {/* Sync to Dataverse button - only visible for shampene@lebonconsulting.co.za */}
+              {user?.email === "shampene@lebonconsulting.co.za" && (
+                <Button
+                  onClick={handleSyncToDataverse}
+                  disabled={syncingToDataverse}
+                  variant="outline"
+                  className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                >
+                  {syncingToDataverse ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Sync to Dataverse
+                    </>
+                  )}
+                </Button>
+              )}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" disabled={property.status === "Inactive" || deactivating}>

@@ -43,8 +43,10 @@ export function ProtectedRoute({
   const isLoading = loading || profileLoading;
 
   useEffect(() => {
+    let isMounted = true;
+    
     const checkAccessAndRedirect = async () => {
-      if (!isLoading) {
+      if (!isLoading && isMounted) {
         // Not logged in - redirect to login
         if (!firebaseUser) {
           router.push(redirectTo);
@@ -62,11 +64,14 @@ export function ProtectedRoute({
         if (user) {
           try {
             const provider = await getProviderByUserId(user.userId || (user as any).uid);
+            if (!isMounted) return; // Prevent state updates after unmount
             isApprovedProvider = provider?.approvalStatus === "Approved";
           } catch (err) {
             console.error("Error checking provider status:", err);
           }
         }
+
+        if (!isMounted) return; // Prevent redirects after unmount
 
         const effectiveUserType = getUserType(user);
         
@@ -93,6 +98,10 @@ export function ProtectedRoute({
     };
 
     checkAccessAndRedirect();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [isLoading, firebaseUser, user, allowedUserTypes, router, redirectTo, requireEmailVerification, pathname]);
 
   const handleRetry = async () => {

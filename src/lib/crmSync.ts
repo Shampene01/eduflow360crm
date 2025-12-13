@@ -19,6 +19,9 @@ import {
   ProviderContactPerson,
   ProviderDocument,
   Property,
+  PropertyDocument,
+  PropertyImage,
+  RoomConfiguration,
   Student,
   StudentPropertyAssignment,
 } from "./schema";
@@ -569,6 +572,44 @@ export function syncProviderToCRMBackground(
 // ============================================================================
 
 /**
+ * Property Manager nested object for Dataverse sync
+ */
+export interface PropertyManagerPayload {
+  name: string | null;
+  idNumber: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+/**
+ * Room Configuration nested object for Dataverse sync
+ */
+export interface RoomConfigurationPayload {
+  // Room type counts
+  bachelor: number;
+  singleEnSuite: number;
+  singleStandard: number;
+  sharing2BedsEnSuite: number;
+  sharing2BedsStandard: number;
+  sharing3BedsEnSuite: number;
+  sharing3BedsStandard: number;
+  
+  // Bed prices per month (in ZAR)
+  bachelorPrice: number;
+  singleEnSuitePrice: number;
+  singleStandardPrice: number;
+  sharing2BedsEnSuitePrice: number;
+  sharing2BedsStandardPrice: number;
+  sharing3BedsEnSuitePrice: number;
+  sharing3BedsStandardPrice: number;
+  
+  // Calculated totals
+  totalRooms: number;
+  totalBeds: number;
+  potentialRevenue: number;
+}
+
+/**
  * Payload for syncing property to Dataverse
  * Links property to the provider's Dataverse account record
  */
@@ -607,11 +648,34 @@ export interface PropertySyncPayload {
   status: string;
   nsfasApproved: boolean;
   
-  // Media
-  coverImageUrl: string;
+  // Property Manager (nested object)
+  propertyManager: PropertyManagerPayload;
+  
+  // Room Configuration (nested object)
+  roomConfiguration: RoomConfigurationPayload;
   
   // Amenities (comma-separated)
   amenities: string;
+  
+  // Image URLs (individual fields for simplicity)
+  coverImageUrl: string | null;
+  bedroomImageUrl: string | null;
+  bathroomImageUrl: string | null;
+  kitchenImageUrl: string | null;
+  commonAreaImageUrl: string | null;
+  exteriorImageUrl: string | null;
+  
+  // Document URLs (individual fields for each document type)
+  documentTitleDeed: string | null;
+  documentLeaseAgreement: string | null;
+  documentComplianceCertificate: string | null;
+  documentFireCertificate: string | null;
+  documentInspectionReport: string | null;
+  documentFloorPlan: string | null;
+  documentZoningCertificate: string | null;
+  documentElectricalCertificate: string | null;
+  documentGasCertificate: string | null;
+  documentOther: string | null;
   
   // Timestamps
   createdAt: string;
@@ -625,19 +689,33 @@ export interface PropertySyncResult {
 }
 
 /**
+ * Helper to find property document URL by type from documents array
+ */
+function getPropertyDocumentUrl(documents: PropertyDocument[], type: string): string | null {
+  const doc = documents.find(d => d.documentType === type);
+  return doc?.fileUrl || null;
+}
+
+/**
  * Sync property data to Power Automate Flow for D365 CRM
  * 
  * @param property - Property data
  * @param providerDataverseId - The Dataverse ID of the accommodation provider (account record)
  * @param userDataverseId - The Dataverse ID of the user who created the property
  * @param address - Property address
+ * @param documents - Property documents array
+ * @param images - Property images array
+ * @param roomConfig - Room configuration for the property
  * @returns Promise<PropertySyncResult>
  */
 export async function syncPropertyToCRM(
   property: Property,
   providerDataverseId: string,
   userDataverseId: string,
-  address?: Address | null
+  address?: Address | null,
+  documents?: PropertyDocument[],
+  images?: PropertyImage[],
+  roomConfig?: RoomConfiguration | null
 ): Promise<PropertySyncResult> {
   // Check if webhook URL is configured
   if (!DATAVERSE_PROPERTY_SYNC_URL) {
@@ -658,6 +736,12 @@ export async function syncPropertyToCRM(
   }
 
   try {
+    // Helper to get image URL by caption/category
+    const getImageByCaption = (imgs: PropertyImage[], caption: string): string | null => {
+      const img = imgs.find(i => i.caption?.toLowerCase().includes(caption.toLowerCase()));
+      return img?.imageUrl || null;
+    };
+
     // Prepare payload for Power Automate
     const payload: PropertySyncPayload = {
       // Link to Dataverse records
@@ -694,11 +778,57 @@ export async function syncPropertyToCRM(
       status: String(property.status || "Draft"),
       nsfasApproved: Boolean(property.nsfasApproved === true),
       
-      // Media
-      coverImageUrl: String(property.coverImageUrl || ""),
+      // Property Manager (nested object)
+      propertyManager: {
+        name: property.managerName || null,
+        idNumber: property.managerId || null,
+        email: property.managerEmail || null,
+        phone: property.managerPhone || null,
+      },
+      
+      // Room Configuration (nested object)
+      roomConfiguration: {
+        bachelor: roomConfig?.bachelor || 0,
+        singleEnSuite: roomConfig?.singleEnSuite || 0,
+        singleStandard: roomConfig?.singleStandard || 0,
+        sharing2BedsEnSuite: roomConfig?.sharing2Beds_EnSuite || 0,
+        sharing2BedsStandard: roomConfig?.sharing2Beds_Standard || 0,
+        sharing3BedsEnSuite: roomConfig?.sharing3Beds_EnSuite || 0,
+        sharing3BedsStandard: roomConfig?.sharing3Beds_Standard || 0,
+        bachelorPrice: roomConfig?.bachelorPrice || 0,
+        singleEnSuitePrice: roomConfig?.singleEnSuitePrice || 0,
+        singleStandardPrice: roomConfig?.singleStandardPrice || 0,
+        sharing2BedsEnSuitePrice: roomConfig?.sharing2Beds_EnSuitePrice || 0,
+        sharing2BedsStandardPrice: roomConfig?.sharing2Beds_StandardPrice || 0,
+        sharing3BedsEnSuitePrice: roomConfig?.sharing3Beds_EnSuitePrice || 0,
+        sharing3BedsStandardPrice: roomConfig?.sharing3Beds_StandardPrice || 0,
+        totalRooms: roomConfig?.totalRooms || 0,
+        totalBeds: roomConfig?.totalBeds || 0,
+        potentialRevenue: roomConfig?.potentialRevenue || 0,
+      },
       
       // Amenities (convert array to comma-separated string)
       amenities: Array.isArray(property.amenities) ? property.amenities.join(", ") : "",
+      
+      // Image URLs (individual fields - use cover image or find by caption)
+      coverImageUrl: property.coverImageUrl || (images && images.length > 0 ? images.find(i => i.isCover)?.imageUrl : null) || null,
+      bedroomImageUrl: getImageByCaption(images || [], "bedroom") || getImageByCaption(images || [], "bed") || (images && images.length > 1 ? images[1]?.imageUrl : null) || null,
+      bathroomImageUrl: getImageByCaption(images || [], "bathroom") || getImageByCaption(images || [], "bath") || (images && images.length > 2 ? images[2]?.imageUrl : null) || null,
+      kitchenImageUrl: getImageByCaption(images || [], "kitchen") || (images && images.length > 3 ? images[3]?.imageUrl : null) || null,
+      commonAreaImageUrl: getImageByCaption(images || [], "common") || getImageByCaption(images || [], "lounge") || getImageByCaption(images || [], "living") || (images && images.length > 4 ? images[4]?.imageUrl : null) || null,
+      exteriorImageUrl: getImageByCaption(images || [], "exterior") || getImageByCaption(images || [], "outside") || getImageByCaption(images || [], "building") || (images && images.length > 5 ? images[5]?.imageUrl : null) || null,
+      
+      // Document URLs (individual fields for each document type)
+      documentTitleDeed: getPropertyDocumentUrl(documents || [], "TITLE_DEED"),
+      documentLeaseAgreement: getPropertyDocumentUrl(documents || [], "LEASE_AGREEMENT"),
+      documentComplianceCertificate: getPropertyDocumentUrl(documents || [], "COMPLIANCE_CERTIFICATE"),
+      documentFireCertificate: getPropertyDocumentUrl(documents || [], "FIRE_CERTIFICATE"),
+      documentInspectionReport: getPropertyDocumentUrl(documents || [], "INSPECTION_REPORT"),
+      documentFloorPlan: getPropertyDocumentUrl(documents || [], "FLOOR_PLAN"),
+      documentZoningCertificate: getPropertyDocumentUrl(documents || [], "ZONING_CERTIFICATE"),
+      documentElectricalCertificate: getPropertyDocumentUrl(documents || [], "ELECTRICAL_CERTIFICATE"),
+      documentGasCertificate: getPropertyDocumentUrl(documents || [], "GAS_CERTIFICATE"),
+      documentOther: getPropertyDocumentUrl(documents || [], "OTHER"),
       
       // Timestamps
       createdAt: property.createdAt ? formatTimestamp(property.createdAt) : new Date().toISOString(),
@@ -764,9 +894,12 @@ export function syncPropertyToCRMBackground(
   property: Property,
   providerDataverseId: string,
   userDataverseId: string,
-  address?: Address | null
+  address?: Address | null,
+  documents?: PropertyDocument[],
+  images?: PropertyImage[],
+  roomConfig?: RoomConfiguration | null
 ): void {
-  syncPropertyToCRM(property, providerDataverseId, userDataverseId, address)
+  syncPropertyToCRM(property, providerDataverseId, userDataverseId, address, documents, images, roomConfig)
     .then((result) => {
       if (result.success) {
         console.log("Property synced to CRM:", result.propertyDataverseId);

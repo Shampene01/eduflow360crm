@@ -22,8 +22,13 @@ import {
   createAddress,
   createRoomConfiguration,
   createPropertyDocument,
-  createPropertyImage
+  createPropertyImage,
+  getPropertyDocuments,
+  getPropertyImages,
+  getRoomConfiguration,
+  getAddressById,
 } from "@/lib/db";
+import { syncPropertyToCRMBackground } from "@/lib/crmSync";
 import { AccommodationProvider, PropertyType, OwnershipType } from "@/lib/schema";
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -845,9 +850,34 @@ function AddPropertyContent() {
         }
       }
 
-      // 8. Finalize
+      // 8. Finalize and sync to Dataverse
       setSubmissionStep(8);
       setSubmissionMessage("Finalizing submission...");
+      
+      // Sync to Dataverse in background (non-blocking) if provider has Dataverse ID
+      if (provider.dataverseId) {
+        console.log("🔄 Syncing property to Dataverse...");
+        // Fetch all created data for sync
+        const [propertyDocs, propertyImages, roomConfig, propertyAddress] = await Promise.all([
+          getPropertyDocuments(provider.providerId, property.propertyId),
+          getPropertyImages(provider.providerId, property.propertyId),
+          getRoomConfiguration(provider.providerId, property.propertyId),
+          address ? getAddressById(address.addressId) : Promise.resolve(null),
+        ]);
+        
+        syncPropertyToCRMBackground(
+          property,
+          provider.dataverseId,
+          user?.dataverseId || "",
+          propertyAddress,
+          propertyDocs,
+          propertyImages,
+          roomConfig
+        );
+        console.log("✅ Property sync to Dataverse initiated");
+      } else {
+        console.log("⚠️ Provider not synced to Dataverse, skipping property sync");
+      }
       
       console.log("🎉 Property creation completed successfully!");
       toast.success("Property submitted for accreditation successfully!");
