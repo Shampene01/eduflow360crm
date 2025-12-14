@@ -306,7 +306,7 @@ function TicketDetailContent() {
               <TicketIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Ticket not found</h3>
               <Button asChild variant="outline" className="mt-4">
-                <Link href="/tickets">
+                <Link href={isAdmin ? "/admin?tab=tickets" : "/tickets"}>
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back to Tickets
                 </Link>
@@ -328,7 +328,7 @@ function TicketDetailContent() {
         <main className="flex-1 p-8 overflow-y-auto">
           {/* Back Button */}
           <Button asChild variant="ghost" className="mb-4">
-            <Link href="/tickets">
+            <Link href={isAdmin ? "/admin?tab=tickets" : "/tickets"}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Tickets
             </Link>
