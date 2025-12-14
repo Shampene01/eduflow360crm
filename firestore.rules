@@ -88,6 +88,10 @@ service cloud.firestore {
       // Provider can read their own
       allow read: if isProviderOwner(providerId);
 
+      // Allow authenticated users to read their own provider record (for checking provider status)
+      // This supports new users before claims are set
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
       // Provider can update non-approval fields only
       allow update: if isProviderOwner(providerId) &&
         !request.resource.data.diff(resource.data).affectedKeys()

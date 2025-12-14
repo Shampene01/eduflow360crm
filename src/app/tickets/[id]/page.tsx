@@ -246,7 +246,7 @@ function TicketDetailContent() {
         authorId: uid,
         authorEmail: user?.email || "",
         authorName: `${user?.firstNames || user?.firstName || ""} ${user?.surname || user?.lastName || ""}`.trim() || user?.email || "",
-        authorRole: "user",
+        authorRole: isAdmin ? "admin" : "user",
         createdAt: Timestamp.now(),
       };
 
