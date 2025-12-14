@@ -679,6 +679,30 @@ export async function getStudentsByProvider(providerId: string): Promise<Student
   return students;
 }
 
+export async function getAllStudents(): Promise<Student[]> {
+  if (!db) return [];
+  const snap = await getDocs(collection(db, COLLECTIONS.STUDENTS));
+  return snap.docs.map(d => d.data() as Student);
+}
+
+export async function getStudentsWithoutActiveAllocation(): Promise<Student[]> {
+  if (!db) return [];
+  
+  // Get all students
+  const allStudents = await getAllStudents();
+  
+  // Get all active assignments
+  const activeAssignmentsQuery = query(
+    collection(db, COLLECTIONS.STUDENT_PROPERTY_ASSIGNMENTS),
+    where("status", "==", "Active")
+  );
+  const activeSnap = await getDocs(activeAssignmentsQuery);
+  const activeStudentIds = new Set(activeSnap.docs.map(d => d.data().studentId));
+  
+  // Filter out students with active allocations
+  return allStudents.filter(s => !activeStudentIds.has(s.studentId));
+}
+
 // ============================================================================
 // STUDENT PROPERTY ASSIGNMENT OPERATIONS
 // ============================================================================

@@ -73,7 +73,7 @@ import {
   getStudentById,
   closeStudentAssignment,
   createStudentAssignment,
-  getStudentsByProvider,
+  getStudentsWithoutActiveAllocation,
 } from "@/lib/db";
 
 interface AllocationWithStudent {
@@ -173,13 +173,9 @@ function OccupancyContent() {
       }
       setAllocations(allocsWithStudents);
 
-      // Fetch available students for new allocations
-      const allStudents = await getStudentsByProvider(pid);
-      // Filter out students who already have an active allocation
-      const activeStudentIds = new Set(
-        assignments.filter(a => a.status === "Active").map(a => a.studentId)
-      );
-      setAvailableStudents(allStudents.filter(s => !activeStudentIds.has(s.studentId)));
+      // Fetch available students (those without any active allocation anywhere)
+      const unallocatedStudents = await getStudentsWithoutActiveAllocation();
+      setAvailableStudents(unallocatedStudents);
     } catch (error) {
       console.error("Error loading property data:", error);
       toast.error("Failed to load property data");
