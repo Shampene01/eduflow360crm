@@ -303,7 +303,15 @@ service cloud.firestore {
           exists(/databases/$(database)/documents/tickets/$(ticketId)) &&
           get(/databases/$(database)/documents/tickets/$(ticketId)).data.submittedBy == request.auth.uid);
 
+        // Admin can update/delete any update
         allow update, delete: if isAdmin();
+        
+        // Ticket submitter can update read status on updates (for marking as read)
+        allow update: if isAuthenticated() &&
+          exists(/databases/$(database)/documents/tickets/$(ticketId)) &&
+          get(/databases/$(database)/documents/tickets/$(ticketId)).data.submittedBy == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'readAt', 'readBy']);
       }
     }
 

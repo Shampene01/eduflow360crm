@@ -21,6 +21,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
+import { DashboardFooter } from "@/components/DashboardFooter";
 import { Sidebar } from "@/components/Sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
@@ -556,6 +557,7 @@ function PropertyDetailsContent() {
             </div>
           </div>
         </main>
+        <DashboardFooter />
       </div>
     </div>
   );

@@ -17,6 +17,7 @@ import {
   Mail,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
+import { DashboardFooter } from "@/components/DashboardFooter";
 import { Sidebar } from "@/components/Sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
@@ -505,472 +506,484 @@ function ManageStudentsContent() {
                   Add Student
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Add New Student</DialogTitle>
-                  <DialogDescription>
-                    Complete all sections to register a new student
-                  </DialogDescription>
-                </DialogHeader>
+              <DialogContent className="max-w-5xl w-[98vw] max-h-[90vh] overflow-y-auto overflow-x-hidden p-0">
+                {/* Header with soft gradient */}
+                <div className="bg-gradient-to-r from-slate-700 to-slate-800 p-6 text-white rounded-t-lg">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-3 text-white text-xl">
+                      <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                        <GraduationCap className="w-5 h-5" />
+                      </div>
+                      Add New Student
+                    </DialogTitle>
+                    <DialogDescription className="text-slate-300 mt-2">
+                      {formStep === 1 && "Verify NSFAS status and enter personal details"}
+                      {formStep === 2 && "Academic information and study details"}
+                      {formStep === 3 && "Room assignment and pricing"}
+                      {formStep === 4 && "Emergency contact and final confirmation"}
+                    </DialogDescription>
+                  </DialogHeader>
 
-                <Tabs value={`step-${formStep}`} className="w-full">
-                  {/* Step Indicators */}
-                  <TabsList className="grid w-full grid-cols-4 mb-6">
-                    <TabsTrigger 
-                      value="step-1" 
-                      onClick={() => setFormStep(1)}
-                      className={formStep >= 1 ? "data-[state=active]:bg-amber-500" : ""}
-                    >
-                      1. NSFAS
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="step-2" 
-                      onClick={() => setFormStep(2)}
-                      className={formStep >= 2 ? "data-[state=active]:bg-amber-500" : ""}
-                    >
-                      2. Personal
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="step-3" 
-                      onClick={() => setFormStep(3)}
-                      className={formStep >= 3 ? "data-[state=active]:bg-amber-500" : ""}
-                    >
-                      3. Room
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="step-4" 
-                      onClick={() => setFormStep(4)}
-                      className={formStep >= 4 ? "data-[state=active]:bg-amber-500" : ""}
-                    >
-                      4. Next of Kin
-                    </TabsTrigger>
-                  </TabsList>
+                  {/* Modern Step Indicator */}
+                  <div className="flex items-center justify-between mt-6 px-2 md:px-4">
+                    {[
+                      { step: 1, label: "NSFAS" },
+                      { step: 2, label: "Personal" },
+                      { step: 3, label: "Room" },
+                      { step: 4, label: "Next of Kin" },
+                    ].map((item, index) => (
+                      <div key={item.step} className="flex items-center">
+                        <div className="flex flex-col items-center">
+                          <div
+                            className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
+                              formStep === item.step
+                                ? "bg-white text-slate-700 shadow-lg scale-110"
+                                : formStep > item.step
+                                ? "bg-emerald-500 text-white"
+                                : "bg-white/10 text-white/60"
+                            }`}
+                          >
+                            {formStep > item.step ? <CheckCircle className="w-5 h-5" /> : item.step}
+                          </div>
+                          <span className={`text-xs mt-1 hidden sm:block ${formStep >= item.step ? "text-white" : "text-white/60"}`}>
+                            {item.label}
+                          </span>
+                        </div>
+                        {index < 3 && (
+                          <div className={`w-8 md:w-16 h-0.5 mx-1 md:mx-2 ${formStep > item.step ? "bg-emerald-500" : "bg-white/20"}`} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-                  {/* Step 1: NSFAS Verification */}
-                  <TabsContent value="step-1" className="space-y-4">
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-1">Verify NSFAS Funding Status</h4>
-                      <p className="text-sm text-gray-600 mb-4">Enter the student&apos;s ID number to check their NSFAS funding status</p>
-                      
-                      <div className="flex gap-3">
-                        <div className="flex-1">
-                          <Label htmlFor="idNumber">ID Number *</Label>
+                <div className="p-8 md:p-10">
+                  <Tabs value={`step-${formStep}`} className="w-full">
+
+                  {/* Step 1: NSFAS & Personal Information */}
+                  <TabsContent value="step-1" className="space-y-6">
+                    {/* NSFAS Verification Card */}
+                    <Card className={`border-2 transition-all ${
+                      nsfasVerified === true ? "border-emerald-500 bg-emerald-50" : 
+                      nsfasVerified === false ? "border-slate-300 bg-slate-50" : "border-gray-200"
+                    }`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                            nsfasVerified === true ? "bg-emerald-500 text-white" :
+                            nsfasVerified === false ? "bg-slate-400 text-white" : "bg-slate-100 text-slate-600"
+                          }`}>
+                            {nsfasVerified === true ? <CheckCircle className="w-6 h-6 md:w-7 md:h-7" /> :
+                             nsfasVerified === false ? <XCircle className="w-6 h-6 md:w-7 md:h-7" /> :
+                             <GraduationCap className="w-6 h-6 md:w-7 md:h-7" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-900">NSFAS Verification</h4>
+                            <p className="text-sm text-gray-500 truncate">
+                              {nsfasVerified === true ? `Funded - R${studentForm.fundedAmount.toLocaleString()} allowance` :
+                               nsfasVerified === false ? "Not funded - Manual entry required" :
+                               "Enter ID number and verify funding status"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2 mt-4">
                           <Input
-                            id="idNumber"
-                            placeholder="Enter 13-digit ID number"
                             value={studentForm.idNumber}
                             onChange={(e) => {
                               const value = e.target.value.replace(/\D/g, "").slice(0, 13);
                               setStudentForm({ ...studentForm, idNumber: value });
                               setNsfasVerified(null);
                             }}
-                            className="mt-1 font-mono text-lg"
+                            placeholder="Enter 13-digit ID number"
+                            maxLength={13}
+                            className="font-mono text-base md:text-lg tracking-wider flex-1"
                           />
-                        </div>
-                        <div className="flex items-end">
                           <Button
+                            type="button"
                             onClick={handleVerifyNsfas}
                             disabled={verifyingNsfas || studentForm.idNumber.length !== 13}
-                            className="bg-amber-500 hover:bg-amber-600 text-gray-900"
+                            className={`px-6 ${nsfasVerified === true ? "bg-emerald-500 hover:bg-emerald-600" : "bg-slate-700 hover:bg-slate-800"}`}
                           >
-                            {verifyingNsfas ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Verifying...
-                              </>
-                            ) : (
-                              "Verify NSFAS"
-                            )}
+                            {verifyingNsfas ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify"}
                           </Button>
                         </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Personal Details Grid */}
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">First Names *</Label>
+                        <Input
+                          value={studentForm.firstNames}
+                          onChange={(e) => setStudentForm({ ...studentForm, firstNames: e.target.value })}
+                          placeholder="Enter first names"
+                          className="h-11"
+                        />
                       </div>
-                      
-                      {nsfasVerified !== null && (
-                        <div className={`mt-4 p-4 rounded-lg flex items-center gap-3 ${
-                          nsfasVerified ? "bg-green-100 border border-green-300" : "bg-gray-100 border border-gray-300"
-                        }`}>
-                          {nsfasVerified ? (
-                            <>
-                              <CheckCircle className="w-8 h-8 text-green-600" />
-                              <div>
-                                <p className="font-semibold text-green-800">NSFAS Funded Student</p>
-                                <p className="text-sm text-green-700">Accommodation Allowance: R{studentForm.fundedAmount.toLocaleString()}</p>
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <XCircle className="w-8 h-8 text-gray-500" />
-                              <div>
-                                <p className="font-semibold text-gray-800">Not NSFAS Funded</p>
-                                <p className="text-sm text-gray-600">Student will need to pay privately</p>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      )}
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Surname *</Label>
+                        <Input
+                          value={studentForm.surname}
+                          onChange={(e) => setStudentForm({ ...studentForm, surname: e.target.value })}
+                          placeholder="Enter surname"
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Email Address</Label>
+                        <Input
+                          type="email"
+                          value={studentForm.email}
+                          onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
+                          placeholder="student@email.com"
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Phone Number</Label>
+                        <Input
+                          value={studentForm.phoneNumber}
+                          onChange={(e) => setStudentForm({ ...studentForm, phoneNumber: e.target.value })}
+                          placeholder="082 123 4567"
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Date of Birth</Label>
+                        <Input
+                          type="date"
+                          value={studentForm.dateOfBirth}
+                          onChange={(e) => setStudentForm({ ...studentForm, dateOfBirth: e.target.value })}
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Gender</Label>
+                        <Select
+                          value={studentForm.gender}
+                          onValueChange={(v) => setStudentForm({ ...studentForm, gender: v as "Male" | "Female" | "Other" })}
+                        >
+                          <SelectTrigger className="h-11">
+                            <SelectValue placeholder="Select gender" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Male">Male</SelectItem>
+                            <SelectItem value="Female">Female</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
 
                     <div className="flex justify-end pt-4">
-                      <Button 
+                      <Button
                         onClick={() => setFormStep(2)}
-                        disabled={studentForm.idNumber.length !== 13}
-                        className="bg-amber-500 hover:bg-amber-600 text-gray-900"
+                        disabled={!studentForm.idNumber || !studentForm.firstNames || !studentForm.surname}
+                        className="bg-slate-700 hover:bg-slate-800 px-8"
                       >
-                        Next: Personal Details
+                        Continue
+                        <Mail className="w-4 h-4 ml-2" />
                       </Button>
                     </div>
                   </TabsContent>
 
-                  {/* Step 2: Personal & Academic Information */}
+                  {/* Step 2: Academic Information */}
                   <TabsContent value="step-2" className="space-y-6">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-4">Personal Information</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="firstNames">First Names *</Label>
-                          <Input
-                            id="firstNames"
-                            value={studentForm.firstNames}
-                            onChange={(e) => setStudentForm({ ...studentForm, firstNames: e.target.value })}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="surname">Surname *</Label>
-                          <Input
-                            id="surname"
-                            value={studentForm.surname}
-                            onChange={(e) => setStudentForm({ ...studentForm, surname: e.target.value })}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="email">Email</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={studentForm.email}
-                            onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="phoneNumber">Phone Number</Label>
-                          <Input
-                            id="phoneNumber"
-                            value={studentForm.phoneNumber}
-                            onChange={(e) => setStudentForm({ ...studentForm, phoneNumber: e.target.value })}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="gender">Gender</Label>
-                          <Select
-                            value={studentForm.gender}
-                            onValueChange={(value) => setStudentForm({ ...studentForm, gender: value as "Male" | "Female" | "Other" })}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Select gender" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Male">Male</SelectItem>
-                              <SelectItem value="Female">Female</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                          <Input
-                            id="dateOfBirth"
-                            type="date"
-                            value={studentForm.dateOfBirth}
-                            onChange={(e) => setStudentForm({ ...studentForm, dateOfBirth: e.target.value })}
-                            className="mt-1"
-                          />
-                        </div>
+                    {/* Academic Info Header */}
+                    <div className="flex items-center gap-3 pb-4 border-b">
+                      <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                        <GraduationCap className="w-5 h-5 text-slate-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900">Academic Information</h3>
+                        <p className="text-sm text-gray-500">Institution and study details</p>
                       </div>
                     </div>
 
-                    <div className="border-t pt-4">
-                      <h4 className="font-semibold text-gray-900 mb-4">Academic Information</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="institution">Institution</Label>
-                          <Input
-                            id="institution"
-                            value={studentForm.institution}
-                            onChange={(e) => setStudentForm({ ...studentForm, institution: e.target.value })}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="studentNumber">Student Number</Label>
-                          <Input
-                            id="studentNumber"
-                            value={studentForm.studentNumber}
-                            onChange={(e) => setStudentForm({ ...studentForm, studentNumber: e.target.value })}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="program">Program/Course</Label>
-                          <Input
-                            id="program"
-                            value={studentForm.program}
-                            onChange={(e) => setStudentForm({ ...studentForm, program: e.target.value })}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="yearOfStudy">Year of Study</Label>
-                          <Select
-                            value={studentForm.yearOfStudy.toString()}
-                            onValueChange={(value) => setStudentForm({ ...studentForm, yearOfStudy: parseInt(value) })}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Select year" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1">1st Year</SelectItem>
-                              <SelectItem value="2">2nd Year</SelectItem>
-                              <SelectItem value="3">3rd Year</SelectItem>
-                              <SelectItem value="4">4th Year</SelectItem>
-                              <SelectItem value="5">5th Year</SelectItem>
-                              <SelectItem value="6">Postgraduate</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Institution</Label>
+                        <Input
+                          value={studentForm.institution}
+                          onChange={(e) => setStudentForm({ ...studentForm, institution: e.target.value })}
+                          placeholder="University/College name"
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Student Number</Label>
+                        <Input
+                          value={studentForm.studentNumber}
+                          onChange={(e) => setStudentForm({ ...studentForm, studentNumber: e.target.value })}
+                          placeholder="Student number"
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Program/Course</Label>
+                        <Input
+                          value={studentForm.program}
+                          onChange={(e) => setStudentForm({ ...studentForm, program: e.target.value })}
+                          placeholder="e.g. Bachelor of Commerce"
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Year of Study</Label>
+                        <Select
+                          value={String(studentForm.yearOfStudy)}
+                          onValueChange={(v) => setStudentForm({ ...studentForm, yearOfStudy: parseInt(v) })}
+                        >
+                          <SelectTrigger className="h-11">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1, 2, 3, 4, 5, 6].map((year) => (
+                              <SelectItem key={year} value={String(year)}>Year {year}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
 
                     <div className="flex justify-between pt-4">
-                      <Button variant="outline" onClick={() => setFormStep(1)}>
+                      <Button variant="outline" onClick={() => setFormStep(1)} className="px-6">
                         Back
                       </Button>
-                      <Button 
-                        onClick={() => setFormStep(3)}
-                        disabled={!studentForm.firstNames || !studentForm.surname}
-                        className="bg-amber-500 hover:bg-amber-600 text-gray-900"
-                      >
-                        Next: Room Assignment
+                      <Button onClick={() => setFormStep(3)} className="bg-slate-700 hover:bg-slate-800 px-8">
+                        Continue
+                        <Building2 className="w-4 h-4 ml-2" />
                       </Button>
                     </div>
                   </TabsContent>
 
                   {/* Step 3: Room Assignment */}
                   <TabsContent value="step-3" className="space-y-6">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-1">Room Type Assignment</h4>
-                      <p className="text-sm text-gray-600 mb-4">Select the room type for this student. The monthly rent will be calculated automatically.</p>
-                      
-                      {getRoomTypes().length === 0 ? (
-                        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                          <p className="text-yellow-800">No room types configured for this property. Please configure room types in the property settings first.</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {getRoomTypes().map((room) => (
-                            <div
-                              key={room.value}
-                              onClick={() => setStudentForm({ 
-                                ...studentForm, 
-                                roomType: room.value, 
-                                monthlyRent: room.price 
-                              })}
-                              className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                                studentForm.roomType === room.value
-                                  ? "border-amber-500 bg-amber-50 ring-2 ring-amber-500"
-                                  : "border-gray-200 hover:border-amber-300 hover:bg-gray-50"
-                              }`}
-                            >
-                              <div className="flex justify-between items-center">
-                                <div>
-                                  <p className="font-semibold text-gray-900">{room.label}</p>
+                    {/* Room Selection Header */}
+                    <div className="text-center mb-4">
+                      <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                      <h3 className="text-lg font-semibold text-gray-900">Room Assignment</h3>
+                      <p className="text-sm text-gray-500">Select room type and confirm details</p>
+                    </div>
+
+                    {/* Room Type Cards */}
+                    <div className="grid gap-3 max-h-[35vh] overflow-y-auto pr-2">
+                      {getRoomTypes().length > 0 ? (
+                        getRoomTypes().map((room) => (
+                          <div
+                            key={room.value}
+                            onClick={() => setStudentForm({ ...studentForm, roomType: room.value, monthlyRent: room.price })}
+                            className={`p-4 rounded-xl border-2 cursor-pointer transition-all hover:shadow-md ${
+                              studentForm.roomType === room.value
+                                ? "border-emerald-500 bg-emerald-50"
+                                : "border-gray-200 hover:border-slate-300"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex items-center gap-4 min-w-0">
+                                <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                  studentForm.roomType === room.value ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-600"
+                                }`}>
+                                  <Building2 className="w-5 h-5 md:w-6 md:h-6" />
+                                </div>
+                                <div className="min-w-0">
+                                  <h4 className="font-semibold text-gray-900 truncate">{room.label}</h4>
                                   <p className="text-sm text-gray-500">{room.available} rooms available</p>
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-2xl font-bold text-amber-600">R{room.price.toLocaleString()}</p>
-                                  <p className="text-sm text-gray-500">per month</p>
-                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {studentForm.roomType && (
-                        <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <p className="font-semibold text-green-800">Selected Room Type</p>
-                              <p className="text-sm text-green-700">{getRoomTypes().find(r => r.value === studentForm.roomType)?.label}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm text-green-700">Monthly Rent</p>
-                              <p className="text-2xl font-bold text-green-800">R{studentForm.monthlyRent.toLocaleString()}</p>
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-lg font-bold text-emerald-600">R{room.price.toLocaleString()}</p>
+                                <p className="text-xs text-gray-500">per month</p>
+                              </div>
                             </div>
                           </div>
-                          {studentForm.funded && studentForm.fundedAmount > 0 && (
-                            <div className="mt-3 pt-3 border-t border-green-300">
-                              <div className="flex justify-between text-sm">
-                                <span className="text-green-700">NSFAS Annual Allowance:</span>
-                                <span className="font-medium text-green-800">R{studentForm.fundedAmount.toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between text-sm mt-1">
-                                <span className="text-green-700">Annual Rent (10 months):</span>
-                                <span className="font-medium text-green-800">R{(studentForm.monthlyRent * 10).toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between text-sm mt-1">
-                                <span className="text-green-700">Shortfall/Surplus:</span>
-                                <span className={`font-medium ${studentForm.fundedAmount >= (studentForm.monthlyRent * 10) ? "text-green-800" : "text-red-600"}`}>
-                                  R{(studentForm.fundedAmount - (studentForm.monthlyRent * 10)).toLocaleString()}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        ))
+                      ) : (
+                        <Card className="border-dashed">
+                          <CardContent className="p-6 text-center">
+                            <p className="text-gray-500">No room types configured for this property</p>
+                          </CardContent>
+                        </Card>
                       )}
+                    </div>
 
-                      <div className="mt-4">
-                        <Label htmlFor="startDate">Lease Start Date</Label>
+                    {/* Start Date & Rent */}
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Monthly Rent</Label>
                         <Input
-                          id="startDate"
+                          type="number"
+                          value={studentForm.monthlyRent}
+                          onChange={(e) => setStudentForm({ ...studentForm, monthlyRent: parseFloat(e.target.value) || 0 })}
+                          placeholder="0.00"
+                          className="h-11 text-lg font-semibold"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Start Date</Label>
+                        <Input
                           type="date"
                           value={studentForm.startDate}
                           onChange={(e) => setStudentForm({ ...studentForm, startDate: e.target.value })}
-                          className="mt-1 max-w-xs"
+                          className="h-11"
                         />
                       </div>
                     </div>
 
+                    {/* NSFAS Summary if funded */}
+                    {studentForm.funded && studentForm.fundedAmount > 0 && (
+                      <Card className="bg-emerald-50 border-emerald-200">
+                        <CardContent className="p-4">
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <span className="text-emerald-700">NSFAS Allowance:</span>
+                              <p className="font-semibold text-emerald-800">R{studentForm.fundedAmount.toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <span className="text-emerald-700">Annual Rent (10mo):</span>
+                              <p className="font-semibold text-emerald-800">R{(studentForm.monthlyRent * 10).toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <span className="text-emerald-700">Balance:</span>
+                              <p className={`font-semibold ${studentForm.fundedAmount >= (studentForm.monthlyRent * 10) ? "text-emerald-800" : "text-red-600"}`}>
+                                R{(studentForm.fundedAmount - (studentForm.monthlyRent * 10)).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
                     <div className="flex justify-between pt-4">
-                      <Button variant="outline" onClick={() => setFormStep(2)}>
+                      <Button variant="outline" onClick={() => setFormStep(2)} className="px-6">
                         Back
                       </Button>
                       <Button 
                         onClick={() => setFormStep(4)}
                         disabled={!studentForm.roomType}
-                        className="bg-amber-500 hover:bg-amber-600 text-gray-900"
+                        className="bg-slate-700 hover:bg-slate-800 px-8"
                       >
-                        Next: Next of Kin
+                        Continue
+                        <Phone className="w-4 h-4 ml-2" />
                       </Button>
                     </div>
                   </TabsContent>
 
-                  {/* Step 4: Next of Kin */}
+                  {/* Step 4: Next of Kin & Confirmation */}
                   <TabsContent value="step-4" className="space-y-6">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-1">Next of Kin / Emergency Contact</h4>
-                      <p className="text-sm text-gray-600 mb-4">Provide emergency contact details for this student</p>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="nextOfKinName">Full Name *</Label>
-                          <Input
-                            id="nextOfKinName"
-                            value={studentForm.nextOfKinName}
-                            onChange={(e) => setStudentForm({ ...studentForm, nextOfKinName: e.target.value })}
-                            placeholder="e.g., John Doe"
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="nextOfKinRelationship">Relationship *</Label>
-                          <Select
-                            value={studentForm.nextOfKinRelationship}
-                            onValueChange={(value) => setStudentForm({ ...studentForm, nextOfKinRelationship: value })}
-                          >
-                            <SelectTrigger className="mt-1">
-                              <SelectValue placeholder="Select relationship" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Parent">Parent</SelectItem>
-                              <SelectItem value="Guardian">Guardian</SelectItem>
-                              <SelectItem value="Spouse">Spouse</SelectItem>
-                              <SelectItem value="Sibling">Sibling</SelectItem>
-                              <SelectItem value="Relative">Other Relative</SelectItem>
-                              <SelectItem value="Friend">Friend</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label htmlFor="nextOfKinPhone">Phone Number *</Label>
-                          <Input
-                            id="nextOfKinPhone"
-                            value={studentForm.nextOfKinPhone}
-                            onChange={(e) => setStudentForm({ ...studentForm, nextOfKinPhone: e.target.value })}
-                            placeholder="e.g., 0821234567"
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="nextOfKinEmail">Email</Label>
-                          <Input
-                            id="nextOfKinEmail"
-                            type="email"
-                            value={studentForm.nextOfKinEmail}
-                            onChange={(e) => setStudentForm({ ...studentForm, nextOfKinEmail: e.target.value })}
-                            placeholder="e.g., john@example.com"
-                            className="mt-1"
-                          />
-                        </div>
-                        <div className="col-span-2">
-                          <Label htmlFor="nextOfKinAddress">Address</Label>
-                          <Textarea
-                            id="nextOfKinAddress"
-                            value={studentForm.nextOfKinAddress}
-                            onChange={(e) => setStudentForm({ ...studentForm, nextOfKinAddress: e.target.value })}
-                            placeholder="Full address"
-                            className="mt-1"
-                            rows={2}
-                          />
-                        </div>
+                    {/* Emergency Contact Header */}
+                    <div className="flex items-center gap-3 pb-4 border-b">
+                      <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                        <Phone className="w-5 h-5 text-red-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900">Emergency Contact</h3>
+                        <p className="text-sm text-gray-500">Next of kin details</p>
                       </div>
                     </div>
 
-                    {/* Summary */}
-                    <div className="p-4 bg-gray-50 border rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-3">Summary</h4>
-                      <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
-                        <div>
-                          <span className="text-gray-500">Student:</span>
-                          <span className="ml-2 font-medium">{studentForm.firstNames} {studentForm.surname}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">ID Number:</span>
-                          <span className="ml-2 font-mono">{studentForm.idNumber}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">NSFAS Status:</span>
-                          <span className={`ml-2 font-medium ${studentForm.funded ? "text-green-600" : "text-gray-600"}`}>
-                            {studentForm.funded ? "Funded" : "Not Funded"}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Room Type:</span>
-                          <span className="ml-2 font-medium">{getRoomTypes().find(r => r.value === studentForm.roomType)?.label || "-"}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Monthly Rent:</span>
-                          <span className="ml-2 font-medium">R{studentForm.monthlyRent.toLocaleString()}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Start Date:</span>
-                          <span className="ml-2 font-medium">{studentForm.startDate}</span>
-                        </div>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Full Name *</Label>
+                        <Input
+                          value={studentForm.nextOfKinName}
+                          onChange={(e) => setStudentForm({ ...studentForm, nextOfKinName: e.target.value })}
+                          placeholder="Contact person name"
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Relationship *</Label>
+                        <Select
+                          value={studentForm.nextOfKinRelationship}
+                          onValueChange={(value) => setStudentForm({ ...studentForm, nextOfKinRelationship: value })}
+                        >
+                          <SelectTrigger className="h-11">
+                            <SelectValue placeholder="Select relationship" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Parent">Parent</SelectItem>
+                            <SelectItem value="Guardian">Guardian</SelectItem>
+                            <SelectItem value="Spouse">Spouse</SelectItem>
+                            <SelectItem value="Sibling">Sibling</SelectItem>
+                            <SelectItem value="Relative">Other Relative</SelectItem>
+                            <SelectItem value="Friend">Friend</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Phone Number *</Label>
+                        <Input
+                          value={studentForm.nextOfKinPhone}
+                          onChange={(e) => setStudentForm({ ...studentForm, nextOfKinPhone: e.target.value })}
+                          placeholder="082 123 4567"
+                          className="h-11"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Email Address</Label>
+                        <Input
+                          type="email"
+                          value={studentForm.nextOfKinEmail}
+                          onChange={(e) => setStudentForm({ ...studentForm, nextOfKinEmail: e.target.value })}
+                          placeholder="contact@email.com"
+                          className="h-11"
+                        />
                       </div>
                     </div>
 
-                    <div className="flex justify-between pt-4">
-                      <Button variant="outline" onClick={() => setFormStep(3)}>
+                    {/* Summary Card */}
+                    <Card className="bg-slate-50 border-slate-200">
+                      <CardContent className="p-4 md:p-5">
+                        <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <CheckCircle className="w-5 h-5 text-emerald-500" />
+                          Confirmation Summary
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 text-sm">
+                          <div className="space-y-2">
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-500">Student</span>
+                              <span className="font-medium text-right truncate">{studentForm.firstNames} {studentForm.surname}</span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-500">ID Number</span>
+                              <span className="font-mono text-right">{studentForm.idNumber}</span>
+                            </div>
+                            <div className="flex justify-between items-center gap-2">
+                              <span className="text-gray-500">NSFAS Status</span>
+                              <Badge className={studentForm.funded ? "bg-emerald-500" : "bg-slate-400"}>
+                                {studentForm.funded ? "Funded" : "Not Funded"}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-500">Property</span>
+                              <span className="font-medium text-right truncate">{property?.name}</span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-500">Room Type</span>
+                              <span className="font-medium text-right truncate">{getRoomTypes().find(r => r.value === studentForm.roomType)?.label || "-"}</span>
+                            </div>
+                            <div className="flex justify-between gap-2">
+                              <span className="text-gray-500">Monthly Rent</span>
+                              <span className="font-bold text-emerald-600">R{studentForm.monthlyRent.toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div className="flex flex-col-reverse sm:flex-row justify-between gap-3 pt-4">
+                      <Button variant="outline" onClick={() => setFormStep(3)} className="px-6">
                         Back
                       </Button>
                       <Button
                         onClick={handleAddStudent}
                         disabled={addingStudent || !studentForm.nextOfKinName || !studentForm.nextOfKinPhone || !studentForm.nextOfKinRelationship}
-                        className="bg-amber-500 hover:bg-amber-600 text-gray-900"
+                        className="bg-emerald-600 hover:bg-emerald-700 px-8 shadow-md"
                       >
                         {addingStudent ? (
                           <>
@@ -979,14 +992,15 @@ function ManageStudentsContent() {
                           </>
                         ) : (
                           <>
-                            <UserPlus className="w-4 h-4 mr-2" />
-                            Add Student
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Confirm & Add Student
                           </>
                         )}
                       </Button>
                     </div>
                   </TabsContent>
-                </Tabs>
+                  </Tabs>
+                </div>
               </DialogContent>
             </Dialog>
           </div>
@@ -1159,6 +1173,7 @@ function ManageStudentsContent() {
             </CardContent>
           </Card>
         </main>
+        <DashboardFooter />
       </div>
     </div>
   );
