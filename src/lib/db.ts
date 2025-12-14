@@ -651,6 +651,34 @@ export async function updateStudent(studentId: string, data: Partial<Student>): 
   });
 }
 
+export async function getStudentsByProvider(providerId: string): Promise<Student[]> {
+  if (!db) return [];
+  
+  // Get all properties for this provider
+  const properties = await getPropertiesByProvider(providerId);
+  if (properties.length === 0) return [];
+  
+  const propertyIds = properties.map(p => p.propertyId);
+  
+  // Get all assignments for these properties
+  const studentIds = new Set<string>();
+  for (const propertyId of propertyIds) {
+    const assignments = await getPropertyAssignments(propertyId);
+    assignments.forEach(a => studentIds.add(a.studentId));
+  }
+  
+  if (studentIds.size === 0) return [];
+  
+  // Get student details
+  const students: Student[] = [];
+  for (const studentId of studentIds) {
+    const student = await getStudentById(studentId);
+    if (student) students.push(student);
+  }
+  
+  return students;
+}
+
 // ============================================================================
 // STUDENT PROPERTY ASSIGNMENT OPERATIONS
 // ============================================================================

@@ -42,7 +42,7 @@ const providerSections: SidebarSection[] = [
     items: [
       { label: "Dashboard", href: "/provider-dashboard", icon: Home },
       { label: "Properties", href: "/properties", icon: Building2 },
-      { label: "Rooms & Allocations", href: "/rooms", icon: BedDouble },
+      { label: "Occupancy & Capacity", href: "/rooms", icon: BedDouble },
       { label: "Students", href: "/students", icon: Users },
       { label: "Payments", href: "/payments", icon: CreditCard },
       { label: "Invoices", href: "/invoices", icon: FileText },
