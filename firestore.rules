@@ -322,5 +322,22 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create, update, delete: if isSuperAdmin();
     }
+
+    // =====================================================
+    // 14. PAYMENTS
+    // =====================================================
+    match /payments/{paymentId} {
+      // Providers can read payments for their own properties
+      allow read: if isAdmin() || isProviderOwner(resource.data.providerId);
+
+      // Providers can create payments (manual payments require approval)
+      allow create: if isAdmin() || isProviderOwner(request.resource.data.providerId);
+
+      // Admins can update any payment; providers can update their own
+      allow update: if isAdmin() || isProviderOwner(resource.data.providerId);
+
+      // Only admins can delete payments
+      allow delete: if isAdmin();
+    }
   }
 }
