@@ -271,373 +271,382 @@ function StudentDetailContent() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Main Content */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Personal Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="w-5 h-5" />
-                    Personal Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Full Name</p>
-                      <p className="font-medium">{student.firstNames} {student.surname}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">ID Number</p>
-                      <p className="font-mono">{student.idNumber}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Gender</p>
-                      <p className="font-medium">{student.gender || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Date of Birth</p>
-                      <p className="font-medium">{student.dateOfBirth || "-"}</p>
-                    </div>
-                  </div>
+          {/* Tabs at the top */}
+          <Tabs defaultValue="details" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
+              <TabsTrigger value="details" className="flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Student Details
+              </TabsTrigger>
+              <TabsTrigger value="payments" className="flex items-center gap-2">
+                <CreditCard className="w-4 h-4" />
+                Payment History
+              </TabsTrigger>
+              <TabsTrigger value="documents" className="flex items-center gap-2">
+                Documents
+              </TabsTrigger>
+            </TabsList>
 
-                  <div className="border-t my-4" />
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500">Email</p>
-                        <p className="font-medium">{student.email || "-"}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500">Phone</p>
-                        <p className="font-medium">{student.phoneNumber || "-"}</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Academic Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <GraduationCap className="w-5 h-5" />
-                    Academic Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Institution</p>
-                      <p className="font-medium">{student.institution || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Student Number</p>
-                      <p className="font-mono">{student.studentNumber || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Program/Course</p>
-                      <p className="font-medium">{student.program || "-"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Year of Study</p>
-                      <p className="font-medium">
-                        {student.yearOfStudy ? `Year ${student.yearOfStudy}` : "-"}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Property Assignments */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="w-5 h-5" />
-                    Property Assignments
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {assignments.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                      <p>No property assignments found</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {assignments.map(({ assignment, property }) => (
-                        <div
-                          key={assignment.assignmentId}
-                          className="p-4 border rounded-lg hover:bg-gray-50"
-                        >
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <Link
-                                href={`/properties/${assignment.propertyId}`}
-                                className="font-semibold text-amber-600 hover:underline"
-                              >
-                                {property?.name || "Unknown Property"}
-                              </Link>
-                              <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="w-4 h-4" />
-                                  {assignment.startDate}
-                                  {assignment.endDate && ` - ${assignment.endDate}`}
-                                </span>
-                                {assignment.monthlyRate && (
-                                  <span className="flex items-center gap-1">
-                                    <CreditCard className="w-4 h-4" />
-                                    R{assignment.monthlyRate.toLocaleString()}/month
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            {getAssignmentStatusBadge(assignment.status)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Tabs Section */}
-              <Tabs defaultValue="payments" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="payments" className="flex items-center gap-2">
-                    <CreditCard className="w-4 h-4" />
-                    Payment History
-                  </TabsTrigger>
-                  <TabsTrigger value="documents" className="flex items-center gap-2">
-                    Documents
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="payments" className="mt-4">
+            {/* Student Details Tab */}
+            <TabsContent value="details">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Main Content */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Personal Information */}
                   <Card>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">Payment History</CardTitle>
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="text-right">
-                            <span className="text-gray-500">Total Received: </span>
-                            <span className="font-bold text-green-600">
-                              R{payments
-                                .filter(p => p.status === "Posted")
-                                .reduce((sum, p) => sum + p.disbursedAmount, 0)
-                                .toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <User className="w-5 h-5" />
+                        Personal Information
+                      </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      {payments.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                          <CreditCard className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                          <p>No payment history found</p>
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Period</TableHead>
-                                <TableHead>Source</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead className="text-right">Amount</TableHead>
-                                <TableHead>Status</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {payments.map((payment) => (
-                                <TableRow key={payment.paymentId}>
-                                  <TableCell className="font-medium">
-                                    {(() => {
-                                      const [year, month] = payment.paymentPeriod.split("-");
-                                      const date = new Date(parseInt(year), parseInt(month) - 1);
-                                      return date.toLocaleDateString("en-ZA", { month: "short", year: "numeric" });
-                                    })()}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge className={payment.source === "NSFAS" ? "bg-blue-500" : "bg-orange-500"}>
-                                      {payment.source}
-                                    </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-sm text-gray-600">
-                                    {payment.allowanceType}
-                                  </TableCell>
-                                  <TableCell className="text-right font-semibold">
-                                    R{payment.disbursedAmount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Badge className={
-                                      payment.status === "Posted" ? "bg-green-500" :
-                                      payment.status === "PendingApproval" ? "bg-amber-500" :
-                                      "bg-red-500"
-                                    }>
-                                      {payment.status === "Posted" ? "Posted" :
-                                       payment.status === "PendingApproval" ? "Pending" :
-                                       "Rejected"}
-                                    </Badge>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                <TabsContent value="documents" className="mt-4">
-                  <Card>
-                    <CardContent className="py-8">
-                      <div className="text-center text-gray-500">
-                        <p>No documents uploaded</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              </Tabs>
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* NSFAS Status */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="w-5 h-5" />
-                    NSFAS Funding
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className={`p-4 rounded-lg ${student.funded ? "bg-green-50 border border-green-200" : "bg-gray-50 border border-gray-200"}`}>
-                    <div className="flex items-center gap-3">
-                      {student.funded ? (
-                        <CheckCircle className="w-8 h-8 text-green-600" />
-                      ) : (
-                        <XCircle className="w-8 h-8 text-gray-400" />
-                      )}
-                      <div>
-                        <p className={`font-semibold ${student.funded ? "text-green-800" : "text-gray-700"}`}>
-                          {student.funded ? "NSFAS Funded" : "Not Funded"}
-                        </p>
-                        {student.funded && student.fundedAmount && (
-                          <p className="text-sm text-green-700">
-                            R{student.fundedAmount.toLocaleString()} / year
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    {student.nsfasNumber && (
-                      <div className="mt-3 pt-3 border-t border-green-200">
-                        <p className="text-sm text-gray-500">NSFAS Number</p>
-                        <p className="font-mono">{student.nsfasNumber}</p>
-                      </div>
-                    )}
-                    {student.fundingYear && (
-                      <div className="mt-2">
-                        <p className="text-sm text-gray-500">Funding Year</p>
-                        <p className="font-medium">{student.fundingYear}</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Next of Kin */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="w-5 h-5" />
-                    Next of Kin
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {student.nextOfKinName ? (
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm text-gray-500">Name</p>
-                        <p className="font-medium">{student.nextOfKinName}</p>
-                      </div>
-                      {student.nextOfKinRelationship && (
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <p className="text-sm text-gray-500">Relationship</p>
-                          <p className="font-medium">{student.nextOfKinRelationship}</p>
+                          <p className="text-sm text-gray-500">Full Name</p>
+                          <p className="font-medium">{student.firstNames} {student.surname}</p>
                         </div>
-                      )}
-                      {student.nextOfKinPhone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="w-4 h-4 text-gray-400" />
-                          <div>
-                            <p className="text-sm text-gray-500">Phone</p>
-                            <p className="font-medium">{student.nextOfKinPhone}</p>
-                          </div>
+                        <div>
+                          <p className="text-sm text-gray-500">ID Number</p>
+                          <p className="font-mono">{student.idNumber}</p>
                         </div>
-                      )}
-                      {student.nextOfKinEmail && (
+                        <div>
+                          <p className="text-sm text-gray-500">Gender</p>
+                          <p className="font-medium">{student.gender || "-"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Date of Birth</p>
+                          <p className="font-medium">{student.dateOfBirth || "-"}</p>
+                        </div>
+                      </div>
+
+                      <div className="border-t my-4" />
+
+                      <div className="grid grid-cols-2 gap-4">
                         <div className="flex items-center gap-2">
                           <Mail className="w-4 h-4 text-gray-400" />
                           <div>
                             <p className="text-sm text-gray-500">Email</p>
-                            <p className="font-medium">{student.nextOfKinEmail}</p>
+                            <p className="font-medium">{student.email || "-"}</p>
                           </div>
                         </div>
-                      )}
-                      {student.nextOfKinAddress && (
-                        <div className="flex items-start gap-2">
-                          <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                        <div className="flex items-center gap-2">
+                          <Phone className="w-4 h-4 text-gray-400" />
                           <div>
-                            <p className="text-sm text-gray-500">Address</p>
-                            <p className="font-medium text-sm">{student.nextOfKinAddress}</p>
+                            <p className="text-sm text-gray-500">Phone</p>
+                            <p className="font-medium">{student.phoneNumber || "-"}</p>
                           </div>
                         </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Academic Information */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <GraduationCap className="w-5 h-5" />
+                        Academic Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-500">Institution</p>
+                          <p className="font-medium">{student.institution || "-"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Student Number</p>
+                          <p className="font-mono">{student.studentNumber || "-"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Program/Course</p>
+                          <p className="font-medium">{student.program || "-"}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Year of Study</p>
+                          <p className="font-medium">
+                            {student.yearOfStudy ? `Year ${student.yearOfStudy}` : "-"}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Property Assignments */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Building2 className="w-5 h-5" />
+                        Property Assignments
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {assignments.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                          <p>No property assignments found</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {assignments.map(({ assignment, property }) => (
+                            <div
+                              key={assignment.assignmentId}
+                              className="p-4 border rounded-lg hover:bg-gray-50"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <Link
+                                    href={`/properties/${assignment.propertyId}`}
+                                    className="font-semibold text-amber-600 hover:underline"
+                                  >
+                                    {property?.name || "Unknown Property"}
+                                  </Link>
+                                  <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                                    <span className="flex items-center gap-1">
+                                      <Calendar className="w-4 h-4" />
+                                      {assignment.startDate}
+                                      {assignment.endDate && ` - ${assignment.endDate}`}
+                                    </span>
+                                    {assignment.monthlyRate && (
+                                      <span className="flex items-center gap-1">
+                                        <CreditCard className="w-4 h-4" />
+                                        R{assignment.monthlyRate.toLocaleString()}/month
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {getAssignmentStatusBadge(assignment.status)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Sidebar for Student Details */}
+                <div className="space-y-6">
+                  {/* NSFAS Status */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <CreditCard className="w-5 h-5" />
+                        NSFAS Funding
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className={`p-4 rounded-lg ${student.funded ? "bg-green-50 border border-green-200" : "bg-gray-50 border border-gray-200"}`}>
+                        <div className="flex items-center gap-3">
+                          {student.funded ? (
+                            <CheckCircle className="w-8 h-8 text-green-600" />
+                          ) : (
+                            <XCircle className="w-8 h-8 text-gray-400" />
+                          )}
+                          <div>
+                            <p className={`font-semibold ${student.funded ? "text-green-800" : "text-gray-700"}`}>
+                              {student.funded ? "NSFAS Funded" : "Not Funded"}
+                            </p>
+                            {student.funded && student.fundedAmount && (
+                              <p className="text-sm text-green-700">
+                                R{student.fundedAmount.toLocaleString()} / year
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {student.nsfasNumber && (
+                          <div className="mt-3 pt-3 border-t border-green-200">
+                            <p className="text-sm text-gray-500">NSFAS Number</p>
+                            <p className="font-mono">{student.nsfasNumber}</p>
+                          </div>
+                        )}
+                        {student.fundingYear && (
+                          <div className="mt-2">
+                            <p className="text-sm text-gray-500">Funding Year</p>
+                            <p className="font-medium">{student.fundingYear}</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Next of Kin */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="w-5 h-5" />
+                        Next of Kin
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {student.nextOfKinName ? (
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-sm text-gray-500">Name</p>
+                            <p className="font-medium">{student.nextOfKinName}</p>
+                          </div>
+                          {student.nextOfKinRelationship && (
+                            <div>
+                              <p className="text-sm text-gray-500">Relationship</p>
+                              <p className="font-medium">{student.nextOfKinRelationship}</p>
+                            </div>
+                          )}
+                          {student.nextOfKinPhone && (
+                            <div className="flex items-center gap-2">
+                              <Phone className="w-4 h-4 text-gray-400" />
+                              <div>
+                                <p className="text-sm text-gray-500">Phone</p>
+                                <p className="font-medium">{student.nextOfKinPhone}</p>
+                              </div>
+                            </div>
+                          )}
+                          {student.nextOfKinEmail && (
+                            <div className="flex items-center gap-2">
+                              <Mail className="w-4 h-4 text-gray-400" />
+                              <div>
+                                <p className="text-sm text-gray-500">Email</p>
+                                <p className="font-medium">{student.nextOfKinEmail}</p>
+                              </div>
+                            </div>
+                          )}
+                          {student.nextOfKinAddress && (
+                            <div className="flex items-start gap-2">
+                              <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                              <div>
+                                <p className="text-sm text-gray-500">Address</p>
+                                <p className="font-medium text-sm">{student.nextOfKinAddress}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-gray-500">
+                          <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                          <p className="text-sm">No next of kin information</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Quick Stats */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Quick Stats</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Total Assignments</span>
+                        <span className="font-semibold">{assignments.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Active Assignments</span>
+                        <span className="font-semibold">
+                          {assignments.filter(a => a.assignment.status === "Active").length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Member Since</span>
+                        <span className="font-semibold">
+                          {student.createdAt?.toDate?.()?.toLocaleDateString() || "-"}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Payment History Tab */}
+            <TabsContent value="payments">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Payment History</CardTitle>
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="text-right">
+                        <span className="text-gray-500">Total Received: </span>
+                        <span className="font-bold text-green-600">
+                          R{payments
+                            .filter(p => p.status === "Posted")
+                            .reduce((sum, p) => sum + p.disbursedAmount, 0)
+                            .toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {payments.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <CreditCard className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p>No payment history found</p>
                     </div>
                   ) : (
-                    <div className="text-center py-4 text-gray-500">
-                      <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                      <p className="text-sm">No next of kin information</p>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Period</TableHead>
+                            <TableHead>Source</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {payments.map((payment) => (
+                            <TableRow key={payment.paymentId}>
+                              <TableCell className="font-medium">
+                                {(() => {
+                                  const [year, month] = payment.paymentPeriod.split("-");
+                                  const date = new Date(parseInt(year), parseInt(month) - 1);
+                                  return date.toLocaleDateString("en-ZA", { month: "short", year: "numeric" });
+                                })()}
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={payment.source === "NSFAS" ? "bg-blue-500" : "bg-orange-500"}>
+                                  {payment.source}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-sm text-gray-600">
+                                {payment.allowanceType}
+                              </TableCell>
+                              <TableCell className="text-right font-semibold">
+                                R{payment.disbursedAmount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                              </TableCell>
+                              <TableCell>
+                                <Badge className={
+                                  payment.status === "Posted" ? "bg-green-500" :
+                                  payment.status === "PendingApproval" ? "bg-amber-500" :
+                                  "bg-red-500"
+                                }>
+                                  {payment.status === "Posted" ? "Posted" :
+                                   payment.status === "PendingApproval" ? "Pending" :
+                                   "Rejected"}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
 
-              {/* Quick Stats */}
+            {/* Documents Tab */}
+            <TabsContent value="documents">
               <Card>
-                <CardHeader>
-                  <CardTitle>Quick Stats</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Total Assignments</span>
-                    <span className="font-semibold">{assignments.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Active Assignments</span>
-                    <span className="font-semibold">
-                      {assignments.filter(a => a.assignment.status === "Active").length}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Member Since</span>
-                    <span className="font-semibold">
-                      {student.createdAt?.toDate?.()?.toLocaleDateString() || "-"}
-                    </span>
+                <CardContent className="py-8">
+                  <div className="text-center text-gray-500">
+                    <p>No documents uploaded</p>
                   </div>
                 </CardContent>
               </Card>
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
         </main>
       </div>
       <DashboardFooter />
