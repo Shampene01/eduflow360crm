@@ -704,6 +704,12 @@ export interface TicketUpdate {
   
   // Audit
   createdAt: Timestamp;
+  
+  // Delivery/Read Status
+  status?: "sent" | "delivered" | "read";
+  deliveredAt?: Timestamp;
+  readAt?: Timestamp;
+  readBy?: string[];               // Array of userIds who have read this update
 }
 
 // Ticket with updates for display

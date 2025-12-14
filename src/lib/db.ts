@@ -1055,6 +1055,32 @@ export async function getTicketUpdates(ticketId: string): Promise<TicketUpdate[]
   return snap.docs.map(d => d.data() as TicketUpdate);
 }
 
+export async function markUpdatesAsRead(ticketId: string, userId: string): Promise<void> {
+  if (!db) return;
+  const path = getTicketUpdatesPath(ticketId);
+  const q = query(collection(db, path));
+  const snap = await getDocs(q);
+  
+  const updatePromises = snap.docs
+    .filter(d => {
+      const data = d.data() as TicketUpdate;
+      // Only mark as read if: not own message, and not already read by this user
+      return data.authorId !== userId && 
+             (!data.readBy || !data.readBy.includes(userId));
+    })
+    .map(d => {
+      const data = d.data() as TicketUpdate;
+      const readBy = data.readBy || [];
+      return updateDoc(d.ref, {
+        status: "read",
+        readAt: serverTimestamp(),
+        readBy: [...readBy, userId],
+      });
+    });
+  
+  await Promise.all(updatePromises);
+}
+
 export async function getTicketWithUpdates(ticketId: string): Promise<TicketWithUpdates | null> {
   const ticket = await getTicketById(ticketId);
   if (!ticket) return null;

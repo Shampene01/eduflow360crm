@@ -38,6 +38,7 @@ import {
   updateTicketDataverseId,
   deleteTicket,
   generateId,
+  markUpdatesAsRead,
 } from "@/lib/db";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -73,6 +74,14 @@ function TicketDetailContent() {
       if (ticketWithUpdates) {
         setTicket(ticketWithUpdates);
         setUpdates(ticketWithUpdates.updates || []);
+        
+        // Mark updates as read in background
+        const uid = user?.userId || user?.uid;
+        if (uid) {
+          markUpdatesAsRead(ticketId, uid).catch(err => 
+            console.error("Error marking updates as read:", err)
+          );
+        }
       }
     } catch (error) {
       console.error("Error fetching ticket:", error);
@@ -250,6 +259,7 @@ function TicketDetailContent() {
         authorName: `${user?.firstNames || user?.firstName || ""} ${user?.surname || user?.lastName || ""}`.trim() || user?.email || "",
         authorRole: isAdmin ? "admin" : "user",
         createdAt: Timestamp.now(),
+        status: "sent",
       };
 
       await createTicketUpdate(update);
@@ -452,69 +462,106 @@ function TicketDetailContent() {
                 <p className="text-gray-500 text-center py-8">No updates yet</p>
               ) : (
                 <div className="space-y-4">
-                  {updates.map((update) => (
-                    <div
-                      key={update.updateId}
-                      className={`p-4 rounded-lg ${
-                        update.authorRole === "admin" 
-                          ? "bg-purple-50 border-l-4 border-purple-500" 
-                          : update.authorRole === "support"
-                          ? "bg-emerald-50 border-l-4 border-emerald-500"
-                          : "bg-slate-50 border-l-4 border-slate-400"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-900">{update.authorName}</span>
-                          <Badge 
-                            variant="outline" 
-                            className={`text-xs ${
-                              update.authorRole === "admin" 
-                                ? "border-purple-500 text-purple-700 bg-purple-100" 
-                                : update.authorRole === "support"
-                                ? "border-emerald-500 text-emerald-700"
-                                : update.authorId === (user?.userId || user?.uid)
-                                ? "border-blue-500 text-blue-700 bg-blue-50"
-                                : ""
-                            }`}
-                          >
-                            {update.authorRole === "admin" 
-                              ? "Admin" 
-                              : update.authorRole === "support" 
-                              ? "Support" 
-                              : update.authorId === (user?.userId || user?.uid)
-                              ? "You"
-                              : "User"}
-                          </Badge>
-                        </div>
-                        <span className="text-xs text-gray-500">
-                          {formatDate(update.createdAt)}
-                        </span>
-                      </div>
-                      <p className="text-gray-700 whitespace-pre-wrap">{update.message}</p>
-                      
-                      {update.attachments && update.attachments.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {update.attachments.map((att) => (
-                            <a
-                              key={att.attachmentId}
-                              href={att.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 px-2 py-1 bg-white rounded border text-sm hover:bg-gray-50"
+                  {updates.map((update) => {
+                    const isOwnMessage = update.authorId === (user?.userId || user?.uid);
+                    const isAdminMessage = update.authorRole === "admin";
+                    const isSupportMessage = update.authorRole === "support";
+                    
+                    return (
+                      <div
+                        key={update.updateId}
+                        className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[80%] p-4 rounded-2xl ${
+                            isOwnMessage
+                              ? "bg-blue-500 text-white rounded-br-md"
+                              : isAdminMessage
+                              ? "bg-purple-100 text-gray-900 rounded-bl-md border-l-4 border-purple-500"
+                              : isSupportMessage
+                              ? "bg-emerald-100 text-gray-900 rounded-bl-md border-l-4 border-emerald-500"
+                              : "bg-slate-100 text-gray-900 rounded-bl-md"
+                          }`}
+                        >
+                          {/* Header - hide name for own messages */}
+                          <div className={`flex items-center gap-2 mb-1 ${isOwnMessage ? "justify-end" : "justify-start"}`}>
+                            {!isOwnMessage && (
+                              <span className={`font-medium text-sm ${isOwnMessage ? "text-blue-100" : "text-gray-900"}`}>
+                                {update.authorName}
+                              </span>
+                            )}
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${
+                                isOwnMessage
+                                  ? "border-blue-300 text-blue-100 bg-blue-400/30"
+                                  : isAdminMessage
+                                  ? "border-purple-500 text-purple-700 bg-purple-200"
+                                  : isSupportMessage
+                                  ? "border-emerald-500 text-emerald-700 bg-emerald-200"
+                                  : "border-slate-400 text-slate-600 bg-slate-200"
+                              }`}
                             >
-                              {att.mimeType.startsWith("image/") ? (
-                                <ImageIcon className="w-3 h-3 text-blue-500" />
-                              ) : (
-                                <FileText className="w-3 h-3 text-red-500" />
-                              )}
-                              <span className="truncate max-w-[100px]">{att.fileName}</span>
-                            </a>
-                          ))}
+                              {isAdminMessage 
+                                ? "Admin" 
+                                : isSupportMessage 
+                                ? "Support" 
+                                : isOwnMessage
+                                ? "You"
+                                : "User"}
+                            </Badge>
+                          </div>
+                          
+                          {/* Message */}
+                          <p className={`whitespace-pre-wrap ${isOwnMessage ? "text-white" : "text-gray-700"}`}>
+                            {update.message}
+                          </p>
+                          
+                          {/* Attachments */}
+                          {update.attachments && update.attachments.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {update.attachments.map((att) => (
+                                <a
+                                  key={att.attachmentId}
+                                  href={att.fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`flex items-center gap-1 px-2 py-1 rounded border text-sm ${
+                                    isOwnMessage 
+                                      ? "bg-blue-400 border-blue-300 text-white hover:bg-blue-300" 
+                                      : "bg-white border-gray-200 hover:bg-gray-50"
+                                  }`}
+                                >
+                                  {att.mimeType.startsWith("image/") ? (
+                                    <ImageIcon className={`w-3 h-3 ${isOwnMessage ? "text-blue-100" : "text-blue-500"}`} />
+                                  ) : (
+                                    <FileText className={`w-3 h-3 ${isOwnMessage ? "text-blue-100" : "text-red-500"}`} />
+                                  )}
+                                  <span className="truncate max-w-[100px]">{att.fileName}</span>
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Footer: Time + Status */}
+                          <div className={`flex items-center gap-1 mt-2 text-xs ${isOwnMessage ? "justify-end text-blue-200" : "justify-start text-gray-500"}`}>
+                            <span>{formatDate(update.createdAt)}</span>
+                            {isOwnMessage && (
+                              <span className="ml-1">
+                                {update.status === "read" ? (
+                                  <span className="text-blue-200" title="Read">✓✓</span>
+                                ) : update.status === "delivered" ? (
+                                  <span className="text-blue-300" title="Delivered">✓✓</span>
+                                ) : (
+                                  <span className="text-blue-300" title="Sent">✓</span>
+                                )}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
