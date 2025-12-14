@@ -61,7 +61,9 @@ function TicketDetailContent() {
   const [deleting, setDeleting] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
 
-  const isAdmin = user?.email === "shampene@lebonconsulting.co.za" || (user?.roleCode && user.roleCode >= 3);
+  const isAdmin = user?.email === "shampene@lebonconsulting.co.za" || 
+    (user?.roleCode && user.roleCode >= 3) || 
+    user?.platformRole === "superAdmin";
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchTicket = async () => {
@@ -471,10 +473,18 @@ function TicketDetailContent() {
                                 ? "border-purple-500 text-purple-700 bg-purple-100" 
                                 : update.authorRole === "support"
                                 ? "border-emerald-500 text-emerald-700"
+                                : update.authorId === (user?.userId || user?.uid)
+                                ? "border-blue-500 text-blue-700 bg-blue-50"
                                 : ""
                             }`}
                           >
-                            {update.authorRole === "admin" ? "Admin" : update.authorRole === "support" ? "Support" : "You"}
+                            {update.authorRole === "admin" 
+                              ? "Admin" 
+                              : update.authorRole === "support" 
+                              ? "Support" 
+                              : update.authorId === (user?.userId || user?.uid)
+                              ? "You"
+                              : "User"}
                           </Badge>
                         </div>
                         <span className="text-xs text-gray-500">

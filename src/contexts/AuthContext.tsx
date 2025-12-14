@@ -40,9 +40,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfileLoading(true);
       setProfileError(null);
       try {
+        // Fetch custom claims from Firebase token
+        const tokenResult = await firebaseUser.getIdTokenResult();
+        const claims = tokenResult.claims || {};
+        
         const userProfile = await getUserProfile(firebaseUser.uid);
         if (userProfile) {
-          setUser(userProfile);
+          // Merge custom claims into user profile (claims take precedence)
+          const mergedUser = {
+            ...userProfile,
+            roleCode: claims.roleCode ?? userProfile.roleCode,
+            platformRole: claims.platformRole ?? userProfile.platformRole,
+          };
+          setUser(mergedUser as User);
         } else {
           setProfileError("User profile not found");
         }
@@ -74,9 +84,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (fbUser) {
         setProfileLoading(true);
         try {
+          // Fetch custom claims from Firebase token
+          const tokenResult = await fbUser.getIdTokenResult();
+          const claims = tokenResult.claims || {};
+          
           const userProfile = await getUserProfile(fbUser.uid);
           if (userProfile) {
-            setUser(userProfile);
+            // Merge custom claims into user profile (claims take precedence)
+            const mergedUser = {
+              ...userProfile,
+              roleCode: claims.roleCode ?? userProfile.roleCode,
+              platformRole: claims.platformRole ?? userProfile.platformRole,
+            };
+            setUser(mergedUser as User);
             // Initialize presence tracking in background (non-blocking)
             initPresence(fbUser.uid);
           } else {

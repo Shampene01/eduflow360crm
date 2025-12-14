@@ -57,6 +57,7 @@ export interface User {
   userType?: UserType;               // Legacy: single type
   role?: UserRole;                   // New schema: single role (string)
   roleCode?: number;                 // New schema: numeric role code (0-6)
+  platformRole?: string;             // From custom claims: "superAdmin", "provider", etc.
   roles?: UserRole[];                // Deprecated: use role instead
   status?: string;
   applicationStatus?: string;
