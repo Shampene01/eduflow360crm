@@ -1,5 +1,6 @@
 /**
  * Firebase Cloud Functions – Gen 2 (HTTPS)
+ * EduFlow360 – Identity & Access Control
  */
 
 import { setGlobalOptions } from "firebase-functions/v2";
@@ -18,7 +19,18 @@ setGlobalOptions({
 });
 
 // ------------------------------------------------------------------
-// HELLO WORLD (UNCHANGED)
+// ROLE DEFINITIONS (SINGLE SOURCE OF TRUTH)
+// ------------------------------------------------------------------
+const ROLE_MAP: Record<string, number> = {
+  superAdmin: 4,
+  admin: 3,
+  provider: 2,
+};
+
+const ALLOWED_PLATFORM_ROLES = Object.keys(ROLE_MAP);
+
+// ------------------------------------------------------------------
+// HELLO WORLD
 // ------------------------------------------------------------------
 export const helloWorld = onRequest((req, res) => {
   logger.info("Hello logs!", { structuredData: true });
@@ -26,7 +38,7 @@ export const helloWorld = onRequest((req, res) => {
 });
 
 // ------------------------------------------------------------------
-// SET USER CLAIMS (HTTPS – POWER PLATFORM SAFE)
+// SET USER CLAIMS (POWER PLATFORM + ADMIN SAFE)
 // ------------------------------------------------------------------
 export const setUserClaims = onRequest(async (req, res) => {
   try {
@@ -45,7 +57,7 @@ export const setUserClaims = onRequest(async (req, res) => {
     // AUTH HEADER CHECK
     // --------------------------------------------------------------
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader?.startsWith("Bearer ")) {
       res.status(401).json({
         success: false,
         error: "Missing or invalid Authorization header",
@@ -56,69 +68,71 @@ export const setUserClaims = onRequest(async (req, res) => {
     const token = authHeader.replace("Bearer ", "");
 
     // --------------------------------------------------------------
-    // DETERMINE AUTH TYPE & VERIFY
+    // AUTHORIZE CALLER
     // --------------------------------------------------------------
     let isAuthorized = false;
     let performedBy = "unknown";
+    let callerRoleCode = 0;
 
-    // Try 1: Check if it's a Google Access Token from WIF (Service Account)
+    /**
+     * OPTION 1: WIF / Service Account (Power Platform)
+     */
     if (token.startsWith("ya29.")) {
       try {
         const response = await fetch(
           `https://oauth2.googleapis.com/tokeninfo?access_token=${token}`
         );
-        
+
         if (response.ok) {
           const tokenInfo = await response.json();
-          
-          logger.info("Token info received", { tokenInfo });
-          
-          // Check if token has cloud-platform scope (WIF service account)
-          const hasCloudPlatformScope = tokenInfo.scope?.includes("https://www.googleapis.com/auth/cloud-platform");
-          
-          if (hasCloudPlatformScope) {
+          const hasCloudScope =
+            tokenInfo.scope?.includes(
+              "https://www.googleapis.com/auth/cloud-platform"
+            );
+
+          if (hasCloudScope) {
             isAuthorized = true;
             performedBy = tokenInfo.azp || "wif-service-account";
-            logger.info("Authorized via WIF token", { azp: tokenInfo.azp });
+            callerRoleCode = 99; // system-level authority
+            logger.info("Authorized via WIF", { performedBy });
           }
-        } else {
-          const errorBody = await response.text();
-          logger.warn("Token validation failed", { status: response.status, body: errorBody });
         }
-      } catch (wifError) {
-        logger.warn("WIF token verification failed", wifError);
+      } catch (err) {
+        logger.warn("WIF token verification failed", err);
       }
     }
 
-    // Try 2: Check if it's a Firebase ID Token (User)
+    /**
+     * OPTION 2: Firebase ID Token (Admin / SuperAdmin user)
+     */
     if (!isAuthorized) {
       try {
-        const decodedToken = await admin.auth().verifyIdToken(token);
-        const roleCode = decodedToken.roleCode ?? 0;
+        const decoded = await admin.auth().verifyIdToken(token);
+        callerRoleCode = decoded.roleCode ?? 0;
 
-        if (roleCode >= 3) {
+        if (callerRoleCode >= ROLE_MAP.admin) {
           isAuthorized = true;
-          performedBy = decodedToken.uid;
-          logger.info("Authorized via Firebase ID token", { uid: decodedToken.uid, roleCode });
+          performedBy = decoded.uid;
+          logger.info("Authorized via Firebase ID token", {
+            uid: decoded.uid,
+            roleCode: callerRoleCode,
+          });
         } else {
           res.status(403).json({
             success: false,
-            error: "Permission denied. Admin role required (roleCode >= 3).",
+            error: "Permission denied. Admin or higher required.",
           });
           return;
         }
-      } catch (firebaseError) {
-        logger.warn("Firebase ID token verification failed", firebaseError);
+      } catch (err) {
+        logger.warn("Firebase ID token verification failed", err);
       }
     }
 
-    // --------------------------------------------------------------
-    // FINAL AUTH CHECK
-    // --------------------------------------------------------------
     if (!isAuthorized) {
       res.status(401).json({
         success: false,
-        error: "Unauthorized. Provide a valid Firebase ID token or WIF service account token.",
+        error: "Unauthorized request",
       });
       return;
     }
@@ -126,28 +140,52 @@ export const setUserClaims = onRequest(async (req, res) => {
     // --------------------------------------------------------------
     // PAYLOAD VALIDATION
     // --------------------------------------------------------------
-    const { uid, platformRole, roleCode: targetRoleCode, providerId } = req.body;
+    const { uid, platformRole, roleCode, providerId } = req.body;
 
-    if (!uid || !platformRole || typeof targetRoleCode !== "number") {
+    if (!uid || !platformRole || typeof roleCode !== "number") {
       res.status(400).json({
         success: false,
-        error: "Missing required fields: uid, platformRole, roleCode (number)",
+        error: "uid, platformRole and numeric roleCode are required",
       });
       return;
     }
 
-    if (platformRole !== "admin" && platformRole !== "provider") {
+    if (!ALLOWED_PLATFORM_ROLES.includes(platformRole)) {
       res.status(400).json({
         success: false,
-        error: "platformRole must be 'admin' or 'provider'",
+        error: `platformRole must be one of: ${ALLOWED_PLATFORM_ROLES.join(
+          ", "
+        )}`,
       });
       return;
     }
 
+    // --------------------------------------------------------------
+    // ROLE ↔ ROLECODE CONSISTENCY CHECK
+    // --------------------------------------------------------------
+    if (ROLE_MAP[platformRole] !== roleCode) {
+      res.status(400).json({
+        success: false,
+        error: "roleCode does not match platformRole",
+      });
+      return;
+    }
+
+    // --------------------------------------------------------------
+    // PROVIDER-SPECIFIC VALIDATION
+    // --------------------------------------------------------------
     if (platformRole === "provider" && !providerId) {
       res.status(400).json({
         success: false,
-        error: "providerId is required when platformRole is 'provider'",
+        error: "providerId is required for provider role",
+      });
+      return;
+    }
+
+    if (platformRole !== "provider" && providerId) {
+      res.status(400).json({
+        success: false,
+        error: "providerId must NOT be set for admin roles",
       });
       return;
     }
@@ -157,7 +195,7 @@ export const setUserClaims = onRequest(async (req, res) => {
     // --------------------------------------------------------------
     const claims: Record<string, any> = {
       platformRole,
-      roleCode: targetRoleCode,
+      roleCode,
     };
 
     if (providerId) {
@@ -169,7 +207,7 @@ export const setUserClaims = onRequest(async (req, res) => {
     // --------------------------------------------------------------
     await admin.auth().setCustomUserClaims(uid, claims);
 
-    logger.info("Custom claims set", {
+    logger.info("Custom claims set successfully", {
       targetUid: uid,
       claims,
       performedBy,
@@ -177,15 +215,67 @@ export const setUserClaims = onRequest(async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `Claims successfully set for user ${uid}`,
+      message: `Claims set for user ${uid}`,
       claims,
     });
-  } catch (error: any) {
-    logger.error("Error setting custom claims", error);
+  } catch (error) {
+    logger.error("Error setting user claims", error);
 
     res.status(500).json({
       success: false,
-      error: "Internal server error while setting claims",
+      error: "Internal server error",
+    });
+  }
+});
+
+// ------------------------------------------------------------------
+// GET USER CLAIMS (DEBUG / ADMIN TOOL)
+// ------------------------------------------------------------------
+export const getUserClaims = onRequest(async (req, res) => {
+  try {
+    if (!["GET", "POST"].includes(req.method)) {
+      res.status(405).json({
+        success: false,
+        error: "Method not allowed",
+      });
+      return;
+    }
+
+    const uid =
+      req.method === "GET"
+        ? (req.query.uid as string)
+        : req.body.uid;
+
+    if (!uid) {
+      res.status(400).json({
+        success: false,
+        error: "uid is required",
+      });
+      return;
+    }
+
+    const user = await admin.auth().getUser(uid);
+
+    res.status(200).json({
+      success: true,
+      uid,
+      email: user.email,
+      customClaims: user.customClaims || {},
+    });
+  } catch (error: any) {
+    logger.error("Error retrieving user claims", error);
+
+    if (error.code === "auth/user-not-found") {
+      res.status(404).json({
+        success: false,
+        error: "User not found",
+      });
+      return;
+    }
+
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
     });
   }
 });
