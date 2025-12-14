@@ -1,89 +1,131 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    
+
     // ================================
-    // PROFILE PHOTOS (PRIVATE)
+    // AUTH & ROLE HELPERS
     // ================================
-   match /profile-photos/{userId}/{fileName} {
-  // Profile photos are visible to all authenticated users
-  allow read: if request.auth != null;
-  
-  // Only the owner can upload/delete
-  allow write, delete: if request.auth != null && request.auth.uid == userId;
-}
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function roleCode() {
+      return request.auth.token.roleCode != null ? request.auth.token.roleCode : 0;
+    }
+
+    function platformRole() {
+      return request.auth.token.platformRole != null ? request.auth.token.platformRole : "none";
+    }
+
+    function providerIdClaim() {
+      return request.auth.token.providerId != null ? request.auth.token.providerId : "";
+    }
+
+    function hasValidClaims() {
+      return isAuthenticated() && request.auth.token.roleCode != null;
+    }
+
+    function isSuperAdmin() {
+      return hasValidClaims() && roleCode() == 4;
+    }
+
+    function isAdmin() {
+      return hasValidClaims() && roleCode() >= 3;
+    }
+
+    function isProvider() {
+      return hasValidClaims() &&
+        roleCode() == 2 &&
+        platformRole() == "provider";
+    }
+
+    function isProviderOwner(providerId) {
+      return isProvider() && providerIdClaim() == providerId;
+    }
+
     // ================================
-    // ID DOCUMENTS (STRICTLY PRIVATE)
+    // PROFILE PHOTOS
+    // ================================
+    match /profile-photos/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write, delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ================================
+    // ID DOCUMENTS
     // ================================
     match /id-documents/{userId}/{fileName} {
-      // Only owner may read
-      allow read: if request.auth != null && request.auth.uid == userId;
-
-      // Only owner may upload/delete
-      allow write, delete: if request.auth != null && request.auth.uid == userId;
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow write, delete: if isAuthenticated() && request.auth.uid == userId;
     }
 
     // ================================
-    // PROVIDER DOCUMENTS (PRIVATE TO PROVIDER)
+    // PROVIDER DOCUMENTS
     // ================================
     match /provider-documents/{providerId}/{fileName} {
-      // Only provider owner and admins can read
-      allow read: if request.auth != null && (
-          request.auth.uid == providerId ||
-          request.auth.token.role == "admin" // optional admin access
-      );
-
-      // Only provider owner can upload/delete
-      allow write, delete: if request.auth != null && request.auth.uid == providerId;
+      allow read: if isAdmin() || isProviderOwner(providerId);
+      allow write, delete: if isProviderOwner(providerId);
     }
 
     // ================================
-    // PROPERTY IMAGES (PUBLIC LISTINGS)
+    // PROPERTY IMAGES (PUBLIC)
     // ================================
-    match /property-images/{propertyId}/{fileName} {
-      // Public can view property images
+    match /property-images/{providerId}/{propertyId}/{fileName} {
       allow read: if true;
-
-      // Only authenticated providers upload/delete
-      allow write, delete: if request.auth != null;
+      allow write, delete: if isAdmin() || isProviderOwner(providerId);
     }
 
     // ================================
-    // PROPERTIES FOLDER (ORGANIZED BY PROVIDER)
+    // PROPERTY FILES (PRIVATE)
     // ================================
-    match /properties/{providerId}/{allPaths=**} {
-      // Public can read property files
+    match /properties/{providerId}/{propertyId}/{fileName} {
+      allow read: if isAdmin() || isProviderOwner(providerId);
+      allow write, delete: if isAdmin() || isProviderOwner(providerId);
+    }
+
+    // ================================
+    // PROVIDER BRANDING
+    // ================================
+    match /providers/{providerId}/{assetType}/{fileName} {
       allow read: if true;
-
-      // Authenticated users can upload/modify/delete
-      // Note: Ownership verification happens at Firestore level
-      allow write, delete: if request.auth != null;
+      allow write, delete: if isAdmin() || isProviderOwner(providerId);
     }
 
     // ================================
-    // PROVIDER LOGOS (PUBLIC READ)
+    // STUDENT DOCUMENTS (PROVIDER-SCOPED)
     // ================================
-    match /providers/{providerId}/logo/{fileName} {
-      // Public can view provider logos (for invoices, etc.)
-      allow read: if true;
-
-      // Authenticated users can upload/delete their logo
-      allow write, delete: if request.auth != null;
+    match /student-documents/{providerId}/{studentId}/{fileName} {
+      allow read, write: if isAdmin() || isProviderOwner(providerId);
+      allow delete: if isAdmin();
     }
 
     // ================================
-    // PLATFORM RESOURCES (ADMIN UPLOAD)
+    // INVOICE ATTACHMENTS
+    // ================================
+    match /invoices/{providerId}/{invoiceId}/{fileName} {
+      allow read, write: if isAdmin() || isProviderOwner(providerId);
+      allow delete: if isAdmin();
+    }
+
+    // ================================
+    // TICKET ATTACHMENTS
+    // ================================
+    match /tickets/{ticketId}/{fileName} {
+      allow read, write: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // ================================
+    // PLATFORM RESOURCES
     // ================================
     match /platform-resources/{allPaths=**} {
-      // All authenticated users can read
-      allow read: if request.auth != null;
-
-      // Only specific admin can upload/delete
-      allow write, delete: if request.auth != null && 
-        request.auth.token.email == "shampene@lebonconsulting.co.za";
+      allow read: if isAuthenticated();
+      allow write, delete: if isSuperAdmin();
     }
 
-    // DEFAULT: DENY EVERYTHING ELSE
+    // ================================
+    // DEFAULT DENY
+    // ================================
     match /{allPaths=**} {
       allow read, write: if false;
     }
