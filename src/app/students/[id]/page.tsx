@@ -29,6 +29,15 @@ import { Student, StudentPropertyAssignment, Property, Payment } from "@/lib/sch
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
 import {
   getStudentById,
@@ -212,11 +221,11 @@ function StudentDetailContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <DashboardHeader />
-      <div className="flex">
+      <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 overflow-y-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
@@ -398,82 +407,106 @@ function StudentDetailContent() {
                 </CardContent>
               </Card>
 
-              {/* Payment History */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="w-5 h-5" />
+              {/* Tabs Section */}
+              <Tabs defaultValue="payments" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="payments" className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4" />
                     Payment History
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {payments.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <CreditCard className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                      <p>No payment history found</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {/* Payment Summary */}
-                      <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg mb-4">
-                        <div>
-                          <p className="text-sm text-gray-500">Total Received</p>
-                          <p className="text-xl font-bold text-green-600">
-                            R{payments
-                              .filter(p => p.status === "Posted")
-                              .reduce((sum, p) => sum + p.disbursedAmount, 0)
-                              .toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Total Payments</p>
-                          <p className="text-xl font-bold text-gray-900">{payments.length}</p>
-                        </div>
-                      </div>
+                  </TabsTrigger>
+                  <TabsTrigger value="documents" className="flex items-center gap-2">
+                    Documents
+                  </TabsTrigger>
+                </TabsList>
 
-                      {/* Payment List */}
-                      <div className="space-y-2">
-                        {payments.map((payment) => (
-                          <div
-                            key={payment.paymentId}
-                            className="p-3 border rounded-lg hover:bg-gray-50"
-                          >
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <Badge className={payment.source === "NSFAS" ? "bg-blue-500" : "bg-orange-500"}>
-                                    {payment.source}
-                                  </Badge>
-                                  <span className="text-sm text-gray-500">{payment.allowanceType}</span>
-                                </div>
-                                <p className="text-lg font-semibold mt-1">
-                                  R{payment.disbursedAmount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                  {(() => {
-                                    const [year, month] = payment.paymentPeriod.split("-");
-                                    const date = new Date(parseInt(year), parseInt(month) - 1);
-                                    return date.toLocaleDateString("en-ZA", { month: "short", year: "numeric" });
-                                  })()}
-                                </p>
-                              </div>
-                              <Badge className={
-                                payment.status === "Posted" ? "bg-green-500" :
-                                payment.status === "PendingApproval" ? "bg-amber-500" :
-                                "bg-red-500"
-                              }>
-                                {payment.status === "Posted" ? "Posted" :
-                                 payment.status === "PendingApproval" ? "Pending" :
-                                 "Rejected"}
-                              </Badge>
-                            </div>
+                <TabsContent value="payments" className="mt-4">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">Payment History</CardTitle>
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="text-right">
+                            <span className="text-gray-500">Total Received: </span>
+                            <span className="font-bold text-green-600">
+                              R{payments
+                                .filter(p => p.status === "Posted")
+                                .reduce((sum, p) => sum + p.disbursedAmount, 0)
+                                .toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                            </span>
                           </div>
-                        ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    </CardHeader>
+                    <CardContent>
+                      {payments.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <CreditCard className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                          <p>No payment history found</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Period</TableHead>
+                                <TableHead>Source</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead className="text-right">Amount</TableHead>
+                                <TableHead>Status</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {payments.map((payment) => (
+                                <TableRow key={payment.paymentId}>
+                                  <TableCell className="font-medium">
+                                    {(() => {
+                                      const [year, month] = payment.paymentPeriod.split("-");
+                                      const date = new Date(parseInt(year), parseInt(month) - 1);
+                                      return date.toLocaleDateString("en-ZA", { month: "short", year: "numeric" });
+                                    })()}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge className={payment.source === "NSFAS" ? "bg-blue-500" : "bg-orange-500"}>
+                                      {payment.source}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-sm text-gray-600">
+                                    {payment.allowanceType}
+                                  </TableCell>
+                                  <TableCell className="text-right font-semibold">
+                                    R{payment.disbursedAmount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge className={
+                                      payment.status === "Posted" ? "bg-green-500" :
+                                      payment.status === "PendingApproval" ? "bg-amber-500" :
+                                      "bg-red-500"
+                                    }>
+                                      {payment.status === "Posted" ? "Posted" :
+                                       payment.status === "PendingApproval" ? "Pending" :
+                                       "Rejected"}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="documents" className="mt-4">
+                  <Card>
+                    <CardContent className="py-8">
+                      <div className="text-center text-gray-500">
+                        <p>No documents uploaded</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
             </div>
 
             {/* Sidebar */}
@@ -606,8 +639,8 @@ function StudentDetailContent() {
             </div>
           </div>
         </main>
-        <DashboardFooter />
       </div>
+      <DashboardFooter />
     </div>
   );
 }
