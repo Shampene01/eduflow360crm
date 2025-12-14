@@ -609,12 +609,18 @@ export async function createStudent(
   if (!db) throw new Error("Database not initialized");
   
   const studentId = generateId();
+  
+  // Filter out undefined values - Firestore doesn't accept undefined
+  const cleanedData = Object.fromEntries(
+    Object.entries(studentData).filter(([_, value]) => value !== undefined)
+  );
+  
   const student: Student = {
-    ...studentData,
+    ...cleanedData,
     studentId,
     status: "Pending",
     createdAt: serverTimestamp() as Timestamp,
-  };
+  } as Student;
   
   await setDoc(doc(db, COLLECTIONS.STUDENTS, studentId), student);
   return student;
