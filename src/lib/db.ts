@@ -44,6 +44,10 @@ import {
   TicketAttachment,
   TicketStatus,
   TicketWithUpdates,
+  Payment,
+  PaymentSource,
+  PaymentStatus,
+  PaymentWithDetails,
   COLLECTIONS,
   ProviderWithDetails,
   PropertyWithDetails,
@@ -1158,4 +1162,163 @@ export async function deleteTicket(ticketId: string): Promise<void> {
   
   // Delete the ticket document
   await deleteDoc(doc(db, COLLECTIONS.TICKETS, ticketId));
+}
+
+// ============================================================================
+// PAYMENT OPERATIONS
+// ============================================================================
+
+export async function createPayment(
+  paymentData: Omit<Payment, "paymentId" | "createdAt">
+): Promise<Payment> {
+  if (!db) throw new Error("Database not initialized");
+  
+  const paymentId = generateId();
+  
+  // Filter out undefined values
+  const cleanedData = Object.fromEntries(
+    Object.entries(paymentData).filter(([_, value]) => value !== undefined)
+  );
+  
+  const payment: Payment = {
+    ...cleanedData,
+    paymentId,
+    createdAt: serverTimestamp() as Timestamp,
+  } as Payment;
+  
+  await setDoc(doc(db, COLLECTIONS.PAYMENTS, paymentId), payment);
+  return payment;
+}
+
+export async function getPaymentById(paymentId: string): Promise<Payment | null> {
+  if (!db) return null;
+  const docSnap = await getDoc(doc(db, COLLECTIONS.PAYMENTS, paymentId));
+  return docSnap.exists() ? (docSnap.data() as Payment) : null;
+}
+
+export async function getPaymentsByProvider(
+  providerId: string,
+  filters?: {
+    propertyId?: string;
+    paymentPeriod?: string;
+    source?: PaymentSource;
+    status?: PaymentStatus;
+  }
+): Promise<Payment[]> {
+  if (!db) return [];
+  
+  let q = query(
+    collection(db, COLLECTIONS.PAYMENTS),
+    where("providerId", "==", providerId),
+    orderBy("createdAt", "desc")
+  );
+  
+  const snap = await getDocs(q);
+  let payments = snap.docs.map(d => d.data() as Payment);
+  
+  // Apply client-side filters (Firestore limitation on multiple where clauses)
+  if (filters?.propertyId) {
+    payments = payments.filter(p => p.propertyId === filters.propertyId);
+  }
+  if (filters?.paymentPeriod) {
+    payments = payments.filter(p => p.paymentPeriod === filters.paymentPeriod);
+  }
+  if (filters?.source) {
+    payments = payments.filter(p => p.source === filters.source);
+  }
+  if (filters?.status) {
+    payments = payments.filter(p => p.status === filters.status);
+  }
+  
+  return payments;
+}
+
+export async function getPaymentsByStudent(studentId: string): Promise<Payment[]> {
+  if (!db) return [];
+  const q = query(
+    collection(db, COLLECTIONS.PAYMENTS),
+    where("studentId", "==", studentId),
+    orderBy("createdAt", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data() as Payment);
+}
+
+export async function getPaymentsByProperty(propertyId: string): Promise<Payment[]> {
+  if (!db) return [];
+  const q = query(
+    collection(db, COLLECTIONS.PAYMENTS),
+    where("propertyId", "==", propertyId),
+    orderBy("createdAt", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data() as Payment);
+}
+
+export async function approvePayment(
+  paymentId: string,
+  approvedBy: string
+): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  
+  await updateDoc(doc(db, COLLECTIONS.PAYMENTS, paymentId), {
+    status: "Posted",
+    approvedBy,
+    approvedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function rejectPayment(
+  paymentId: string,
+  rejectedBy: string,
+  rejectionReason: string
+): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  
+  await updateDoc(doc(db, COLLECTIONS.PAYMENTS, paymentId), {
+    status: "Rejected",
+    rejectedBy,
+    rejectedAt: serverTimestamp(),
+    rejectionReason,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function updatePayment(
+  paymentId: string,
+  data: Partial<Payment>
+): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  await updateDoc(doc(db, COLLECTIONS.PAYMENTS, paymentId), {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deletePayment(paymentId: string): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  await deleteDoc(doc(db, COLLECTIONS.PAYMENTS, paymentId));
+}
+
+export async function getPaymentSummary(
+  providerId: string,
+  paymentPeriod?: string
+): Promise<{
+  totalPaid: number;
+  nsfasPaid: number;
+  manualPaid: number;
+  pendingApproval: number;
+}> {
+  const payments = await getPaymentsByProvider(providerId, { paymentPeriod });
+  
+  const postedPayments = payments.filter(p => p.status === "Posted");
+  const pendingPayments = payments.filter(p => p.status === "PendingApproval");
+  
+  return {
+    totalPaid: postedPayments.reduce((sum, p) => sum + p.disbursedAmount, 0),
+    nsfasPaid: postedPayments.filter(p => p.source === "NSFAS").reduce((sum, p) => sum + p.disbursedAmount, 0),
+    manualPaid: postedPayments.filter(p => p.source === "Manual").reduce((sum, p) => sum + p.disbursedAmount, 0),
+    pendingApproval: pendingPayments.reduce((sum, p) => sum + p.disbursedAmount, 0),
+  };
 }

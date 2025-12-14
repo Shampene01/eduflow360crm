@@ -718,6 +718,58 @@ export interface TicketWithUpdates extends Ticket {
 }
 
 // ============================================================================
+// PAYMENT TYPES
+// ============================================================================
+
+export type PaymentSource = "NSFAS" | "Manual";
+export type PaymentStatus = "Posted" | "PendingApproval" | "Rejected";
+export type AllowanceType = "AccommodationAllowance" | "LivingAllowance" | "BookAllowance" | "Other";
+
+export interface Payment {
+  paymentId: string;                 // UUID, PK
+  providerId: string;                // FK → Provider
+  propertyId: string;                // FK → Property
+  studentId: string;                 // FK → Student
+  
+  // Payment Details
+  source: PaymentSource;
+  allowanceType: AllowanceType;
+  disbursedAmount: number;           // Amount in ZAR
+  paymentPeriod: string;             // e.g., "2025-04" (YYYY-MM)
+  
+  // Status & Workflow
+  status: PaymentStatus;
+  
+  // For Manual Payments
+  reason?: string;                   // Required for manual payments
+  notes?: string;
+  
+  // External Reference (NSFAS)
+  externalReference?: string;        // NSFAS reference number
+  institution?: string;              // Institution name from NSFAS
+  partner?: string;                  // Partner name from NSFAS
+  
+  // Audit Trail
+  createdBy: string;                 // userId who created
+  createdAt: Timestamp;
+  approvedBy?: string;               // userId who approved (for manual)
+  approvedAt?: Timestamp;
+  rejectedBy?: string;               // userId who rejected
+  rejectedAt?: Timestamp;
+  rejectionReason?: string;
+  
+  updatedAt?: Timestamp;
+}
+
+// Payment with related data for display
+export interface PaymentWithDetails extends Payment {
+  student?: Student;
+  property?: Property;
+  createdByUser?: User;
+  approvedByUser?: User;
+}
+
+// ============================================================================
 // COLLECTION NAMES (for Firestore)
 // ============================================================================
 
@@ -755,6 +807,9 @@ export const COLLECTIONS = {
   
   // Platform Resources
   PLATFORM_RESOURCES: "platformResources",
+  
+  // Payments
+  PAYMENTS: "payments",
 } as const;
 
 // ============================================================================

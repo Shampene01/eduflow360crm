@@ -570,7 +570,7 @@ function OccupancyContent() {
                 </SelectTrigger>
                 <SelectContent>
                   {availableStudents.length === 0 ? (
-                    <SelectItem value="" disabled>No students available</SelectItem>
+                    <div className="p-2 text-sm text-gray-500 text-center">No students available</div>
                   ) : (
                     availableStudents.map((student) => (
                       <SelectItem key={student.studentId} value={student.studentId}>
