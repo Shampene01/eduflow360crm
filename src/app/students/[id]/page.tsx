@@ -25,7 +25,7 @@ import { DashboardFooter } from "@/components/DashboardFooter";
 import { Sidebar } from "@/components/Sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
-import { Student, StudentPropertyAssignment, Property } from "@/lib/schema";
+import { Student, StudentPropertyAssignment, Property, Payment } from "@/lib/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,7 @@ import {
   getStudentAssignments,
   getPropertyById,
   getProviderByUserId,
+  getPaymentsByStudent,
 } from "@/lib/db";
 import { syncStudentToCRM } from "@/lib/crmSync";
 
@@ -53,6 +54,7 @@ function StudentDetailContent() {
   const [providerId, setProviderId] = useState<string>("");
   const [syncingToDataverse, setSyncingToDataverse] = useState(false);
   const [providerDataverseId, setProviderDataverseId] = useState<string>("");
+  const [payments, setPayments] = useState<Payment[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -89,6 +91,10 @@ function StudentDetailContent() {
           assignmentsWithProperties.push({ assignment, property });
         }
         setAssignments(assignmentsWithProperties);
+
+        // Fetch student's payment history
+        const studentPayments = await getPaymentsByStudent(id as string);
+        setPayments(studentPayments);
       } catch (error) {
         console.error("Error fetching student:", error);
         toast.error("Failed to load student data");
@@ -387,6 +393,83 @@ function StudentDetailContent() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Payment History */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5" />
+                    Payment History
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {payments.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <CreditCard className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p>No payment history found</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Payment Summary */}
+                      <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg mb-4">
+                        <div>
+                          <p className="text-sm text-gray-500">Total Received</p>
+                          <p className="text-xl font-bold text-green-600">
+                            R{payments
+                              .filter(p => p.status === "Posted")
+                              .reduce((sum, p) => sum + p.disbursedAmount, 0)
+                              .toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Total Payments</p>
+                          <p className="text-xl font-bold text-gray-900">{payments.length}</p>
+                        </div>
+                      </div>
+
+                      {/* Payment List */}
+                      <div className="space-y-2">
+                        {payments.map((payment) => (
+                          <div
+                            key={payment.paymentId}
+                            className="p-3 border rounded-lg hover:bg-gray-50"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <Badge className={payment.source === "NSFAS" ? "bg-blue-500" : "bg-orange-500"}>
+                                    {payment.source}
+                                  </Badge>
+                                  <span className="text-sm text-gray-500">{payment.allowanceType}</span>
+                                </div>
+                                <p className="text-lg font-semibold mt-1">
+                                  R{payment.disbursedAmount.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                                </p>
+                                <p className="text-sm text-gray-500">
+                                  {(() => {
+                                    const [year, month] = payment.paymentPeriod.split("-");
+                                    const date = new Date(parseInt(year), parseInt(month) - 1);
+                                    return date.toLocaleDateString("en-ZA", { month: "short", year: "numeric" });
+                                  })()}
+                                </p>
+                              </div>
+                              <Badge className={
+                                payment.status === "Posted" ? "bg-green-500" :
+                                payment.status === "PendingApproval" ? "bg-amber-500" :
+                                "bg-red-500"
+                              }>
+                                {payment.status === "Posted" ? "Posted" :
+                                 payment.status === "PendingApproval" ? "Pending" :
+                                 "Rejected"}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </CardContent>
