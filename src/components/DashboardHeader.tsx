@@ -118,7 +118,7 @@ export function DashboardHeader() {
                   Settings
                 </Link>
               </DropdownMenuItem>
-              {user?.email === "shampene@lebonconsulting.co.za" && (
+              {(user?.roleCode ?? 0) >= 3 && (
                 <DropdownMenuItem asChild>
                   <Link href="/admin" className="cursor-pointer text-purple-600">
                     <Shield size={16} className="mr-2" />

@@ -686,7 +686,7 @@ function SettingsContent() {
               </Card>
 
               {/* Platform Resources Upload (Admin Only) */}
-              {user?.email === "shampene@lebonconsulting.co.za" && (
+              {(user?.roleCode ?? 0) >= 3 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">

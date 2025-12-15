@@ -29,6 +29,16 @@ import { userDisplayId } from "@/lib/utils/maskId";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db, auth, DATAVERSE_USER_SYNC_URL } from "@/lib/firebase";
 
+// Format role to proper case (e.g., "providerStaff" -> "Provider Staff")
+const formatRole = (role?: string): string => {
+  if (!role) return "User";
+  // Handle camelCase (e.g., providerStaff -> Provider Staff)
+  return role
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, str => str.toUpperCase())
+    .trim();
+};
+
 function ProfileContent() {
   const { user, firebaseUser } = useAuth();
   const [syncing, setSyncing] = useState(false);
@@ -287,7 +297,7 @@ function ProfileContent() {
                     {user?.firstNames || user?.firstName || ""} {user?.surname || user?.lastName || ""}
                   </h2>
                   <p className="text-amber-400 font-medium mt-1">
-                    {user?.role || user?.userType || "Provider"}
+                    {formatRole(user?.platformRole || user?.role || user?.userType)}
                   </p>
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mt-3 text-gray-300 text-sm">
                     <span className="flex items-center gap-1">
@@ -441,9 +451,9 @@ function ProfileContent() {
                   <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
                       <p className="text-sm text-gray-500">Role</p>
-                      <p className="font-medium text-gray-900">{user?.role || user?.userType || "Provider"}</p>
+                      <p className="font-medium text-gray-900">{formatRole(user?.platformRole || user?.role || user?.userType)}</p>
                     </div>
-                    <Badge variant="outline">{user?.role || user?.userType || "Provider"}</Badge>
+                    <Badge variant="outline">{formatRole(user?.platformRole || user?.role || user?.userType)}</Badge>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>

@@ -40,8 +40,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfileLoading(true);
       setProfileError(null);
       try {
-        // Fetch custom claims from Firebase token
-        const tokenResult = await firebaseUser.getIdTokenResult();
+        // Fetch custom claims from Firebase token (force refresh to get latest claims)
+        const tokenResult = await firebaseUser.getIdTokenResult(true);
         const claims = tokenResult.claims || {};
         
         const userProfile = await getUserProfile(firebaseUser.uid);
@@ -84,8 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (fbUser) {
         setProfileLoading(true);
         try {
-          // Fetch custom claims from Firebase token
-          const tokenResult = await fbUser.getIdTokenResult();
+          // Fetch custom claims from Firebase token (force refresh to get latest claims)
+          const tokenResult = await fbUser.getIdTokenResult(true);
           const claims = tokenResult.claims || {};
           
           const userProfile = await getUserProfile(fbUser.uid);

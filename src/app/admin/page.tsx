@@ -76,7 +76,8 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 
-const SUPER_ADMIN_EMAIL = "shampene@lebonconsulting.co.za";
+// Minimum roleCode required for Admin Portal access
+const MIN_ADMIN_ROLE_CODE = 3;
 
 // Role definitions
 const ROLES = [
@@ -120,10 +121,10 @@ function AdminPortalContent() {
   const [announcement, setAnnouncement] = useState("");
   const [postingAnnouncement, setPostingAnnouncement] = useState(false);
 
-  // Check if user is super admin
+  // Check if user has admin access (roleCode >= 3)
   useEffect(() => {
-    if (user && user.email !== SUPER_ADMIN_EMAIL) {
-      toast.error("Access denied. Super admin only.");
+    if (user && (user.roleCode ?? 0) < MIN_ADMIN_ROLE_CODE) {
+      toast.error("Access denied. Admin access required.");
       router.push("/dashboard");
     }
   }, [user, router]);
@@ -131,7 +132,7 @@ function AdminPortalContent() {
   // Fetch all data
   useEffect(() => {
     const fetchData = async () => {
-      if (user?.email !== SUPER_ADMIN_EMAIL) return;
+      if ((user?.roleCode ?? 0) < MIN_ADMIN_ROLE_CODE) return;
       
       setLoading(true);
       setUsersLoading(true);
@@ -152,7 +153,7 @@ function AdminPortalContent() {
     };
     
     fetchData();
-  }, [user?.email]);
+  }, [user?.roleCode]);
 
   const formatDate = (timestamp: Timestamp | undefined) => {
     if (!timestamp) return "N/A";
@@ -267,12 +268,12 @@ function AdminPortalContent() {
   };
 
   const handleUpdateUserRole = async () => {
-    if (!selectedUser || !user?.email) return;
+    if (!selectedUser) return;
     
     setUpdatingUser(true);
     try {
       const newRole = ROLES.find(r => r.code === newRoleCode)?.name || "Student";
-      await updateUserRole(selectedUser.userId, newRole, newRoleCode, user.email);
+      await updateUserRole(selectedUser.userId, newRole, newRoleCode, user?.roleCode ?? 0);
       
       // Refresh users list
       const allUsers = await getAllUsers();
@@ -341,7 +342,7 @@ function AdminPortalContent() {
     }
   };
 
-  if (user?.email !== SUPER_ADMIN_EMAIL) {
+  if ((user?.roleCode ?? 0) < MIN_ADMIN_ROLE_CODE) {
     return null;
   }
 
@@ -735,7 +736,7 @@ function AdminPortalContent() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => openUserDialog(u)}
-                                  disabled={u.email === SUPER_ADMIN_EMAIL}
+                                  disabled={(u.roleCode ?? 0) >= 4}
                                 >
                                   <Edit2 className="w-4 h-4 mr-1" />
                                   Edit Role
@@ -937,7 +938,7 @@ function AdminPortalContent() {
 
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                 <p className="text-amber-800 text-sm">
-                  <strong>Security Note:</strong> Only SuperAdmin ({SUPER_ADMIN_EMAIL}) can modify user roles.
+                  <strong>Security Note:</strong> Only Admin (roleCode 3+) can modify user roles. Super Admins (roleCode 4) cannot be edited.
                 </p>
               </div>
             </div>

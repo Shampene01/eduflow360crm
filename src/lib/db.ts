@@ -106,21 +106,21 @@ export async function getAllUsers(): Promise<User[]> {
   return snap.docs.map(d => d.data() as User);
 }
 
-// SuperAdmin email constant
-const SUPER_ADMIN_EMAIL = "shampene@lebonconsulting.co.za";
+// Minimum roleCode required for admin operations
+const MIN_ADMIN_ROLE_CODE = 3;
 
-// Secure role update - only SuperAdmin can change roles
+// Secure role update - only Admin (roleCode >= 3) can change roles
 export async function updateUserRole(
   userId: string, 
   newRole: string, 
   newRoleCode: number,
-  requestingUserEmail: string
+  requestingUserRoleCode: number
 ): Promise<void> {
   if (!db) throw new Error("Database not initialized");
   
-  // Security check: Only SuperAdmin can update roles
-  if (requestingUserEmail !== SUPER_ADMIN_EMAIL) {
-    throw new Error("Unauthorized: Only SuperAdmin can modify user roles");
+  // Security check: Only Admin or higher can update roles
+  if (requestingUserRoleCode < MIN_ADMIN_ROLE_CODE) {
+    throw new Error("Unauthorized: Admin access required to modify user roles");
   }
   
   await updateDoc(doc(db, COLLECTIONS.USERS, userId), { 

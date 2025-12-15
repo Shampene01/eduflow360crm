@@ -243,8 +243,8 @@ function StudentDetailContent() {
             </div>
             <div className="flex items-center gap-3">
               {getStatusBadge(student.status)}
-              {/* Sync to Dataverse button - only visible for shampene@lebonconsulting.co.za */}
-              {user?.email === "shampene@lebonconsulting.co.za" && (
+              {/* Sync to Dataverse button - only visible for Admin (roleCode >= 3) */}
+              {(user?.roleCode ?? 0) >= 3 && (
                 <Button
                   onClick={handleSyncToDataverse}
                   disabled={syncingToDataverse}

@@ -62,9 +62,7 @@ function TicketDetailContent() {
   const [deleting, setDeleting] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
 
-  const isAdmin = user?.email === "shampene@lebonconsulting.co.za" || 
-    (user?.roleCode && user.roleCode >= 3) || 
-    user?.platformRole === "superAdmin";
+  const isAdmin = (user?.roleCode ?? 0) >= 3 || user?.platformRole === "superAdmin";
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchTicket = async () => {
