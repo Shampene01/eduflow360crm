@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Credit card / payment -->
+  <rect x="4" y="8" width="24" height="16" rx="2" fill="none" stroke="#333333" stroke-width="1.5"/>
+  <!-- Magnetic stripe -->
+  <rect x="4" y="12" width="24" height="4" fill="none" stroke="#333333" stroke-width="1.5"/>
+  <!-- Card chip -->
+  <rect x="7" y="17" width="5" height="4" rx="1" fill="none" stroke="#333333" stroke-width="1.5"/>
+  <!-- Card number dots -->
+  <circle cx="18" cy="19" r="1" fill="#333333"/>
+  <circle cx="21" cy="19" r="1" fill="#333333"/>
+  <circle cx="24" cy="19" r="1" fill="#333333"/>
+</svg>

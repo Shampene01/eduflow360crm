@@ -139,6 +139,9 @@ service cloud.firestore {
         match /documents/{docId} {
           allow read: if isProviderOwner(providerId) || isAdmin();
 
+          // Admin can do anything
+          allow create, update, delete: if isAdmin();
+
           allow create: if isProviderOwner(providerId) &&
             request.resource.data.verified == false;
 
@@ -146,9 +149,6 @@ service cloud.firestore {
           allow update: if isProviderOwner(providerId) &&
             !request.resource.data.diff(resource.data).affectedKeys()
               .hasAny(['verified', 'verifiedAt', 'verifiedBy']);
-
-          // Admin can do anything
-          allow update, delete: if isAdmin();
 
           // Provider can delete only if not verified
           allow delete: if isProviderOwner(providerId) && resource.data.verified == false;
