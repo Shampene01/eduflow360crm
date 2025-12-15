@@ -12,6 +12,7 @@ import {
   Edit,
   Trash2,
   Filter,
+  BadgeCheck,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardFooter } from "@/components/DashboardFooter";
@@ -188,9 +189,9 @@ function PropertiesContent() {
                       </div>
                     )}
                     <Badge
-                      className={`absolute top-3 right-3 ${
+                      className={`absolute top-3 right-3 flex items-center gap-1 ${
                         property.status === "Active"
-                          ? "bg-green-500"
+                          ? "bg-green-500 text-white"
                           : property.status === "Pending"
                           ? "bg-yellow-500"
                           : property.status === "Draft"
@@ -198,7 +199,10 @@ function PropertiesContent() {
                           : "bg-gray-500"
                       }`}
                     >
-                      {property.status}
+                      {property.status === "Active" && (
+                        <BadgeCheck className="w-4 h-4" />
+                      )}
+                      {property.status === "Active" ? "Approved" : property.status}
                     </Badge>
                   </div>
 
