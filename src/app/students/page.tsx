@@ -528,7 +528,9 @@ function StudentsContent() {
                 <Button
                   onClick={exportToExcel}
                   variant="outline"
-                  className="border-green-600 text-green-600 hover:bg-green-50"
+                  className="border-green-600 text-green-600 hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={properties.length === 0}
+                  title={properties.length === 0 ? "Add a property first" : "Export students to Excel"}
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Export to Excel
@@ -537,7 +539,9 @@ function StudentsContent() {
               {(user?.role === "provider" || user?.role === "admin") && (
                 <Button
                   onClick={() => setBulkImportOpen(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={properties.length === 0}
+                  title={properties.length === 0 ? "Add a property first" : "Bulk import students"}
                 >
                   <Upload className="w-4 h-4 mr-2" />
                   Bulk Import
