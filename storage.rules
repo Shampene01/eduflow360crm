@@ -62,9 +62,14 @@ service firebase.storage {
     // ================================
     // PROVIDER DOCUMENTS
     // ================================
-    match /provider-documents/{providerId}/{fileName} {
-      allow read: if isAdmin() || isProviderOwner(providerId);
-      allow write, delete: if isProviderOwner(providerId);
+    // Path: provider-documents/{userIdOrProviderId}/{fileName}
+    // During application, userId is used. After approval, providerId is used.
+    match /provider-documents/{ownerId}/{fileName} {
+      allow read: if isAdmin() || isProviderOwner(ownerId) || 
+        (isAuthenticated() && request.auth.uid == ownerId);
+      allow write: if isAdmin() || isProviderOwner(ownerId) || 
+        (isAuthenticated() && request.auth.uid == ownerId);
+      allow delete: if isAdmin() || isProviderOwner(ownerId);
     }
 
     // ================================
