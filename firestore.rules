@@ -242,7 +242,13 @@ service cloud.firestore {
     // =====================================================
     match /providerContactPersons/{contactId} {
       allow read: if isAdmin() || isProviderOwner(resource.data.providerId);
-      allow create: if isProviderOwner(request.resource.data.providerId);
+      
+      // Admin can create, or provider owner, or the user who created the provider (for new applications before claims are set)
+      allow create: if isAdmin() || isProviderOwner(request.resource.data.providerId) ||
+        (isAuthenticated() && 
+         exists(/databases/$(database)/documents/accommodationProviders/$(request.resource.data.providerId)) &&
+         get(/databases/$(database)/documents/accommodationProviders/$(request.resource.data.providerId)).data.userId == request.auth.uid);
+      
       allow update: if isAdmin() || isProviderOwner(resource.data.providerId);
       allow delete: if isAdmin();
     }
@@ -253,8 +259,13 @@ service cloud.firestore {
     match /providerDocuments/{docId} {
       allow read: if isAdmin() || isProviderOwner(resource.data.providerId);
 
-      allow create: if isProviderOwner(request.resource.data.providerId) &&
-        request.resource.data.verified == false;
+      // Admin can create, or provider owner, or the user who created the provider (for new applications before claims are set)
+      allow create: if isAdmin() || 
+        (request.resource.data.verified == false &&
+         (isProviderOwner(request.resource.data.providerId) ||
+          (isAuthenticated() && 
+           exists(/databases/$(database)/documents/accommodationProviders/$(request.resource.data.providerId)) &&
+           get(/databases/$(database)/documents/accommodationProviders/$(request.resource.data.providerId)).data.userId == request.auth.uid)));
 
       // Provider can update non-verification fields only
       allow update: if isProviderOwner(resource.data.providerId) &&
