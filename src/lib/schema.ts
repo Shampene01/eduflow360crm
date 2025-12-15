@@ -459,6 +459,11 @@ export interface Student {
   fundedAmount?: number;
   fundingYear?: number;
   
+  // Non-NSFAS Funding Information
+  fundingSource?: string;            // e.g., "Self-funded", "Bursary", "Sasol", etc.
+  fundingDetails?: string;           // Additional funding reference/notes
+  fundingVerified?: boolean;         // Whether funding has been verified
+  
   // Next of Kin Information
   nextOfKinName?: string;
   nextOfKinRelationship?: string;

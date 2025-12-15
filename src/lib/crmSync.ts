@@ -856,16 +856,16 @@ export async function syncPropertyToCRM(
       };
     }
 
-    // Parse response - Power Automate returns { message: "OK", propertyDataverseId: "..." }
-    let responseData: { message?: string; propertyDataverseId?: string } = {};
+    // Parse response - Power Automate returns { message: "OK", dataverseId: "..." }
+    let responseData: { message?: string; dataverseId?: string; propertyDataverseId?: string } = {};
     try {
       responseData = await response.json();
     } catch {
       responseData = { message: "Sync completed" };
     }
 
-    // Save propertyDataverseId to Firestore if returned
-    const propertyDataverseId = responseData.propertyDataverseId;
+    // Save propertyDataverseId to Firestore if returned (check both field names for compatibility)
+    const propertyDataverseId = responseData.dataverseId || responseData.propertyDataverseId;
     if (propertyDataverseId && property.propertyId && property.providerId) {
       try {
         // Properties are stored in subcollection: accommodationProviders/{providerId}/properties/{propertyId}
@@ -955,6 +955,11 @@ export interface StudentSyncPayload {
   nsfasDataverseId: string;          // Dataverse ID from NSFAS lookup
   fundedAmount: number;
   fundingYear: number;
+  
+  // Non-NSFAS Funding Information (for privately funded students)
+  fundingSource: string;             // e.g., "Self-funded", "Bursary", "Sasol"
+  fundingDetails: string;            // Reference number or additional notes
+  fundingVerified: boolean;          // Whether funding has been verified
   
   // Assignment Information
   assignmentId: string;
@@ -1057,6 +1062,11 @@ export async function syncStudentToCRM(
       nsfasDataverseId: String(student.nsfasDataverseId || ""),
       fundedAmount: Number(student.fundedAmount || 0),
       fundingYear: Number(student.fundingYear || 0),
+      
+      // Non-NSFAS Funding Information
+      fundingSource: String(student.fundingSource || ""),
+      fundingDetails: String(student.fundingDetails || ""),
+      fundingVerified: Boolean(student.fundingVerified === true),
       
       // Assignment Information
       assignmentId: String(assignment?.assignmentId || ""),

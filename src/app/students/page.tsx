@@ -20,6 +20,7 @@ import {
   XCircle,
   ArrowRight,
   ArrowLeft,
+  Wallet,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardFooter } from "@/components/DashboardFooter";
@@ -115,6 +116,10 @@ function StudentsContent() {
     nsfasFunded: false,
     nsfasDataverseId: "",
     fundedAmount: 0,
+    // Non-NSFAS Funding Info
+    fundingSource: "",
+    fundingYear: new Date().getFullYear(),
+    fundingDetails: "",
     // Room Assignment
     roomType: "" as string,
     monthlyRent: 0,
@@ -344,7 +349,11 @@ function StudentsContent() {
           nsfasFunded: studentForm.nsfasFunded,
           nsfasDataverseId: studentForm.nsfasDataverseId || undefined,
           fundedAmount: studentForm.fundedAmount || undefined,
-          fundingYear: studentForm.funded ? new Date().getFullYear() : undefined,
+          fundingYear: studentForm.fundingYear || new Date().getFullYear(),
+          // Non-NSFAS funding fields
+          fundingSource: studentForm.fundingSource || undefined,
+          fundingDetails: studentForm.fundingDetails || undefined,
+          fundingVerified: false,
           gender: studentForm.gender || undefined,
           nextOfKinName: studentForm.nextOfKinName || undefined,
           nextOfKinRelationship: studentForm.nextOfKinRelationship || undefined,
@@ -905,6 +914,84 @@ function StudentsContent() {
                   </CardContent>
                 </Card>
 
+                {/* Non-NSFAS Funding Details - shown when not NSFAS funded */}
+                {nsfasVerified === false && (
+                  <Card className="border-2 border-amber-200 bg-amber-50">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 bg-amber-500 text-white rounded-lg flex items-center justify-center">
+                          <Wallet className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-gray-900">Alternative Funding Details</h4>
+                          <p className="text-sm text-gray-500">Provide funding source information for non-NSFAS students</p>
+                        </div>
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-gray-700 font-medium">Funding Source *</Label>
+                          <Select
+                            value={studentForm.fundingSource}
+                            onValueChange={(v) => setStudentForm({ ...studentForm, fundingSource: v })}
+                          >
+                            <SelectTrigger className="h-11">
+                              <SelectValue placeholder="Select funding source" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Self-funded">Self-funded</SelectItem>
+                              <SelectItem value="Parent/Guardian">Parent/Guardian</SelectItem>
+                              <SelectItem value="Bursary">Bursary</SelectItem>
+                              <SelectItem value="Scholarship">Scholarship</SelectItem>
+                              <SelectItem value="Employer Sponsored">Employer Sponsored</SelectItem>
+                              <SelectItem value="Funza Lushaka">Funza Lushaka</SelectItem>
+                              <SelectItem value="Sasol">Sasol Bursary</SelectItem>
+                              <SelectItem value="Anglo American">Anglo American</SelectItem>
+                              <SelectItem value="Old Mutual">Old Mutual</SelectItem>
+                              <SelectItem value="Thuthuka">Thuthuka Bursary</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-gray-700 font-medium">Funding Year</Label>
+                          <Select
+                            value={String(studentForm.fundingYear)}
+                            onValueChange={(v) => setStudentForm({ ...studentForm, fundingYear: parseInt(v) })}
+                          >
+                            <SelectTrigger className="h-11">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[2024, 2025, 2026, 2027].map((year) => (
+                                <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-gray-700 font-medium">Funded Amount (Optional)</Label>
+                          <Input
+                            type="number"
+                            value={studentForm.fundedAmount || ""}
+                            onChange={(e) => setStudentForm({ ...studentForm, fundedAmount: parseFloat(e.target.value) || 0 })}
+                            placeholder="e.g. 45000"
+                            className="h-11"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-gray-700 font-medium">Reference/Details</Label>
+                          <Input
+                            value={studentForm.fundingDetails}
+                            onChange={(e) => setStudentForm({ ...studentForm, fundingDetails: e.target.value })}
+                            placeholder="e.g. Bursary reference number"
+                            className="h-11"
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Personal Details Grid */}
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -978,7 +1065,12 @@ function StudentsContent() {
                   </Button>
                   <Button
                     onClick={() => setFormStep(3)}
-                    disabled={!studentForm.idNumber || !studentForm.firstNames || !studentForm.surname}
+                    disabled={
+                      !studentForm.idNumber || 
+                      !studentForm.firstNames || 
+                      !studentForm.surname ||
+                      (nsfasVerified === false && !studentForm.fundingSource)
+                    }
                     className="bg-slate-700 hover:bg-slate-800 px-8"
                   >
                     Continue
@@ -1210,6 +1302,12 @@ function StudentsContent() {
                             {studentForm.funded ? "Funded" : "Not Funded"}
                           </Badge>
                         </div>
+                        {!studentForm.funded && studentForm.fundingSource && (
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-gray-500">Funding Source</span>
+                            <Badge className="bg-amber-500">{studentForm.fundingSource}</Badge>
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between gap-2">
