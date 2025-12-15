@@ -1173,8 +1173,8 @@ function ManageStudentsContent() {
             </CardContent>
           </Card>
         </main>
-        <DashboardFooter />
       </div>
+      <DashboardFooter />
     </div>
   );
 }
