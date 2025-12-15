@@ -83,7 +83,13 @@ service firebase.storage {
     // ================================
     // PROPERTY FILES (PRIVATE)
     // ================================
-    match /properties/{providerId}/{propertyId}/{fileName} {
+    // Cover images: properties/{providerId}/{fileName}
+    match /properties/{providerId}/{fileName} {
+      allow read: if isAdmin() || isProviderOwner(providerId);
+      allow write, delete: if isAdmin() || isProviderOwner(providerId);
+    }
+    // Property-specific files: properties/{providerId}/{propertyId}/{allPaths}
+    match /properties/{providerId}/{propertyId}/{allPaths=**} {
       allow read: if isAdmin() || isProviderOwner(providerId);
       allow write, delete: if isAdmin() || isProviderOwner(providerId);
     }
