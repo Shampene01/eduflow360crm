@@ -736,10 +736,14 @@ export async function syncPropertyToCRM(
   }
 
   try {
-    // Helper to get image URL by caption/category
-    const getImageByCaption = (imgs: PropertyImage[], caption: string): string | null => {
-      const img = imgs.find(i => i.caption?.toLowerCase().includes(caption.toLowerCase()));
-      return img?.imageUrl || null;
+    // Helper to get first image URL by category (preferred) or caption fallback
+    const getImageByCategory = (imgs: PropertyImage[], category: string): string | null => {
+      // First try to find by category field
+      const imgByCategory = imgs.find(i => i.category === category);
+      if (imgByCategory?.imageUrl) return imgByCategory.imageUrl;
+      // Fallback to caption matching
+      const imgByCaption = imgs.find(i => i.caption?.toLowerCase().includes(category.toLowerCase()));
+      return imgByCaption?.imageUrl || null;
     };
 
     // Prepare payload for Power Automate
@@ -810,13 +814,13 @@ export async function syncPropertyToCRM(
       // Amenities (convert array to comma-separated string)
       amenities: Array.isArray(property.amenities) ? property.amenities.join(", ") : "",
       
-      // Image URLs (individual fields - use cover image or find by caption)
+      // Image URLs (individual fields - use category field for matching)
       coverImageUrl: property.coverImageUrl || (images && images.length > 0 ? images.find(i => i.isCover)?.imageUrl : null) || null,
-      bedroomImageUrl: getImageByCaption(images || [], "bedroom") || getImageByCaption(images || [], "bed") || (images && images.length > 1 ? images[1]?.imageUrl : null) || null,
-      bathroomImageUrl: getImageByCaption(images || [], "bathroom") || getImageByCaption(images || [], "bath") || (images && images.length > 2 ? images[2]?.imageUrl : null) || null,
-      kitchenImageUrl: getImageByCaption(images || [], "kitchen") || (images && images.length > 3 ? images[3]?.imageUrl : null) || null,
-      commonAreaImageUrl: getImageByCaption(images || [], "common") || getImageByCaption(images || [], "lounge") || getImageByCaption(images || [], "living") || (images && images.length > 4 ? images[4]?.imageUrl : null) || null,
-      exteriorImageUrl: getImageByCaption(images || [], "exterior") || getImageByCaption(images || [], "outside") || getImageByCaption(images || [], "building") || (images && images.length > 5 ? images[5]?.imageUrl : null) || null,
+      bedroomImageUrl: getImageByCategory(images || [], "bedroom") || null,
+      bathroomImageUrl: getImageByCategory(images || [], "bathroom") || null,
+      kitchenImageUrl: getImageByCategory(images || [], "kitchen") || null,
+      commonAreaImageUrl: getImageByCategory(images || [], "common") || null,
+      exteriorImageUrl: getImageByCategory(images || [], "exterior") || null,
       
       // Document URLs (individual fields for each document type)
       documentTitleDeed: getPropertyDocumentUrl(documents || [], "TITLE_DEED"),

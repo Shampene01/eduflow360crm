@@ -549,6 +549,8 @@ export interface PropertyDocument {
 // PROPERTY IMAGES TABLE
 // ============================================================================
 
+export type ImageCategory = "bedroom" | "bathroom" | "kitchen" | "common" | "exterior" | "cover";
+
 export interface PropertyImage {
   imageId: string;                   // UUID, PK
   propertyId: string;                // FK → Property
@@ -556,6 +558,7 @@ export interface PropertyImage {
   imageUrl: string;
   thumbnailUrl?: string;
   caption?: string;
+  category?: ImageCategory;          // Image category for CRM sync
   sortOrder: number;
   isCover: boolean;
   
