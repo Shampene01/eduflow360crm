@@ -21,6 +21,7 @@ import { auth } from "@/lib/firebase";
 import { createUser, createAddress, updateUser } from "@/lib/db";
 import { getAuthErrorMessage } from "@/lib/auth";
 import { syncUserToCRMBackground } from "@/lib/crmSync";
+import { validateSAIdNumber, type SAIdValidationResult } from "@/lib/utils/saIdNumber";
 import type { UserRole } from "@/lib/types";
 
 interface FormData {
@@ -72,11 +73,39 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [idValidation, setIdValidation] = useState<SAIdValidationResult | null>(null);
   const router = useRouter();
   const [formData, setFormData] = useState<FormData>(initialFormData);
 
   const updateFormData = (field: keyof FormData, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Handle ID number change with auto-extraction of DOB and gender
+  const handleIdNumberChange = (idNumber: string) => {
+    updateFormData("idNumber", idNumber);
+    
+    // Only validate if we have 13 digits
+    const cleanId = idNumber.replace(/[\s-]/g, "");
+    if (cleanId.length === 13) {
+      const result = validateSAIdNumber(idNumber);
+      setIdValidation(result);
+      
+      // Auto-fill DOB and gender if valid
+      if (result.isValid && result.dateOfBirth && result.gender) {
+        setFormData((prev) => ({
+          ...prev,
+          idNumber,
+          dateOfBirth: result.dateOfBirth || prev.dateOfBirth,
+          gender: result.gender || prev.gender,
+        }));
+      }
+    } else if (cleanId.length > 0) {
+      // Clear validation if incomplete
+      setIdValidation(null);
+    } else {
+      setIdValidation(null);
+    }
   };
 
   const validateStep = (stepNum: number): boolean => {
@@ -97,6 +126,14 @@ export default function RegisterPage() {
         }
         if (!formData.phoneNumber) {
           setError("Please enter your phone number.");
+          return false;
+        }
+        if (!formData.idNumber) {
+          setError("Please enter your SA ID Number.");
+          return false;
+        }
+        if (!idValidation?.isValid) {
+          setError(idValidation?.error || "Please enter a valid 13-digit SA ID Number.");
           return false;
         }
         return true;
@@ -300,39 +337,44 @@ export default function RegisterPage() {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label>SA ID Number *</Label>
+                <Input
+                  value={formData.idNumber}
+                  onChange={(e) => handleIdNumberChange(e.target.value)}
+                  placeholder="Enter your 13-digit SA ID Number"
+                  maxLength={13}
+                  className={`bg-gray-50 ${idValidation ? (idValidation.isValid ? "border-green-500 focus:ring-green-500" : "border-red-500 focus:ring-red-500") : ""}`}
+                />
+                {idValidation && (
+                  <p className={`text-xs ${idValidation.isValid ? "text-green-600" : "text-red-600"}`}>
+                    {idValidation.isValid 
+                      ? "✓ Valid SA ID - Date of birth and gender auto-filled" 
+                      : `✗ ${idValidation.error}`}
+                  </p>
+                )}
+                <p className="text-xs text-gray-500">Date of birth and gender will be auto-filled from your ID</p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>ID Number</Label>
-                  <Input
-                    value={formData.idNumber}
-                    onChange={(e) => updateFormData("idNumber", e.target.value)}
-                    placeholder="SA ID Number"
-                    className="bg-gray-50"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Date of Birth</Label>
+                  <Label>Date of Birth <span className="text-gray-400 text-xs">(from ID)</span></Label>
                   <Input
                     type="date"
                     value={formData.dateOfBirth}
-                    onChange={(e) => updateFormData("dateOfBirth", e.target.value)}
-                    className="bg-gray-50"
+                    disabled
+                    className="bg-gray-100 cursor-not-allowed"
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Gender</Label>
-                <Select value={formData.gender} onValueChange={(v) => updateFormData("gender", v)}>
-                  <SelectTrigger className="bg-gray-50">
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label>Gender <span className="text-gray-400 text-xs">(from ID)</span></Label>
+                  <Input
+                    value={formData.gender || ""}
+                    disabled
+                    placeholder="Auto-filled from ID"
+                    className="bg-gray-100 cursor-not-allowed"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -455,9 +497,9 @@ export default function RegisterPage() {
                   />
                   <span className="text-sm text-gray-600">
                     I agree to the{" "}
-                    <Link href="/terms" className="text-amber-600 font-medium hover:underline">Terms of Service</Link>
+                    <Link href="/terms" target="_blank" rel="noopener noreferrer" className="text-amber-600 font-medium hover:underline">Terms of Service</Link>
                     {" "}and{" "}
-                    <Link href="/privacy" className="text-amber-600 font-medium hover:underline">Privacy Policy</Link> *
+                    <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="text-amber-600 font-medium hover:underline">Privacy Policy</Link> *
                   </span>
                 </label>
               </div>

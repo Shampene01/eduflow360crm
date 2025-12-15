@@ -222,7 +222,20 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-gray-200 text-center">
+          <div className="mt-6 text-center">
+            <p className="text-xs text-gray-500">
+              By signing in, you agree to the{" "}
+              <Link href="/terms" target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:underline">
+                Terms of Service
+              </Link>
+              {" "}and{" "}
+              <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="text-amber-600 hover:underline">
+                Privacy Policy
+              </Link>
+            </p>
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-gray-200 text-center">
             <p className="text-gray-600 text-sm">
               Don&apos;t have an account?
               <Link
