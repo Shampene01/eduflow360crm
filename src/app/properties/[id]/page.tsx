@@ -557,8 +557,8 @@ function PropertyDetailsContent() {
             </div>
           </div>
         </main>
-        <DashboardFooter />
       </div>
+      <DashboardFooter />
     </div>
   );
 }
