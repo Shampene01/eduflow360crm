@@ -1,0 +1,12 @@
+{"users": [
+{
+  "localId": "PplVqWkuKWT6Hqi6cdESdkbAJS12",
+  "email": "shampene@lebonconsulting.co.za",
+  "emailVerified": true,
+  "passwordHash": "4bzEd/6m3mrc1T7mEEJA+Jy5Xp5lOt55Gq3u+aPvPJgZAYgzvkzSnZotk392FBzNNIgO6PqLGIvo0N9Qg6M8fQ==",
+  "salt": "qIOP7Gikw42Lmg==",
+  "lastSignedInAt": "1765792377988",
+  "createdAt": "1765790650505",
+  "customAttributes": "{\"platformRole\":\"superAdmin\",\"roleCode\":4}",
+  "providerUserInfo": []
+}]}

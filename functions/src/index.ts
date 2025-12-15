@@ -22,12 +22,17 @@ setGlobalOptions({
 // ROLE DEFINITIONS (SINGLE SOURCE OF TRUTH)
 // ------------------------------------------------------------------
 const ROLE_MAP: Record<string, number> = {
-  superAdmin: 4,
-  admin: 3,
-  provider: 2,
+  superAdmin: 4,    // Platform owner
+  admin: 3,         // Platform administrators
+  provider: 2,      // Accommodation provider owner
+  providerStaff: 1, // Provider's staff (registers students, manages bookings)
+  none: 0,          // No claims set (default)
 };
 
 const ALLOWED_PLATFORM_ROLES = Object.keys(ROLE_MAP);
+
+// Roles that require a providerId
+const PROVIDER_ROLES = ["provider", "providerStaff"];
 
 // ------------------------------------------------------------------
 // HELLO WORLD
@@ -174,15 +179,17 @@ export const setUserClaims = onRequest(async (req, res) => {
     // --------------------------------------------------------------
     // PROVIDER-SPECIFIC VALIDATION
     // --------------------------------------------------------------
-    if (platformRole === "provider" && !providerId) {
+    const requiresProviderId = PROVIDER_ROLES.includes(platformRole);
+    
+    if (requiresProviderId && !providerId) {
       res.status(400).json({
         success: false,
-        error: "providerId is required for provider role",
+        error: `providerId is required for ${platformRole} role`,
       });
       return;
     }
 
-    if (platformRole !== "provider" && providerId) {
+    if (!requiresProviderId && providerId) {
       res.status(400).json({
         success: false,
         error: "providerId must NOT be set for admin roles",
