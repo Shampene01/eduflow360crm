@@ -88,7 +88,7 @@ service firebase.storage {
       allow read: if isAdmin() || isProviderOwner(providerId);
       allow write, delete: if isAdmin() || isProviderOwner(providerId);
     }
-    // Property-specific files: properties/{providerId}/{propertyId}/{allPaths}
+    // Property-specific files & documents: properties/{providerId}/{propertyId}/...
     match /properties/{providerId}/{propertyId}/{allPaths=**} {
       allow read: if isAdmin() || isProviderOwner(providerId);
       allow write, delete: if isAdmin() || isProviderOwner(providerId);
