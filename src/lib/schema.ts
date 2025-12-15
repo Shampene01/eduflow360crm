@@ -331,7 +331,7 @@ export interface Property {
   pricePerBedPerMonth?: number;
   
   // Status
-  status: "Draft" | "Pending" | "Active" | "Inactive" | "Suspended";
+  status: "Draft" | "Pending" | "Active" | "Approved" | "Inactive" | "Suspended";
   nsfasApproved: boolean;
   
   // Amenities

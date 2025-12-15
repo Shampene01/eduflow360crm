@@ -19,6 +19,7 @@ import {
   UserPlus,
   AlertTriangle,
   RefreshCw,
+  BadgeCheck,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardFooter } from "@/components/DashboardFooter";
@@ -262,17 +263,20 @@ function PropertyDetailsContent() {
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-bold text-gray-900">{property.name}</h1>
                   <Badge
-                    className={
-                      property.status === "Active"
-                        ? "bg-green-500"
+                    className={`flex items-center gap-1 ${
+                      property.status === "Active" || property.status === "Approved"
+                        ? "bg-green-500 text-white"
                         : property.status === "Pending"
                         ? "bg-yellow-500"
                         : property.status === "Draft"
                         ? "bg-blue-500"
                         : "bg-gray-500"
-                    }
+                    }`}
                   >
-                    {property.status}
+                    {(property.status === "Active" || property.status === "Approved") && (
+                      <BadgeCheck className="w-4 h-4" />
+                    )}
+                    {property.status === "Active" || property.status === "Approved" ? "Approved" : property.status}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-1 text-gray-500 mt-1">

@@ -190,7 +190,7 @@ function PropertiesContent() {
                     )}
                     <Badge
                       className={`absolute top-3 right-3 flex items-center gap-1 ${
-                        property.status === "Active"
+                        property.status === "Active" || property.status === "Approved"
                           ? "bg-green-500 text-white"
                           : property.status === "Pending"
                           ? "bg-yellow-500"
@@ -199,10 +199,10 @@ function PropertiesContent() {
                           : "bg-gray-500"
                       }`}
                     >
-                      {property.status === "Active" && (
+                      {(property.status === "Active" || property.status === "Approved") && (
                         <BadgeCheck className="w-4 h-4" />
                       )}
-                      {property.status === "Active" ? "Approved" : property.status}
+                      {property.status === "Active" || property.status === "Approved" ? "Approved" : property.status}
                     </Badge>
                   </div>
 
