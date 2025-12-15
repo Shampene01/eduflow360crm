@@ -650,9 +650,12 @@ function AddPropertyContent() {
       let sortOrder = 0;
 
       console.log(`Uploading ${step4Data.roomImages.length} room images...`);
+      let bedroomIndex = 1;
       for (const imageFile of step4Data.roomImages) {
         try {
-          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/rooms/${Date.now()}_${imageFile.name}`);
+          const imageName = `Bedroom_${bedroomIndex}`;
+          const ext = imageFile.name.split('.').pop() || 'jpg';
+          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/rooms/${imageName}.${ext}`);
           console.log("Uploading to storage:", imageRef.fullPath);
           await uploadBytes(imageRef, imageFile);
           const imageUrl = await getDownloadURL(imageRef);
@@ -661,12 +664,14 @@ function AddPropertyContent() {
           await createPropertyImage(provider.providerId, {
             propertyId: property.propertyId,
             imageUrl,
-            caption: `Room image ${sortOrder + 1}`,
+            caption: imageName,
+            category: "bedroom",
             sortOrder: sortOrder++,
             isCover: false,
             uploadedBy: user?.email || provider.providerId,
           });
-          console.log("✅ Room image Firestore doc created");
+          console.log(`✅ ${imageName} Firestore doc created`);
+          bedroomIndex++;
         } catch (err) {
           console.error("❌ Error uploading room image:", err);
           throw err;
@@ -674,9 +679,12 @@ function AddPropertyContent() {
       }
 
       console.log(`Uploading ${step4Data.commonRoomImages.length} common room images...`);
+      let commonRoomIndex = 1;
       for (const imageFile of step4Data.commonRoomImages) {
         try {
-          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/common/${Date.now()}_${imageFile.name}`);
+          const imageName = `Common_Area_${commonRoomIndex}`;
+          const ext = imageFile.name.split('.').pop() || 'jpg';
+          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/common/${imageName}.${ext}`);
           console.log("Uploading to storage:", imageRef.fullPath);
           await uploadBytes(imageRef, imageFile);
           const imageUrl = await getDownloadURL(imageRef);
@@ -685,12 +693,14 @@ function AddPropertyContent() {
           await createPropertyImage(provider.providerId, {
             propertyId: property.propertyId,
             imageUrl,
-            caption: `Common room image ${sortOrder + 1}`,
+            caption: imageName,
+            category: "common",
             sortOrder: sortOrder++,
             isCover: false,
             uploadedBy: user?.email || provider.providerId,
           });
-          console.log("✅ Common room image Firestore doc created");
+          console.log(`✅ ${imageName} Firestore doc created`);
+          commonRoomIndex++;
         } catch (err) {
           console.error("❌ Error uploading common room image:", err);
           throw err;
@@ -699,9 +709,12 @@ function AddPropertyContent() {
 
       // Upload ablution facilities images
       console.log(`Uploading ${step4Data.ablutionImages.length} ablution images...`);
+      let bathroomIndex = 1;
       for (const imageFile of step4Data.ablutionImages) {
         try {
-          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/ablution/${Date.now()}_${imageFile.name}`);
+          const imageName = `Bathroom_${bathroomIndex}`;
+          const ext = imageFile.name.split('.').pop() || 'jpg';
+          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/ablution/${imageName}.${ext}`);
           console.log("Uploading to storage:", imageRef.fullPath);
           await uploadBytes(imageRef, imageFile);
           const imageUrl = await getDownloadURL(imageRef);
@@ -710,12 +723,14 @@ function AddPropertyContent() {
           await createPropertyImage(provider.providerId, {
             propertyId: property.propertyId,
             imageUrl,
-            caption: `Ablution facilities ${sortOrder + 1}`,
+            caption: imageName,
+            category: "bathroom",
             sortOrder: sortOrder++,
             isCover: false,
             uploadedBy: user?.email || provider.providerId,
           });
-          console.log("✅ Ablution image Firestore doc created");
+          console.log(`✅ ${imageName} Firestore doc created`);
+          bathroomIndex++;
         } catch (err) {
           console.error("❌ Error uploading ablution image:", err);
           throw err;
@@ -724,9 +739,12 @@ function AddPropertyContent() {
 
       // Upload kitchen images
       console.log(`Uploading ${step4Data.kitchenImages.length} kitchen images...`);
+      let kitchenIndex = 1;
       for (const imageFile of step4Data.kitchenImages) {
         try {
-          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/kitchen/${Date.now()}_${imageFile.name}`);
+          const imageName = `Kitchen_${kitchenIndex}`;
+          const ext = imageFile.name.split('.').pop() || 'jpg';
+          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/kitchen/${imageName}.${ext}`);
           console.log("Uploading to storage:", imageRef.fullPath);
           await uploadBytes(imageRef, imageFile);
           const imageUrl = await getDownloadURL(imageRef);
@@ -735,12 +753,14 @@ function AddPropertyContent() {
           await createPropertyImage(provider.providerId, {
             propertyId: property.propertyId,
             imageUrl,
-            caption: `Kitchen image ${sortOrder + 1}`,
+            caption: imageName,
+            category: "kitchen",
             sortOrder: sortOrder++,
             isCover: false,
             uploadedBy: user?.email || provider.providerId,
           });
-          console.log("✅ Kitchen image Firestore doc created");
+          console.log(`✅ ${imageName} Firestore doc created`);
+          kitchenIndex++;
         } catch (err) {
           console.error("❌ Error uploading kitchen image:", err);
           throw err;
@@ -749,9 +769,12 @@ function AddPropertyContent() {
 
       // Upload amenities images
       console.log(`Uploading ${step4Data.amenitiesImages.length} amenities images...`);
+      let amenitiesIndex = 1;
       for (const imageFile of step4Data.amenitiesImages) {
         try {
-          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/amenities/${Date.now()}_${imageFile.name}`);
+          const imageName = `Exterior_${amenitiesIndex}`;
+          const ext = imageFile.name.split('.').pop() || 'jpg';
+          const imageRef = ref(storage, `properties/${provider.providerId}/${property.propertyId}/amenities/${imageName}.${ext}`);
           console.log("Uploading to storage:", imageRef.fullPath);
           await uploadBytes(imageRef, imageFile);
           const imageUrl = await getDownloadURL(imageRef);
@@ -760,12 +783,14 @@ function AddPropertyContent() {
           await createPropertyImage(provider.providerId, {
             propertyId: property.propertyId,
             imageUrl,
-            caption: `Amenities image ${sortOrder + 1}`,
+            caption: imageName,
+            category: "exterior",
             sortOrder: sortOrder++,
             isCover: false,
             uploadedBy: user?.email || provider.providerId,
           });
-          console.log("✅ Amenities image Firestore doc created");
+          console.log(`✅ ${imageName} Firestore doc created`);
+          amenitiesIndex++;
         } catch (err) {
           console.error("❌ Error uploading amenities image:", err);
           throw err;

@@ -59,6 +59,17 @@ const steps = [
   { num: 6, label: "Documents", icon: FolderOpen },
 ];
 
+// Progress steps for the submission process
+const SUBMISSION_STEPS = [
+  { id: 1, label: "Creating address record", icon: "📍" },
+  { id: 2, label: "Creating provider profile", icon: "🏢" },
+  { id: 3, label: "Adding primary contact", icon: "👤" },
+  { id: 4, label: "Adding secondary contact", icon: "👥" },
+  { id: 5, label: "Uploading documents", icon: "📄" },
+  { id: 6, label: "Syncing to CRM", icon: "🔄" },
+  { id: 7, label: "Finalizing application", icon: "🎉" },
+];
+
 interface FormData {
   // Company Info
   companyName: string;
@@ -179,6 +190,10 @@ function ProviderApplicationContent() {
   const [error, setError] = useState("");
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  
+  // Submission progress tracking
+  const [submissionStep, setSubmissionStep] = useState(0);
+  const [submissionMessage, setSubmissionMessage] = useState("");
 
   // Check if user already has a provider application
   useEffect(() => {
@@ -313,9 +328,13 @@ function ProviderApplicationContent() {
 
     setLoading(true);
     setError("");
+    setSubmissionStep(0);
+    setSubmissionMessage("");
 
     try {
       // 1. Create address (latitude/longitude will be auto-populated by Google Maps API)
+      setSubmissionStep(1);
+      setSubmissionMessage("Creating address record...");
       const address = await createAddress({
         street: formData.street,
         suburb: formData.suburb || undefined,
@@ -326,6 +345,8 @@ function ProviderApplicationContent() {
       });
 
       // 2. Create provider (only include fields with values to avoid Firestore undefined errors)
+      setSubmissionStep(2);
+      setSubmissionMessage("Creating provider profile...");
       const providerData: any = {
         userId: uid,
         companyName: formData.companyName,
@@ -367,6 +388,8 @@ function ProviderApplicationContent() {
       const provider = await createProvider(providerData);
 
       // 3. Create primary contact (only include optional fields with values)
+      setSubmissionStep(3);
+      setSubmissionMessage("Adding primary contact...");
       const primaryContactData: any = {
         providerId: provider.providerId,
         firstNames: formData.primaryFirstNames,
@@ -382,6 +405,8 @@ function ProviderApplicationContent() {
       await createProviderContact(primaryContactData);
 
       // 4. Create secondary contact if provided
+      setSubmissionStep(4);
+      setSubmissionMessage("Adding secondary contact...");
       if (formData.secondaryFirstNames && formData.secondaryPhone) {
         const secondaryContactData: any = {
           providerId: provider.providerId,
@@ -399,6 +424,8 @@ function ProviderApplicationContent() {
       }
 
       // 5. Upload documents
+      setSubmissionStep(5);
+      setSubmissionMessage("Uploading documents...");
       const documentUploads: { file: File; type: DocumentType; name: string }[] = [];
       
       if (formData.idDocument) {
@@ -440,6 +467,8 @@ function ProviderApplicationContent() {
       // The provider status is tracked via the accommodationProviders collection
 
       // 6. Sync provider to Dataverse CRM (background, non-blocking)
+      setSubmissionStep(6);
+      setSubmissionMessage("Syncing to CRM...");
       // The user's dataverseId links the provider to their Dataverse contact record
       const userDataverseId = user?.dataverseId;
       if (userDataverseId) {
@@ -485,11 +514,17 @@ function ProviderApplicationContent() {
         console.warn("User does not have a Dataverse ID - provider will not be synced to CRM");
       }
 
+      // 7. Finalize
+      setSubmissionStep(7);
+      setSubmissionMessage("Finalizing application...");
+      
       // Redirect to provider dashboard
       router.push("/provider-dashboard");
     } catch (err) {
       console.error("Application error:", err);
       setError(err instanceof Error ? err.message : "Failed to submit application. Please try again.");
+      setSubmissionStep(0);
+      setSubmissionMessage("");
     } finally {
       setLoading(false);
     }
@@ -588,6 +623,57 @@ function ProviderApplicationContent() {
       <div className="flex">
         <Sidebar />
         <main className="flex-1 p-6 lg:p-8">
+          {/* Submission Progress Overlay */}
+          {loading && submissionStep > 0 && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+              <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Loader2 className="w-8 h-8 text-white animate-spin" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900">Submitting Application</h3>
+                  <p className="text-gray-500 text-sm mt-1">Please wait while we process your application...</p>
+                </div>
+
+                <div className="space-y-2 mb-6">
+                  {SUBMISSION_STEPS.map((stepItem) => (
+                    <div
+                      key={stepItem.id}
+                      className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
+                        stepItem.id < submissionStep
+                          ? "bg-green-50 text-green-700"
+                          : stepItem.id === submissionStep
+                          ? "bg-amber-50 text-amber-700 border border-amber-200"
+                          : "bg-gray-50 text-gray-400"
+                      }`}
+                    >
+                      <span className="text-lg">{stepItem.icon}</span>
+                      <span className="flex-1 text-sm font-medium">{stepItem.label}</span>
+                      {stepItem.id < submissionStep && (
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                      )}
+                      {stepItem.id === submissionStep && (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-amber-400 to-amber-600 rounded-full transition-all duration-500"
+                      style={{ width: `${(submissionStep / SUBMISSION_STEPS.length) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-center text-sm text-gray-500 mt-2">
+                    Step {submissionStep} of {SUBMISSION_STEPS.length}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="max-w-3xl mx-auto">
             {/* Header */}
             <div className="mb-6">
