@@ -30,7 +30,7 @@ import { Property, Address, RoomConfiguration, PropertyDocument, PropertyImage }
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getProviderByUserId, getPropertyById, getAddressById, getRoomConfiguration, updateProperty, getPropertyAssignments, getPropertyDocuments, getPropertyImages } from "@/lib/db";
+import { getProviderByUserId, getPropertyById, getAddressById, getRoomConfiguration, updateProperty, getActiveStudentCountForProperty, getPropertyDocuments, getPropertyImages } from "@/lib/db";
 import { syncPropertyToCRM } from "@/lib/crmSync";
 import { toast } from "sonner";
 import {
@@ -102,10 +102,9 @@ function PropertyDetailsContent() {
             images: images || []
           });
           
-          // Fetch active student assignments to calculate occupancy
-          const assignments = await getPropertyAssignments(id as string);
-          const activeAssignments = assignments.filter(a => a.status === "Active");
-          setAssignedStudentsCount(activeAssignments.length);
+          // Fetch active student count (students with status "Active" = currently residing)
+          const activeCount = await getActiveStudentCountForProperty(id as string);
+          setAssignedStudentsCount(activeCount);
         }
       } catch (error) {
         console.error("Error fetching property:", error);

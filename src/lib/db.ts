@@ -767,6 +767,81 @@ export async function getPropertyAssignments(propertyId: string, status?: string
   return snap.docs.map(d => d.data() as StudentPropertyAssignment);
 }
 
+export async function getActiveStudentCountForProperty(propertyId: string): Promise<number> {
+  if (!db) return 0;
+  
+  // Get all assignments for this property
+  const assignments = await getPropertyAssignments(propertyId);
+  if (assignments.length === 0) return 0;
+  
+  // Get unique student IDs
+  const studentIds = [...new Set(assignments.map(a => a.studentId))];
+  
+  // Count students with "Active" status (currently residing)
+  let activeCount = 0;
+  for (const studentId of studentIds) {
+    const student = await getStudentById(studentId);
+    if (student && student.status === "Active") {
+      activeCount++;
+    }
+  }
+  
+  return activeCount;
+}
+
+export async function getActiveStudentCountsForProperties(propertyIds: string[]): Promise<Record<string, number>> {
+  if (!db || propertyIds.length === 0) return {};
+  
+  const counts: Record<string, number> = {};
+  
+  // Initialize all to 0
+  propertyIds.forEach(id => counts[id] = 0);
+  
+  // Get all assignments for these properties in one query
+  const assignmentsSnap = await getDocs(
+    query(
+      collection(db, COLLECTIONS.STUDENT_PROPERTY_ASSIGNMENTS),
+      where("propertyId", "in", propertyIds.slice(0, 30)) // Firestore 'in' limit is 30
+    )
+  );
+  
+  const assignments = assignmentsSnap.docs.map(d => d.data() as StudentPropertyAssignment);
+  
+  // Group by property and get unique student IDs per property
+  const propertyStudentMap: Record<string, Set<string>> = {};
+  assignments.forEach(a => {
+    if (!propertyStudentMap[a.propertyId]) {
+      propertyStudentMap[a.propertyId] = new Set();
+    }
+    propertyStudentMap[a.propertyId].add(a.studentId);
+  });
+  
+  // Get all unique student IDs
+  const allStudentIds = [...new Set(assignments.map(a => a.studentId))];
+  
+  // Fetch all students and check their status
+  const studentStatusMap: Record<string, string> = {};
+  for (const studentId of allStudentIds) {
+    const student = await getStudentById(studentId);
+    if (student) {
+      studentStatusMap[studentId] = student.status || "";
+    }
+  }
+  
+  // Count active students per property
+  for (const [propertyId, studentIds] of Object.entries(propertyStudentMap)) {
+    let activeCount = 0;
+    studentIds.forEach(studentId => {
+      if (studentStatusMap[studentId] === "Active") {
+        activeCount++;
+      }
+    });
+    counts[propertyId] = activeCount;
+  }
+  
+  return counts;
+}
+
 export async function closeStudentAssignment(
   assignmentId: string,
   closedBy: string,

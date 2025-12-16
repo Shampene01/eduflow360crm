@@ -24,7 +24,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { getProviderByUserId, getPropertiesByProvider, getAddressById, getRoomConfiguration } from "@/lib/db";
+import { getProviderByUserId, getPropertiesByProvider, getAddressById, getRoomConfiguration, getActiveStudentCountsForProperties } from "@/lib/db";
 import { Address, RoomConfiguration } from "@/lib/schema";
 
 // Extended property type with address and room config data for display
@@ -38,6 +38,7 @@ function PropertiesContent() {
   const [properties, setProperties] = useState<PropertyWithAddress[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [activeStudentCounts, setActiveStudentCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const fetchProperties = async () => {
@@ -75,6 +76,13 @@ function PropertiesContent() {
         );
         
         setProperties(propertiesWithDetails);
+        
+        // Fetch active student counts for all properties
+        if (propertiesWithDetails.length > 0) {
+          const propertyIds = propertiesWithDetails.map(p => p.propertyId);
+          const counts = await getActiveStudentCountsForProperties(propertyIds);
+          setActiveStudentCounts(counts);
+        }
       } catch (error) {
         console.error("Error fetching properties:", error);
         setProperties([]);
@@ -217,7 +225,7 @@ function PropertiesContent() {
                       <div className="flex items-center gap-1 text-sm">
                         <Users className="w-4 h-4 text-gray-400" />
                         <span>
-                          {(property.totalBeds || 0) - (property.availableBeds || 0)}/{property.totalBeds || 0} Students
+                          {activeStudentCounts[property.propertyId] || 0}/{property.totalBeds || 0} Students
                         </span>
                       </div>
                       <span className="font-semibold text-amber-600">
