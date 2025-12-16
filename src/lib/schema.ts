@@ -527,6 +527,7 @@ export interface Student {
   
   // Status
   status: "Pending" | "Rejected" | "Approved" | "Active" | "Suspended" | "Vacated" | "Terminated";
+  rejectionReason?: string;          // Reason for rejection (if status is Rejected)
   
   // CRM Sync
   dataverseId?: string;              // Dataverse student ID (returned from Power Automate)

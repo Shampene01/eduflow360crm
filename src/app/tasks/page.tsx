@@ -34,6 +34,7 @@ import {
   TaskStatus,
   TaskType,
   TaskPriority,
+  Student,
 } from "@/lib/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -72,7 +73,28 @@ import {
   completeTask,
   cancelTask,
   getProviderByUserId,
+  getStudentsByProvider,
+  updateStudent,
 } from "@/lib/db";
+
+// Unified task item type that can be either a manual task or auto-generated from entities
+interface UnifiedTaskItem {
+  id: string;
+  type: "manual" | "studentApproval";
+  taskType: TaskType;
+  title: string;
+  description?: string;
+  status: TaskStatus | string;
+  priority: TaskPriority;
+  relatedEntityId?: string;
+  relatedEntityName?: string;
+  createdAt?: Date;
+  dueDate?: string;
+  // For manual tasks
+  task?: Task;
+  // For student approvals
+  student?: Student;
+}
 
 const TASK_TYPE_LABELS: Record<TaskType, string> = {
   StudentApproval: "Student Approval",
@@ -103,6 +125,7 @@ const TASK_TYPE_ICONS: Record<TaskType, React.ReactNode> = {
 function TasksContent() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [pendingStudents, setPendingStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [providerId, setProviderId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -118,6 +141,7 @@ function TasksContent() {
     completed: 0,
     cancelled: 0,
     overdue: 0,
+    pendingStudents: 0,
   });
 
   // Create task dialog
@@ -138,33 +162,45 @@ function TasksContent() {
   const [resolution, setResolution] = useState("");
   const [processing, setProcessing] = useState(false);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const uid = user?.userId || user?.uid;
-      if (!uid) return;
+  // Student approval dialog
+  const [studentActionOpen, setStudentActionOpen] = useState(false);
+  const [studentAction, setStudentAction] = useState<"approve" | "reject">("approve");
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [processingStudent, setProcessingStudent] = useState(false);
 
-      try {
-        const provider = await getProviderByUserId(uid);
-        if (provider) {
-          setProviderId(provider.providerId);
-          
-          // Fetch tasks and summary
-          const [tasksData, summaryData] = await Promise.all([
-            getTasksByProvider(provider.providerId),
-            getTaskSummary(provider.providerId),
-          ]);
-          
-          setTasks(tasksData);
-          setSummary(summaryData);
-        }
-      } catch (error) {
-        console.error("Error fetching tasks:", error);
-        toast.error("Failed to load tasks");
-      } finally {
-        setLoading(false);
+  const fetchData = async () => {
+    const uid = user?.userId || user?.uid;
+    if (!uid) return;
+
+    try {
+      const provider = await getProviderByUserId(uid);
+      if (provider) {
+        setProviderId(provider.providerId);
+        
+        // Fetch tasks, summary, and pending students
+        const [tasksData, summaryData, studentsData] = await Promise.all([
+          getTasksByProvider(provider.providerId),
+          getTaskSummary(provider.providerId),
+          getStudentsByProvider(provider.providerId),
+        ]);
+        
+        // Filter for pending students only
+        const pending = studentsData.filter(s => s.status === "Pending");
+        setPendingStudents(pending);
+        
+        setTasks(tasksData);
+        setSummary({ ...summaryData, pendingStudents: pending.length });
       }
-    };
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      toast.error("Failed to load tasks");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchData();
   }, [user]);
 
@@ -218,13 +254,8 @@ function TasksContent() {
         createdByName: userName,
       });
 
-      // Refresh tasks
-      const [tasksData, summaryData] = await Promise.all([
-        getTasksByProvider(providerId),
-        getTaskSummary(providerId),
-      ]);
-      setTasks(tasksData);
-      setSummary(summaryData);
+      // Refresh all data
+      await fetchData();
 
       toast.success("Task created successfully");
       setCreateDialogOpen(false);
@@ -247,13 +278,8 @@ function TasksContent() {
     try {
       await updateTask(task.taskId, { status: "InProgress" });
       
-      // Refresh tasks
-      const [tasksData, summaryData] = await Promise.all([
-        getTasksByProvider(providerId),
-        getTaskSummary(providerId),
-      ]);
-      setTasks(tasksData);
-      setSummary(summaryData);
+      // Refresh all data
+      await fetchData();
 
       toast.success("Task started");
     } catch (error) {
@@ -297,12 +323,8 @@ function TasksContent() {
       }
 
       // Refresh tasks
-      const [tasksData, summaryData] = await Promise.all([
-        getTasksByProvider(providerId),
-        getTaskSummary(providerId),
-      ]);
-      setTasks(tasksData);
-      setSummary(summaryData);
+      // Refresh all data
+      await fetchData();
 
       setActionDialogOpen(false);
       setSelectedTask(null);
@@ -312,6 +334,45 @@ function TasksContent() {
       toast.error(`Failed to ${actionType} task`);
     } finally {
       setProcessing(false);
+    }
+  };
+
+  // Student approval handlers
+  const handleOpenStudentAction = (student: Student, action: "approve" | "reject") => {
+    setSelectedStudent(student);
+    setStudentAction(action);
+    setRejectionReason("");
+    setStudentActionOpen(true);
+  };
+
+  const handleStudentAction = async () => {
+    if (!selectedStudent) return;
+    if (studentAction === "reject" && !rejectionReason) return;
+
+    setProcessingStudent(true);
+    try {
+      if (studentAction === "approve") {
+        await updateStudent(selectedStudent.studentId, { status: "Approved" });
+        toast.success(`${selectedStudent.firstNames} ${selectedStudent.surname} approved`);
+      } else {
+        await updateStudent(selectedStudent.studentId, { 
+          status: "Rejected",
+          rejectionReason: rejectionReason,
+        });
+        toast.success(`${selectedStudent.firstNames} ${selectedStudent.surname} rejected`);
+      }
+
+      // Refresh all data
+      await fetchData();
+
+      setStudentActionOpen(false);
+      setSelectedStudent(null);
+      setRejectionReason("");
+    } catch (error) {
+      console.error("Error processing student:", error);
+      toast.error(`Failed to ${studentAction} student`);
+    } finally {
+      setProcessingStudent(false);
     }
   };
 
@@ -406,12 +467,23 @@ function TasksContent() {
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-6 gap-4 mb-6">
+            <Card className="border-l-4 border-l-purple-500">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Student Approvals</p>
+                    <p className="text-2xl font-bold text-purple-600">{summary.pendingStudents}</p>
+                  </div>
+                  <User className="w-8 h-8 text-purple-500 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
             <Card className="border-l-4 border-l-amber-500">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">Pending</p>
+                    <p className="text-sm text-gray-500">Pending Tasks</p>
                     <p className="text-2xl font-bold text-amber-600">{summary.pending}</p>
                   </div>
                   <Clock className="w-8 h-8 text-amber-500 opacity-50" />
@@ -507,6 +579,10 @@ function TasksContent() {
           {/* Tasks Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="mb-4">
+              <TabsTrigger value="studentApprovals" className="flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Student Approvals ({summary.pendingStudents})
+              </TabsTrigger>
               <TabsTrigger value="pending" className="flex items-center gap-2">
                 <Clock className="w-4 h-4" />
                 Pending ({summary.pending})
@@ -524,6 +600,82 @@ function TasksContent() {
                 Cancelled ({summary.cancelled})
               </TabsTrigger>
             </TabsList>
+
+            {/* Student Approvals Tab */}
+            <TabsContent value="studentApprovals">
+              <Card>
+                <CardContent className="p-0">
+                  {pendingStudents.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <User className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p className="font-medium">No pending student approvals</p>
+                      <p className="text-sm">All students have been processed</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {pendingStudents.map((student) => (
+                        <div
+                          key={student.studentId}
+                          className="p-4 hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-start gap-4">
+                              <div className="p-2 rounded-lg bg-purple-100 text-purple-600">
+                                <User className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-medium text-gray-900">
+                                    {student.firstNames} {student.surname}
+                                  </h3>
+                                  <Badge className="bg-amber-100 text-amber-800">
+                                    Pending Approval
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-gray-500 mt-1">
+                                  Student Approval Request
+                                  {student.institution && <span> • {student.institution}</span>}
+                                </p>
+                                <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                                  <span>ID: {student.idNumber}</span>
+                                  {student.studentNumber && <span>Student #: {student.studentNumber}</span>}
+                                  {student.funded && <Badge className="bg-green-100 text-green-700 text-xs">NSFAS Funded</Badge>}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-green-600 border-green-300 hover:bg-green-50"
+                                onClick={() => handleOpenStudentAction(student, "approve")}
+                              >
+                                <Check className="w-4 h-4 mr-1" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 border-red-300 hover:bg-red-50"
+                                onClick={() => handleOpenStudentAction(student, "reject")}
+                              >
+                                <X className="w-4 h-4 mr-1" />
+                                Reject
+                              </Button>
+                              <Link href={`/students/${student.studentId}`}>
+                                <Button size="sm" variant="ghost">
+                                  <ChevronRight className="w-4 h-4" />
+                                </Button>
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             {/* Task List */}
             <Card>
@@ -812,6 +964,82 @@ function TasksContent() {
                     "Complete Task"
                   ) : (
                     "Cancel Task"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Student Approval Dialog */}
+          <Dialog open={studentActionOpen} onOpenChange={setStudentActionOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  {studentAction === "approve" ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                      Approve Student
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-5 h-5 text-red-600" />
+                      Reject Student
+                    </>
+                  )}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                {selectedStudent && (
+                  <div className="p-3 bg-gray-100 rounded-lg">
+                    <p className="font-medium">{selectedStudent.firstNames} {selectedStudent.surname}</p>
+                    <p className="text-sm text-gray-500">
+                      ID: {selectedStudent.idNumber}
+                      {selectedStudent.institution && ` • ${selectedStudent.institution}`}
+                    </p>
+                  </div>
+                )}
+                {studentAction === "approve" ? (
+                  <p className="text-sm text-gray-600">
+                    Are you sure you want to approve this student? They will be able to proceed with accommodation assignment.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Rejection Reason *</Label>
+                    <Textarea
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      placeholder="Provide reason for rejection..."
+                      rows={4}
+                    />
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setStudentActionOpen(false)}
+                  disabled={processingStudent}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleStudentAction}
+                  disabled={processingStudent || (studentAction === "reject" && !rejectionReason)}
+                  className={
+                    studentAction === "approve"
+                      ? "bg-green-600 hover:bg-green-700"
+                      : "bg-red-600 hover:bg-red-700"
+                  }
+                >
+                  {processingStudent ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : studentAction === "approve" ? (
+                    "Approve Student"
+                  ) : (
+                    "Reject Student"
                   )}
                 </Button>
               </DialogFooter>
