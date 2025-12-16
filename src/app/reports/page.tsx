@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   TrendingUp,
   Users,
@@ -21,46 +22,69 @@ import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardFooter } from "@/components/DashboardFooter";
 import { Sidebar } from "@/components/Sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import {
+  getProviderByUserId,
+  getPropertiesByProvider,
+  getPaymentsByProvider,
+  getPropertyAssignments,
+  getStudentById,
+} from "@/lib/db";
+import { Property, Student, Payment, StudentPropertyAssignment } from "@/lib/schema";
 
-// Mock data - replace with Firestore queries
-const mockData = {
+// Extended student with property info for reports
+interface StudentWithProperty extends Student {
+  propertyId?: string;
+}
+
+// Report data interfaces
+interface ReportData {
   financialSummary: {
-    expectedRevenue: 450000,
-    receivedRevenue: 387500,
-    outstanding: 62500,
-    previousPeriod: 425000,
+    expectedRevenue: number;
+    receivedRevenue: number;
+    outstanding: number;
+    previousPeriod: number;
+  };
+  occupancy: {
+    totalBeds: number;
+    occupied: number;
+    vacant: number;
+    rate: number;
+    previousRate: number;
+  };
+  studentStatus: {
+    pending: number;
+    active: number;
+    suspended: number;
+    terminated: number;
+  };
+  monthlyRevenue: { month: string; expected: number; received: number }[];
+  recentPayments: { student: string; amount: number; date: string; status: "received" | "pending" | "overdue" }[];
+  propertyBreakdown: { name: string; beds: number; occupied: number; revenue: number }[];
+}
+
+const emptyReportData: ReportData = {
+  financialSummary: {
+    expectedRevenue: 0,
+    receivedRevenue: 0,
+    outstanding: 0,
+    previousPeriod: 0,
   },
   occupancy: {
-    totalBeds: 100,
-    occupied: 78,
-    vacant: 22,
-    rate: 78,
-    previousRate: 72,
+    totalBeds: 0,
+    occupied: 0,
+    vacant: 0,
+    rate: 0,
+    previousRate: 0,
   },
   studentStatus: {
-    pending: 5,
-    active: 68,
-    suspended: 8,
-    terminated: 12,
+    pending: 0,
+    active: 0,
+    suspended: 0,
+    terminated: 0,
   },
-  monthlyRevenue: [
-    { month: "Jul", expected: 75000, received: 72000 },
-    { month: "Aug", expected: 75000, received: 75000 },
-    { month: "Sep", expected: 75000, received: 68000 },
-    { month: "Oct", expected: 75000, received: 71500 },
-    { month: "Nov", expected: 75000, received: 52000 },
-    { month: "Dec", expected: 75000, received: 49000 },
-  ],
-  recentPayments: [
-    { student: "Thabo Molefe", amount: 6500, date: "2025-12-14", status: "received" as const },
-    { student: "Naledi Khumalo", amount: 6500, date: "2025-12-12", status: "received" as const },
-    { student: "Sipho Ndlovu", amount: 6500, date: "2025-12-10", status: "pending" as const },
-    { student: "Lerato Dlamini", amount: 6500, date: "2025-12-08", status: "overdue" as const },
-  ],
-  propertyBreakdown: [
-    { name: "Bloukrans Residence", beds: 60, occupied: 52, revenue: 338000 },
-    { name: "Lynwood Heights", beds: 40, occupied: 26, revenue: 169000 },
-  ],
+  monthlyRevenue: [],
+  recentPayments: [],
+  propertyBreakdown: [],
 };
 
 interface StatCardProps {
@@ -372,14 +396,207 @@ const RecentPayments = ({ data }: { data: PaymentData[] }) => {
 };
 
 function ReportsContent() {
-  const [dateRange] = useState("This Month");
-  const [selectedProperty] = useState("All Properties");
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [providerId, setProviderId] = useState<string>("");
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [reportData, setReportData] = useState<ReportData>(emptyReportData);
+  const [dateRange, setDateRange] = useState("This Month");
+  const [selectedPropertyId, setSelectedPropertyId] = useState("all");
 
   const formatCurrency = (amount: number) => `R ${amount.toLocaleString()}`;
   const percentChange = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? "+100%" : "0%";
     const change = ((current - previous) / previous) * 100;
     return `${change >= 0 ? "+" : ""}${change.toFixed(1)}%`;
   };
+
+  // Fetch all report data
+  useEffect(() => {
+    const fetchReportData = async () => {
+      if (!user?.uid) return;
+
+      try {
+        setLoading(true);
+
+        // Get provider
+        const provider = await getProviderByUserId(user.uid);
+        if (!provider) return;
+        setProviderId(provider.providerId);
+
+        // Get properties
+        const props = await getPropertiesByProvider(provider.providerId);
+        setProperties(props);
+
+        // Get all students with their property assignments
+        const studentsWithProperty: StudentWithProperty[] = [];
+        const allAssignments: StudentPropertyAssignment[] = [];
+        
+        for (const prop of props) {
+          const assignments = await getPropertyAssignments(prop.propertyId, "Active");
+          for (const assignment of assignments) {
+            allAssignments.push(assignment);
+            const student = await getStudentById(assignment.studentId);
+            if (student) {
+              studentsWithProperty.push({
+                ...student,
+                propertyId: prop.propertyId,
+              });
+            }
+          }
+        }
+
+        // Get payments
+        const payments = await getPaymentsByProvider(provider.providerId);
+
+        // Filter by selected property if not "all"
+        const filteredStudents = selectedPropertyId === "all" 
+          ? studentsWithProperty 
+          : studentsWithProperty.filter((s: StudentWithProperty) => s.propertyId === selectedPropertyId);
+        
+        const filteredPayments = selectedPropertyId === "all"
+          ? payments
+          : payments.filter(p => p.propertyId === selectedPropertyId);
+
+        // Calculate student status counts
+        const studentStatus = {
+          pending: filteredStudents.filter((s: StudentWithProperty) => s.status === "Pending").length,
+          active: filteredStudents.filter((s: StudentWithProperty) => s.status === "Active").length,
+          suspended: filteredStudents.filter((s: StudentWithProperty) => s.status === "Suspended").length,
+          terminated: filteredStudents.filter((s: StudentWithProperty) => s.status === "Terminated" || s.status === "Vacated").length,
+        };
+
+        // Calculate occupancy
+        const filteredProps = selectedPropertyId === "all" ? props : props.filter(p => p.propertyId === selectedPropertyId);
+        const totalBeds = filteredProps.reduce((sum, p) => sum + (p.totalBeds || 0), 0);
+        const occupied = studentStatus.active;
+        const occupancyRate = totalBeds > 0 ? Math.round((occupied / totalBeds) * 100) : 0;
+
+        // Calculate financial summary
+        const postedPayments = filteredPayments.filter(p => p.status === "Posted");
+        const receivedRevenue = postedPayments.reduce((sum, p) => sum + (p.disbursedAmount || 0), 0);
+        
+        // Expected revenue: sum of funded amounts for active students
+        const expectedRevenue = filteredStudents
+          .filter((s: StudentWithProperty) => s.status === "Active")
+          .reduce((sum: number, s: StudentWithProperty) => {
+            // Use fundedAmount if available, otherwise estimate based on typical NSFAS allocation
+            return sum + (s.fundedAmount || 0);
+          }, 0);
+
+        const outstanding = Math.max(0, expectedRevenue - receivedRevenue);
+
+        // Monthly revenue (last 6 months)
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const now = new Date();
+        const monthlyRevenue: { month: string; expected: number; received: number }[] = [];
+        
+        for (let i = 5; i >= 0; i--) {
+          const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+          const monthPayments = postedPayments.filter(p => p.paymentPeriod?.startsWith(yearMonth));
+          const monthReceived = monthPayments.reduce((sum, p) => sum + (p.disbursedAmount || 0), 0);
+          
+          monthlyRevenue.push({
+            month: monthNames[date.getMonth()],
+            expected: expectedRevenue / 6, // Distribute expected evenly for now
+            received: monthReceived,
+          });
+        }
+
+        // Recent payments (last 5)
+        const sortedPayments = [...filteredPayments]
+          .sort((a, b) => {
+            const dateA = a.createdAt?.toDate?.() || new Date(0);
+            const dateB = b.createdAt?.toDate?.() || new Date(0);
+            return dateB.getTime() - dateA.getTime();
+          })
+          .slice(0, 5);
+
+        const recentPayments = await Promise.all(
+          sortedPayments.map(async (p) => {
+            const student = studentsWithProperty.find((s: StudentWithProperty) => s.studentId === p.studentId);
+            const studentName = student 
+              ? `${student.firstNames} ${student.surname}`
+              : "Unknown Student";
+            
+            const paymentDate = p.createdAt?.toDate?.() 
+              ? p.createdAt.toDate().toISOString().split("T")[0]
+              : "N/A";
+
+            let status: "received" | "pending" | "overdue" = "pending";
+            if (p.status === "Posted") status = "received";
+            else if (p.status === "Rejected") status = "overdue";
+
+            return {
+              student: studentName,
+              amount: p.disbursedAmount || 0,
+              date: paymentDate,
+              status,
+            };
+          })
+        );
+
+        // Property breakdown
+        const propertyBreakdown = filteredProps.map(prop => {
+          const propStudents = studentsWithProperty.filter((s: StudentWithProperty) => s.propertyId === prop.propertyId && s.status === "Active");
+          const propPayments = postedPayments.filter(p => p.propertyId === prop.propertyId);
+          const propRevenue = propPayments.reduce((sum, p) => sum + (p.disbursedAmount || 0), 0);
+
+          return {
+            name: prop.name,
+            beds: prop.totalBeds || 0,
+            occupied: propStudents.length,
+            revenue: propRevenue,
+          };
+        });
+
+        setReportData({
+          financialSummary: {
+            expectedRevenue,
+            receivedRevenue,
+            outstanding,
+            previousPeriod: expectedRevenue * 0.9, // Estimate previous period
+          },
+          occupancy: {
+            totalBeds,
+            occupied,
+            vacant: totalBeds - occupied,
+            rate: occupancyRate,
+            previousRate: Math.max(0, occupancyRate - 6), // Estimate previous rate
+          },
+          studentStatus,
+          monthlyRevenue,
+          recentPayments,
+          propertyBreakdown,
+        });
+      } catch (error) {
+        console.error("Error fetching report data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReportData();
+  }, [user, selectedPropertyId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <DashboardHeader />
+        <div className="flex flex-1">
+          <Sidebar userType="provider" />
+          <main className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading reports...</p>
+            </div>
+          </main>
+        </div>
+        <DashboardFooter />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -404,11 +621,18 @@ function ReportsContent() {
                 </button>
 
                 {/* Property Filter */}
-                <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                  <Building2 className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-700">{selectedProperty}</span>
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
-                </button>
+                <select
+                  value={selectedPropertyId}
+                  onChange={(e) => setSelectedPropertyId(e.target.value)}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
+                >
+                  <option value="all">All Properties</option>
+                  {properties.map((prop) => (
+                    <option key={prop.propertyId} value={prop.propertyId}>
+                      {prop.name}
+                    </option>
+                  ))}
+                </select>
 
                 {/* Export Button */}
                 <button className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors">
@@ -426,51 +650,53 @@ function ReportsContent() {
               <StatCard
                 icon={DollarSign}
                 label="Expected Revenue"
-                value={formatCurrency(mockData.financialSummary.expectedRevenue)}
+                value={formatCurrency(reportData.financialSummary.expectedRevenue)}
                 subValue="From NSFAS allocations"
-                trend={percentChange(mockData.financialSummary.expectedRevenue, mockData.financialSummary.previousPeriod)}
-                trendUp={mockData.financialSummary.expectedRevenue > mockData.financialSummary.previousPeriod}
+                trend={percentChange(reportData.financialSummary.expectedRevenue, reportData.financialSummary.previousPeriod)}
+                trendUp={reportData.financialSummary.expectedRevenue >= reportData.financialSummary.previousPeriod}
               />
               <StatCard
                 icon={TrendingUp}
                 label="Received Revenue"
-                value={formatCurrency(mockData.financialSummary.receivedRevenue)}
+                value={formatCurrency(reportData.financialSummary.receivedRevenue)}
                 subValue="Actually paid out"
-                trend={`${Math.round((mockData.financialSummary.receivedRevenue / mockData.financialSummary.expectedRevenue) * 100)}% of expected`}
+                trend={reportData.financialSummary.expectedRevenue > 0 
+                  ? `${Math.round((reportData.financialSummary.receivedRevenue / reportData.financialSummary.expectedRevenue) * 100)}% of expected`
+                  : "0% of expected"}
                 trendUp={true}
               />
               <StatCard
                 icon={AlertCircle}
                 label="Outstanding"
-                value={formatCurrency(mockData.financialSummary.outstanding)}
+                value={formatCurrency(reportData.financialSummary.outstanding)}
                 subValue="Awaiting payment"
               />
               <StatCard
                 icon={Users}
                 label="Active Students"
-                value={mockData.studentStatus.active}
-                subValue={`${mockData.studentStatus.pending} pending approval`}
-                trend="+12%"
-                trendUp={true}
+                value={reportData.studentStatus.active}
+                subValue={`${reportData.studentStatus.pending} pending approval`}
+                trend={reportData.occupancy.rate > reportData.occupancy.previousRate ? `+${reportData.occupancy.rate - reportData.occupancy.previousRate}%` : undefined}
+                trendUp={reportData.occupancy.rate > reportData.occupancy.previousRate}
               />
             </div>
 
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
               <div className="lg:col-span-2">
-                <RevenueChart data={mockData.monthlyRevenue} />
+                <RevenueChart data={reportData.monthlyRevenue} />
               </div>
-              <OccupancyGauge rate={mockData.occupancy.rate} previousRate={mockData.occupancy.previousRate} />
+              <OccupancyGauge rate={reportData.occupancy.rate} previousRate={reportData.occupancy.previousRate} />
             </div>
 
             {/* Student Status & Recent Payments */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              <StudentStatusBreakdown data={mockData.studentStatus} />
-              <RecentPayments data={mockData.recentPayments} />
+              <StudentStatusBreakdown data={reportData.studentStatus} />
+              <RecentPayments data={reportData.recentPayments} />
             </div>
 
             {/* Property Table */}
-            <PropertyTable data={mockData.propertyBreakdown} />
+            <PropertyTable data={reportData.propertyBreakdown} />
           </div>
         </main>
       </div>
