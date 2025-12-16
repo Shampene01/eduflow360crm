@@ -1335,7 +1335,14 @@ export async function getPaymentsByProvider(
     payments = payments.filter(p => p.propertyId === filters.propertyId);
   }
   if (filters?.paymentPeriod) {
-    payments = payments.filter(p => p.paymentPeriod === filters.paymentPeriod);
+    // Handle both YYYY-MM format and full ISO date format
+    payments = payments.filter(p => {
+      if (!p.paymentPeriod) return false;
+      // Extract YYYY-MM from the stored paymentPeriod (handles both formats)
+      const storedYearMonth = p.paymentPeriod.slice(0, 7);
+      const filterYearMonth = filters.paymentPeriod!.slice(0, 7);
+      return storedYearMonth === filterYearMonth;
+    });
   }
   if (filters?.source) {
     payments = payments.filter(p => p.source === filters.source);
