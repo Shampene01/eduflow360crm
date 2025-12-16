@@ -350,5 +350,22 @@ service cloud.firestore {
       // Only admins can delete payments
       allow delete: if isAdmin();
     }
+
+    // =====================================================
+    // 15. TASKS (Provider Manager Tasks)
+    // =====================================================
+    match /tasks/{taskId} {
+      // Providers can read tasks for their own provider
+      allow read: if isAdmin() || isProviderOwner(resource.data.providerId);
+
+      // Providers can create tasks for their own provider
+      allow create: if isAdmin() || isProviderOwner(request.resource.data.providerId);
+
+      // Providers can update their own tasks; admins can update any
+      allow update: if isAdmin() || isProviderOwner(resource.data.providerId);
+
+      // Only admins can delete tasks
+      allow delete: if isAdmin();
+    }
   }
 }

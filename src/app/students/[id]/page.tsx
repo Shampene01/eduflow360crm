@@ -49,7 +49,14 @@ import {
   getProviderByUserId,
   getPaymentsByStudent,
   updateStudentAssignment,
+  updateStudent,
 } from "@/lib/db";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -78,6 +85,25 @@ function StudentDetailContent() {
   const [providerDataverseId, setProviderDataverseId] = useState<string>("");
   const [payments, setPayments] = useState<Payment[]>([]);
   
+  // Edit student state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [savingStudent, setSavingStudent] = useState(false);
+  const [editForm, setEditForm] = useState({
+    firstNames: "",
+    surname: "",
+    email: "",
+    phoneNumber: "",
+    institution: "",
+    studentNumber: "",
+    program: "",
+    yearOfStudy: 0,
+    nextOfKinName: "",
+    nextOfKinRelationship: "",
+    nextOfKinPhone: "",
+    nextOfKinEmail: "",
+    nextOfKinAddress: "",
+  });
+
   // Room allocation state
   const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   const [roomAllocation, setRoomAllocation] = useState<{
@@ -256,6 +282,77 @@ function StudentDetailContent() {
     }
   };
 
+  // Open edit student dialog
+  const handleOpenEditDialog = () => {
+    if (!student) return;
+    setEditForm({
+      firstNames: student.firstNames || "",
+      surname: student.surname || "",
+      email: student.email || "",
+      phoneNumber: student.phoneNumber || "",
+      institution: student.institution || "",
+      studentNumber: student.studentNumber || "",
+      program: student.program || "",
+      yearOfStudy: student.yearOfStudy || 0,
+      nextOfKinName: student.nextOfKinName || "",
+      nextOfKinRelationship: student.nextOfKinRelationship || "",
+      nextOfKinPhone: student.nextOfKinPhone || "",
+      nextOfKinEmail: student.nextOfKinEmail || "",
+      nextOfKinAddress: student.nextOfKinAddress || "",
+    });
+    setEditDialogOpen(true);
+  };
+
+  // Save student edits
+  const handleSaveStudent = async () => {
+    if (!student) return;
+
+    setSavingStudent(true);
+    try {
+      await updateStudent(student.studentId, {
+        firstNames: editForm.firstNames,
+        surname: editForm.surname,
+        email: editForm.email,
+        phoneNumber: editForm.phoneNumber,
+        institution: editForm.institution,
+        studentNumber: editForm.studentNumber,
+        program: editForm.program,
+        yearOfStudy: editForm.yearOfStudy,
+        nextOfKinName: editForm.nextOfKinName || undefined,
+        nextOfKinRelationship: editForm.nextOfKinRelationship || undefined,
+        nextOfKinPhone: editForm.nextOfKinPhone || undefined,
+        nextOfKinEmail: editForm.nextOfKinEmail || undefined,
+        nextOfKinAddress: editForm.nextOfKinAddress || undefined,
+      });
+
+      // Update local state
+      setStudent({
+        ...student,
+        firstNames: editForm.firstNames,
+        surname: editForm.surname,
+        email: editForm.email,
+        phoneNumber: editForm.phoneNumber,
+        institution: editForm.institution,
+        studentNumber: editForm.studentNumber,
+        program: editForm.program,
+        yearOfStudy: editForm.yearOfStudy,
+        nextOfKinName: editForm.nextOfKinName || undefined,
+        nextOfKinRelationship: editForm.nextOfKinRelationship || undefined,
+        nextOfKinPhone: editForm.nextOfKinPhone || undefined,
+        nextOfKinEmail: editForm.nextOfKinEmail || undefined,
+        nextOfKinAddress: editForm.nextOfKinAddress || undefined,
+      });
+
+      toast.success("Student updated successfully!");
+      setEditDialogOpen(false);
+    } catch (error) {
+      console.error("Error updating student:", error);
+      toast.error("Failed to update student");
+    } finally {
+      setSavingStudent(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -356,12 +453,205 @@ function StudentDetailContent() {
                   )}
                 </Button>
               )}
-              <Button variant="outline">
+              <Button variant="outline" onClick={handleOpenEditDialog}>
                 <Edit className="w-4 h-4 mr-2" />
                 Edit Student
               </Button>
             </div>
           </div>
+
+          {/* Edit Student Dialog */}
+          <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Edit className="w-5 h-5" />
+                  Edit Student Information
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="space-y-6 py-4">
+                {/* Read-only fields notice */}
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                  <strong>Note:</strong> ID Number, Gender, and Date of Birth cannot be edited.
+                </div>
+
+                {/* Personal Information */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    Personal Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>First Names *</Label>
+                      <Input
+                        value={editForm.firstNames}
+                        onChange={(e) => setEditForm({ ...editForm, firstNames: e.target.value })}
+                        placeholder="First names"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Surname *</Label>
+                      <Input
+                        value={editForm.surname}
+                        onChange={(e) => setEditForm({ ...editForm, surname: e.target.value })}
+                        placeholder="Surname"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                        placeholder="Email address"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Phone Number</Label>
+                      <Input
+                        value={editForm.phoneNumber}
+                        onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
+                        placeholder="Phone number"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Academic Information */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4" />
+                    Academic Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Institution</Label>
+                      <Input
+                        value={editForm.institution}
+                        onChange={(e) => setEditForm({ ...editForm, institution: e.target.value })}
+                        placeholder="University/College"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Student Number</Label>
+                      <Input
+                        value={editForm.studentNumber}
+                        onChange={(e) => setEditForm({ ...editForm, studentNumber: e.target.value })}
+                        placeholder="Student number"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Program/Course</Label>
+                      <Input
+                        value={editForm.program}
+                        onChange={(e) => setEditForm({ ...editForm, program: e.target.value })}
+                        placeholder="Program or course"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Year of Study</Label>
+                      <Select
+                        value={editForm.yearOfStudy.toString()}
+                        onValueChange={(value) => setEditForm({ ...editForm, yearOfStudy: parseInt(value) })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 4, 5, 6].map((year) => (
+                            <SelectItem key={year} value={year.toString()}>
+                              Year {year}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Next of Kin */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <Users className="w-4 h-4" />
+                    Next of Kin
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Name</Label>
+                      <Input
+                        value={editForm.nextOfKinName}
+                        onChange={(e) => setEditForm({ ...editForm, nextOfKinName: e.target.value })}
+                        placeholder="Full name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Relationship</Label>
+                      <Input
+                        value={editForm.nextOfKinRelationship}
+                        onChange={(e) => setEditForm({ ...editForm, nextOfKinRelationship: e.target.value })}
+                        placeholder="e.g., Parent, Spouse"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Phone Number</Label>
+                      <Input
+                        value={editForm.nextOfKinPhone}
+                        onChange={(e) => setEditForm({ ...editForm, nextOfKinPhone: e.target.value })}
+                        placeholder="Phone number"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={editForm.nextOfKinEmail}
+                        onChange={(e) => setEditForm({ ...editForm, nextOfKinEmail: e.target.value })}
+                        placeholder="Email address"
+                      />
+                    </div>
+                    <div className="col-span-2 space-y-2">
+                      <Label>Address</Label>
+                      <Input
+                        value={editForm.nextOfKinAddress}
+                        onChange={(e) => setEditForm({ ...editForm, nextOfKinAddress: e.target.value })}
+                        placeholder="Full address"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button
+                    variant="outline"
+                    onClick={() => setEditDialogOpen(false)}
+                    disabled={savingStudent}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSaveStudent}
+                    disabled={savingStudent || !editForm.firstNames || !editForm.surname}
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    {savingStudent ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Tabs at the top */}
           <Tabs defaultValue="details" className="w-full">
@@ -551,7 +841,7 @@ function StudentDetailContent() {
                             )}
                           </div>
                         </div>
-                        {student.nsfasNumber && (
+                        {student.nsfasNumber && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(student.nsfasNumber) && (
                           <div className="mt-3 pt-3 border-t border-green-200">
                             <p className="text-sm text-gray-500">NSFAS Number</p>
                             <p className="font-mono">{student.nsfasNumber}</p>
@@ -578,14 +868,20 @@ function StudentDetailContent() {
                     <CardContent>
                       {student.nextOfKinName ? (
                         <div className="space-y-3">
-                          <div>
-                            <p className="text-sm text-gray-500">Name</p>
-                            <p className="font-medium">{student.nextOfKinName}</p>
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-gray-400" />
+                            <div>
+                              <p className="text-sm text-gray-500">Name</p>
+                              <p className="font-medium">{student.nextOfKinName}</p>
+                            </div>
                           </div>
                           {student.nextOfKinRelationship && (
-                            <div>
-                              <p className="text-sm text-gray-500">Relationship</p>
-                              <p className="font-medium">{student.nextOfKinRelationship}</p>
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4 text-gray-400" />
+                              <div>
+                                <p className="text-sm text-gray-500">Relationship</p>
+                                <p className="font-medium">{student.nextOfKinRelationship}</p>
+                              </div>
                             </div>
                           )}
                           {student.nextOfKinPhone && (

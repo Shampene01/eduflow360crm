@@ -48,6 +48,11 @@ import {
   PaymentSource,
   PaymentStatus,
   PaymentWithDetails,
+  Task,
+  TaskStatus,
+  TaskType,
+  TaskPriority,
+  TaskWithDetails,
   COLLECTIONS,
   ProviderWithDetails,
   PropertyWithDetails,
@@ -1429,5 +1434,157 @@ export async function getPaymentSummary(
     nsfasPaid: postedPayments.filter(p => p.source === "NSFAS").reduce((sum, p) => sum + p.disbursedAmount, 0),
     manualPaid: postedPayments.filter(p => p.source === "Manual").reduce((sum, p) => sum + p.disbursedAmount, 0),
     pendingApproval: pendingPayments.reduce((sum, p) => sum + p.disbursedAmount, 0),
+  };
+}
+
+// ============================================================================
+// TASKS (Provider Manager Tasks)
+// ============================================================================
+
+export async function createTask(task: Omit<Task, "taskId" | "createdAt">): Promise<string> {
+  if (!db) throw new Error("Database not initialized");
+  const taskId = generateId();
+  await setDoc(doc(db, COLLECTIONS.TASKS, taskId), {
+    ...task,
+    taskId,
+    createdAt: serverTimestamp(),
+  });
+  return taskId;
+}
+
+export async function getTaskById(taskId: string): Promise<Task | null> {
+  if (!db) throw new Error("Database not initialized");
+  const docSnap = await getDoc(doc(db, COLLECTIONS.TASKS, taskId));
+  return docSnap.exists() ? (docSnap.data() as Task) : null;
+}
+
+export async function getTasksByProvider(
+  providerId: string,
+  filters?: {
+    status?: TaskStatus;
+    taskType?: TaskType;
+    priority?: TaskPriority;
+    assignedToUserId?: string;
+  }
+): Promise<Task[]> {
+  if (!db) throw new Error("Database not initialized");
+  
+  let q = query(
+    collection(db, COLLECTIONS.TASKS),
+    where("providerId", "==", providerId),
+    orderBy("createdAt", "desc")
+  );
+  
+  const snapshot = await getDocs(q);
+  let tasks = snapshot.docs.map(doc => doc.data() as Task);
+  
+  // Apply filters in memory (Firestore limitation on multiple where clauses)
+  if (filters?.status) {
+    tasks = tasks.filter(t => t.status === filters.status);
+  }
+  if (filters?.taskType) {
+    tasks = tasks.filter(t => t.taskType === filters.taskType);
+  }
+  if (filters?.priority) {
+    tasks = tasks.filter(t => t.priority === filters.priority);
+  }
+  if (filters?.assignedToUserId) {
+    tasks = tasks.filter(t => t.assignedToUserId === filters.assignedToUserId);
+  }
+  
+  return tasks;
+}
+
+export async function getTasksByProperty(propertyId: string): Promise<Task[]> {
+  if (!db) throw new Error("Database not initialized");
+  const q = query(
+    collection(db, COLLECTIONS.TASKS),
+    where("propertyId", "==", propertyId),
+    orderBy("createdAt", "desc")
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => doc.data() as Task);
+}
+
+export async function getPendingTasksCount(providerId: string): Promise<number> {
+  if (!db) throw new Error("Database not initialized");
+  const q = query(
+    collection(db, COLLECTIONS.TASKS),
+    where("providerId", "==", providerId),
+    where("status", "==", "Pending")
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.size;
+}
+
+export async function updateTask(
+  taskId: string,
+  data: Partial<Task>
+): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  await updateDoc(doc(db, COLLECTIONS.TASKS, taskId), {
+    ...data,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function completeTask(
+  taskId: string,
+  resolution: string,
+  resolvedByUserId: string,
+  resolvedByName?: string
+): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  await updateDoc(doc(db, COLLECTIONS.TASKS, taskId), {
+    status: "Completed" as TaskStatus,
+    resolution,
+    resolvedByUserId,
+    resolvedByName,
+    completedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function cancelTask(
+  taskId: string,
+  resolution: string,
+  resolvedByUserId: string,
+  resolvedByName?: string
+): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  await updateDoc(doc(db, COLLECTIONS.TASKS, taskId), {
+    status: "Cancelled" as TaskStatus,
+    resolution,
+    resolvedByUserId,
+    resolvedByName,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteTask(taskId: string): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  await deleteDoc(doc(db, COLLECTIONS.TASKS, taskId));
+}
+
+export async function getTaskSummary(providerId: string): Promise<{
+  pending: number;
+  inProgress: number;
+  completed: number;
+  cancelled: number;
+  overdue: number;
+}> {
+  const tasks = await getTasksByProvider(providerId);
+  const today = new Date().toISOString().split("T")[0];
+  
+  return {
+    pending: tasks.filter(t => t.status === "Pending").length,
+    inProgress: tasks.filter(t => t.status === "InProgress").length,
+    completed: tasks.filter(t => t.status === "Completed").length,
+    cancelled: tasks.filter(t => t.status === "Cancelled").length,
+    overdue: tasks.filter(t => 
+      t.status === "Pending" && 
+      t.dueDate && 
+      t.dueDate < today
+    ).length,
   };
 }

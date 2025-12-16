@@ -19,6 +19,7 @@ import {
   CreditCard,
   ShieldCheck,
   ClipboardCheck,
+  ClipboardList,
   Wrench,
   BarChart3,
   Settings,
@@ -51,6 +52,7 @@ const providerSections: SidebarSection[] = [
   {
     title: "Operations",
     items: [
+      { label: "Manager Tasks", href: "/tasks", icon: ClipboardList },
       { label: "Compliance Centre", href: "/compliance", icon: ShieldCheck },
       { label: "Inspections", href: "/inspections", icon: ClipboardCheck },
       { label: "Maintenance", href: "/maintenance", icon: Wrench },
