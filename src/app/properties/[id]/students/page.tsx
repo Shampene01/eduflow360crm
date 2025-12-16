@@ -114,6 +114,8 @@ function ManageStudentsContent() {
     fundingDetails: "",
     // Room Assignment
     roomType: "" as string,
+    roomNumber: "",
+    bedNumber: "",
     monthlyRent: 0,
     startDate: new Date().toISOString().split("T")[0],
     // Next of Kin
@@ -334,6 +336,8 @@ function ManageStudentsContent() {
       fundingYear: new Date().getFullYear(),
       fundingDetails: "",
       roomType: "" as string,
+      roomNumber: "",
+      bedNumber: "",
       monthlyRent: 0,
       startDate: new Date().toISOString().split("T")[0],
       nextOfKinName: "",
@@ -411,11 +415,14 @@ function ManageStudentsContent() {
         toast.info("Student already exists in the system");
       }
 
-      // Create assignment with room type and monthly rent
+      // Create assignment with room type, room/bed numbers, and monthly rent
       const assignment = await createStudentAssignment({
         studentId: student.studentId,
         propertyId: property.propertyId,
         startDate: studentForm.startDate || new Date().toISOString().split("T")[0],
+        roomType: studentForm.roomType as import("@/lib/schema").RoomType,
+        roomNumber: studentForm.roomNumber || undefined,
+        bedNumber: studentForm.bedNumber || undefined,
         monthlyRate: studentForm.monthlyRent,
         createdBy: user?.userId || user?.uid || "",
       });
@@ -903,6 +910,30 @@ function ManageStudentsContent() {
                       )}
                     </div>
 
+                    {/* Room & Bed Numbers */}
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Room Number</Label>
+                        <Input
+                          value={studentForm.roomNumber}
+                          onChange={(e) => setStudentForm({ ...studentForm, roomNumber: e.target.value })}
+                          placeholder="e.g., 101, A1, G12"
+                          className="h-11"
+                        />
+                        <p className="text-xs text-gray-500">Enter the physical room number/identifier</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-gray-700 font-medium">Bed Number</Label>
+                        <Input
+                          value={studentForm.bedNumber}
+                          onChange={(e) => setStudentForm({ ...studentForm, bedNumber: e.target.value })}
+                          placeholder="e.g., 1, 2, A, B"
+                          className="h-11"
+                        />
+                        <p className="text-xs text-gray-500">For shared rooms, specify bed position</p>
+                      </div>
+                    </div>
+
                     {/* Start Date & Rent */}
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -1255,10 +1286,12 @@ function ManageStudentsContent() {
                               className={
                                 assignment.status === "Active"
                                   ? "bg-green-500"
-                                  : assignment.status === "Future"
-                                  ? "bg-blue-500"
-                                  : assignment.status === "Closed"
+                                  : assignment.status === "Pending"
+                                  ? "bg-yellow-500"
+                                  : assignment.status === "Completed"
                                   ? "bg-gray-500"
+                                  : assignment.status === "Transferred"
+                                  ? "bg-blue-500"
                                   : "bg-red-500"
                               }
                             >

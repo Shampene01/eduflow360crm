@@ -767,6 +767,40 @@ export async function getPropertyAssignments(propertyId: string, status?: string
   return snap.docs.map(d => d.data() as StudentPropertyAssignment);
 }
 
+export async function updateStudentAssignment(assignmentId: string, data: Partial<StudentPropertyAssignment>): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  await updateDoc(doc(db, COLLECTIONS.STUDENT_PROPERTY_ASSIGNMENTS, assignmentId), { 
+    ...data, 
+    updatedAt: serverTimestamp() 
+  });
+}
+
+// Update student and assignment with Dataverse IDs after CRM sync
+export async function updateCrmSyncIds(
+  studentId: string,
+  assignmentId: string,
+  studentDataverseId: string,
+  assignmentDataverseId: string
+): Promise<void> {
+  if (!db) throw new Error("Database not initialized");
+  
+  const batch = writeBatch(db);
+  
+  // Update student with dataverseId
+  batch.update(doc(db, COLLECTIONS.STUDENTS, studentId), {
+    dataverseId: studentDataverseId,
+    updatedAt: serverTimestamp()
+  });
+  
+  // Update assignment with dataverseId
+  batch.update(doc(db, COLLECTIONS.STUDENT_PROPERTY_ASSIGNMENTS, assignmentId), {
+    dataverseId: assignmentDataverseId,
+    updatedAt: serverTimestamp()
+  });
+  
+  await batch.commit();
+}
+
 export async function getActiveStudentCountForProperty(propertyId: string): Promise<number> {
   if (!db) return 0;
   

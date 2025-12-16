@@ -268,7 +268,7 @@ export async function importStudentBatch(
                 studentId,
                 propertyId: crmContext.propertyId,
                 startDate: new Date().toISOString().split("T")[0], // Today's date
-                status: "Future", // Newly imported students are pending assignment confirmation
+                status: "Pending", // Newly imported students are pending assignment confirmation
                 createdBy: crmContext.userDataverseId || "",
                 createdAt: serverTimestamp() as Timestamp,
               } : null;

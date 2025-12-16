@@ -83,7 +83,26 @@ export type RoomType =
 
 export type BedStatus = "Available" | "Occupied" | "Maintenance" | "Reserved";
 
-export type AssignmentStatus = "Active" | "Future" | "Closed" | "Cancelled";
+export type AssignmentStatus = "Pending" | "Active" | "Completed" | "Terminated" | "Transferred";
+
+// Status code mappings for Power Automate integration
+export const STUDENT_STATUS_CODES: Record<string, number> = {
+  "Pending": 0,
+  "Rejected": 1,
+  "Approved": 2,
+  "Suspended": 3,
+  "Vacated": 4,
+  "Terminated": 5,
+  "Active": 6, // Active students currently residing
+};
+
+export const ASSIGNMENT_STATUS_CODES: Record<AssignmentStatus, number> = {
+  "Pending": 0,
+  "Active": 1,
+  "Completed": 3,
+  "Terminated": 4,
+  "Transferred": 5,
+};
 
 export type AccountType = "Current" | "Savings" | "Transmission";
 
@@ -497,6 +516,11 @@ export interface StudentPropertyAssignment {
   roomId?: string;                   // FK → PropertyRoom (optional)
   bedId?: string;                    // FK → PropertyBed (optional)
   
+  // Room Allocation Details (manually entered)
+  roomNumber?: string;               // e.g., "101", "A1" - manually assigned
+  bedNumber?: string;                // e.g., "1", "2", "A" - manually assigned
+  roomType?: RoomType;               // Room type selected during allocation
+  
   // Assignment Period
   startDate: string;                 // ISO date
   endDate?: string;                  // ISO date
@@ -506,6 +530,9 @@ export interface StudentPropertyAssignment {
   
   // Financial
   monthlyRate?: number;
+  
+  // CRM Sync
+  dataverseId?: string;              // Dataverse assignment ID (returned from Power Automate)
   
   // Audit
   createdBy: string;                 // userId who created assignment
