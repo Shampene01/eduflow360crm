@@ -24,6 +24,8 @@ import {
   RoomConfiguration,
   Student,
   StudentPropertyAssignment,
+  STUDENT_STATUS_CODES,
+  ASSIGNMENT_STATUS_CODES,
 } from "./schema";
 import { doc, updateDoc } from "firebase/firestore";
 import { providerDisplayId } from "./utils/maskId";
@@ -963,15 +965,18 @@ export interface StudentSyncPayload {
   
   // Assignment Information
   assignmentId: string;
-  roomId: string;
-  bedId: string;
+  roomNumber: string;                // Physical room identifier (e.g., "101", "A1")
+  bedNumber: string;                 // Bed position in shared room (e.g., "A", "B", "1")
+  roomType: string;                  // Room type (e.g., "Single En-Suite", "Sharing 2 Beds")
   startDate: string;
   endDate: string;
   monthlyRate: number;
-  assignmentStatus: string;
+  assignmentStatusLabel: string;     // Assignment status label (e.g., "Active", "Pending")
+  assignmentStatusValue: number;     // Assignment status code (0-5)
   
   // Status
-  studentStatus: string;
+  studentStatusLabel: string;        // Student status label (e.g., "Active", "Pending")
+  studentStatusValue: number;        // Student status code (0-6)
   
   // Timestamps
   createdAt: string;
@@ -1071,15 +1076,18 @@ export async function syncStudentToCRM(
       
       // Assignment Information
       assignmentId: String(assignment?.assignmentId || ""),
-      roomId: String(assignment?.roomId || ""),
-      bedId: String(assignment?.bedId || ""),
+      roomNumber: String(assignment?.roomNumber || ""),
+      bedNumber: String(assignment?.bedNumber || ""),
+      roomType: String(assignment?.roomType || ""),
       startDate: String(assignment?.startDate || ""),
       endDate: String(assignment?.endDate || ""),
       monthlyRate: Number(assignment?.monthlyRate || 0),
-      assignmentStatus: String(assignment?.status || ""),
+      assignmentStatusLabel: String(assignment?.status || "Pending"),
+      assignmentStatusValue: ASSIGNMENT_STATUS_CODES[assignment?.status || "Pending"] ?? 0,
       
       // Status
-      studentStatus: String(student.status || "Pending"),
+      studentStatusLabel: String(student.status || "Pending"),
+      studentStatusValue: STUDENT_STATUS_CODES[student.status || "Pending"] ?? 0,
       
       // Timestamps
       createdAt: student.createdAt ? formatTimestamp(student.createdAt) : new Date().toISOString(),
