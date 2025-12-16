@@ -19,13 +19,16 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
+  BedDouble,
+  Save,
+  DoorOpen,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardFooter } from "@/components/DashboardFooter";
 import { Sidebar } from "@/components/Sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
-import { Student, StudentPropertyAssignment, Property, Payment } from "@/lib/schema";
+import { Student, StudentPropertyAssignment, Property, Payment, RoomType, RoomConfiguration } from "@/lib/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +48,17 @@ import {
   getPropertyById,
   getProviderByUserId,
   getPaymentsByStudent,
+  updateStudentAssignment,
 } from "@/lib/db";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { syncStudentToCRM } from "@/lib/crmSync";
 
 interface AssignmentWithProperty {
@@ -64,6 +77,26 @@ function StudentDetailContent() {
   const [syncingToDataverse, setSyncingToDataverse] = useState(false);
   const [providerDataverseId, setProviderDataverseId] = useState<string>("");
   const [payments, setPayments] = useState<Payment[]>([]);
+  
+  // Room allocation state
+  const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
+  const [roomAllocation, setRoomAllocation] = useState<{
+    roomNumber: string;
+    bedNumber: string;
+    roomType: string;
+  }>({ roomNumber: "", bedNumber: "", roomType: "" });
+  const [savingAllocation, setSavingAllocation] = useState(false);
+
+  // Room type options based on common configurations
+  const roomTypeOptions: { value: RoomType; label: string }[] = [
+    { value: "Bachelor", label: "Bachelor" },
+    { value: "Single En-Suite", label: "Single En-Suite" },
+    { value: "Single Standard", label: "Single Standard" },
+    { value: "Sharing 2 Beds En-Suite", label: "Sharing 2 Beds En-Suite" },
+    { value: "Sharing 2 Beds Standard", label: "Sharing 2 Beds Standard" },
+    { value: "Sharing 3 Beds En-Suite", label: "Sharing 3 Beds En-Suite" },
+    { value: "Sharing 3 Beds Standard", label: "Sharing 3 Beds Standard" },
+  ];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -161,6 +194,65 @@ function StudentDetailContent() {
       toast.error("Failed to sync student to Dataverse");
     } finally {
       setSyncingToDataverse(false);
+    }
+  };
+
+  // Start editing room allocation
+  const handleEditAllocation = (assignment: StudentPropertyAssignment) => {
+    setEditingAssignmentId(assignment.assignmentId);
+    setRoomAllocation({
+      roomNumber: assignment.roomNumber || "",
+      bedNumber: assignment.bedNumber || "",
+      roomType: assignment.roomType || "",
+    });
+  };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setEditingAssignmentId(null);
+    setRoomAllocation({ roomNumber: "", bedNumber: "", roomType: "" });
+  };
+
+  // Save room allocation
+  const handleSaveAllocation = async (assignmentId: string) => {
+    if (!roomAllocation.roomType) {
+      toast.error("Please select a room type");
+      return;
+    }
+
+    setSavingAllocation(true);
+    try {
+      await updateStudentAssignment(assignmentId, {
+        roomNumber: roomAllocation.roomNumber || undefined,
+        bedNumber: roomAllocation.bedNumber || undefined,
+        roomType: roomAllocation.roomType as RoomType,
+      });
+
+      // Update local state
+      setAssignments(prev =>
+        prev.map(item =>
+          item.assignment.assignmentId === assignmentId
+            ? {
+                ...item,
+                assignment: {
+                  ...item.assignment,
+                  roomNumber: roomAllocation.roomNumber || undefined,
+                  bedNumber: roomAllocation.bedNumber || undefined,
+                  roomType: roomAllocation.roomType as RoomType,
+                },
+              }
+            : item
+        )
+      );
+
+      toast.success("Room allocation updated successfully!");
+      setEditingAssignmentId(null);
+      setRoomAllocation({ roomNumber: "", bedNumber: "", roomType: "" });
+    } catch (error) {
+      console.error("Error saving room allocation:", error);
+      toast.error("Failed to save room allocation");
+    } finally {
+      setSavingAllocation(false);
     }
   };
 
@@ -273,10 +365,14 @@ function StudentDetailContent() {
 
           {/* Tabs at the top */}
           <Tabs defaultValue="details" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsList className="grid w-full grid-cols-4 mb-6">
               <TabsTrigger value="details" className="flex items-center gap-2">
                 <User className="w-4 h-4" />
                 Student Details
+              </TabsTrigger>
+              <TabsTrigger value="room-allocation" className="flex items-center gap-2">
+                <BedDouble className="w-4 h-4" />
+                Room Allocation
               </TabsTrigger>
               <TabsTrigger value="payments" className="flex items-center gap-2">
                 <CreditCard className="w-4 h-4" />
@@ -630,6 +726,165 @@ function StudentDetailContent() {
                           ))}
                         </TableBody>
                       </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Room Allocation Tab */}
+            <TabsContent value="room-allocation">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BedDouble className="w-5 h-5" />
+                    Room Allocation
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {assignments.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Building2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p>No property assignments to allocate rooms for</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {assignments.map(({ assignment, property }) => (
+                        <div
+                          key={assignment.assignmentId}
+                          className="p-6 border rounded-xl bg-gray-50"
+                        >
+                          {/* Property Header */}
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                                <Building2 className="w-5 h-5 text-amber-600" />
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-gray-900">
+                                  {property?.name || "Unknown Property"}
+                                </h3>
+                                <p className="text-sm text-gray-500">
+                                  Assignment started: {assignment.startDate}
+                                </p>
+                              </div>
+                            </div>
+                            <Badge className={
+                              assignment.status === "Active" ? "bg-green-500" :
+                              assignment.status === "Pending" ? "bg-yellow-500" :
+                              "bg-gray-500"
+                            }>
+                              {assignment.status}
+                            </Badge>
+                          </div>
+
+                          {/* Current Allocation Display */}
+                          {editingAssignmentId !== assignment.assignmentId ? (
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-3 gap-4">
+                                <div className="p-4 bg-white rounded-lg border">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <DoorOpen className="w-4 h-4 text-gray-400" />
+                                    <span className="text-sm text-gray-500">Room Number</span>
+                                  </div>
+                                  <p className="font-semibold text-lg">
+                                    {assignment.roomNumber || <span className="text-gray-400">Not assigned</span>}
+                                  </p>
+                                </div>
+                                <div className="p-4 bg-white rounded-lg border">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <BedDouble className="w-4 h-4 text-gray-400" />
+                                    <span className="text-sm text-gray-500">Bed Number</span>
+                                  </div>
+                                  <p className="font-semibold text-lg">
+                                    {assignment.bedNumber || <span className="text-gray-400">Not assigned</span>}
+                                  </p>
+                                </div>
+                                <div className="p-4 bg-white rounded-lg border">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Building2 className="w-4 h-4 text-gray-400" />
+                                    <span className="text-sm text-gray-500">Room Type</span>
+                                  </div>
+                                  <p className="font-semibold text-lg">
+                                    {assignment.roomType || <span className="text-gray-400">Not assigned</span>}
+                                  </p>
+                                </div>
+                              </div>
+                              <Button
+                                onClick={() => handleEditAllocation(assignment)}
+                                variant="outline"
+                                className="w-full"
+                              >
+                                <Edit className="w-4 h-4 mr-2" />
+                                {assignment.roomNumber || assignment.roomType ? "Edit Allocation" : "Assign Room"}
+                              </Button>
+                            </div>
+                          ) : (
+                            /* Edit Mode */
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                  <Label className="text-gray-700">Room Number</Label>
+                                  <Input
+                                    value={roomAllocation.roomNumber}
+                                    onChange={(e) => setRoomAllocation(prev => ({ ...prev, roomNumber: e.target.value }))}
+                                    placeholder="e.g., 101, A1, G12"
+                                    className="h-11"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-gray-700">Bed Number</Label>
+                                  <Input
+                                    value={roomAllocation.bedNumber}
+                                    onChange={(e) => setRoomAllocation(prev => ({ ...prev, bedNumber: e.target.value }))}
+                                    placeholder="e.g., A, B, 1, 2"
+                                    className="h-11"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-gray-700">Room Type *</Label>
+                                  <Select
+                                    value={roomAllocation.roomType}
+                                    onValueChange={(value) => setRoomAllocation(prev => ({ ...prev, roomType: value }))}
+                                  >
+                                    <SelectTrigger className="h-11">
+                                      <SelectValue placeholder="Select room type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {roomTypeOptions.map((option) => (
+                                        <SelectItem key={option.value} value={option.value}>
+                                          {option.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div className="flex gap-3">
+                                <Button
+                                  onClick={() => handleSaveAllocation(assignment.assignmentId)}
+                                  disabled={savingAllocation}
+                                  className="bg-emerald-600 hover:bg-emerald-700"
+                                >
+                                  {savingAllocation ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Save className="w-4 h-4 mr-2" />
+                                  )}
+                                  Save Allocation
+                                </Button>
+                                <Button
+                                  onClick={handleCancelEdit}
+                                  variant="outline"
+                                  disabled={savingAllocation}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </CardContent>
