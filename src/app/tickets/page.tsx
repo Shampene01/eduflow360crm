@@ -306,6 +306,24 @@ function TicketsContent() {
     );
   });
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <DashboardHeader />
+        <div className="flex flex-1">
+          <Sidebar userType="provider" />
+          <main className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="h-12 w-12 animate-spin text-amber-500 mx-auto" />
+              <p className="mt-4 text-gray-600">Loading tickets...</p>
+            </div>
+          </main>
+        </div>
+        <DashboardFooter />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <DashboardHeader />
