@@ -981,6 +981,7 @@ export interface StudentSyncResult {
   success: boolean;
   message: string;
   studentDataverseId?: string;       // Dataverse ID for the student record
+  assignmentDataverseId?: string;    // Dataverse ID for the assignment record
   error?: string;
 }
 
@@ -1102,16 +1103,25 @@ export async function syncStudentToCRM(
       };
     }
 
-    // Parse response - Power Automate returns { message: "OK", studentDataverseId: "..." }
-    let responseData: { message?: string; studentDataverseId?: string } = {};
+    // Parse response - Power Automate returns:
+    // { success: "true", message: "Successfully Synced to CRM", dataverseId: "...", assignmentDataverseId: "..." }
+    let responseData: { 
+      success?: string; 
+      message?: string; 
+      dataverseId?: string;           // Student Dataverse ID
+      assignmentDataverseId?: string; // Assignment Dataverse ID
+    } = {};
     try {
       responseData = await response.json();
     } catch {
       responseData = { message: "Sync completed" };
     }
 
+    // Extract Dataverse IDs from response
+    const studentDataverseId = responseData.dataverseId;
+    const assignmentDataverseId = responseData.assignmentDataverseId;
+
     // Save studentDataverseId to Firestore if returned
-    const studentDataverseId = responseData.studentDataverseId;
     if (studentDataverseId && student.studentId) {
       try {
         const studentRef = doc(db, "students", student.studentId);
@@ -1122,10 +1132,22 @@ export async function syncStudentToCRM(
       }
     }
 
+    // Save assignmentDataverseId to Firestore if returned
+    if (assignmentDataverseId && assignment?.assignmentId) {
+      try {
+        const assignmentRef = doc(db, "studentPropertyAssignments", assignment.assignmentId);
+        await updateDoc(assignmentRef, { dataverseId: assignmentDataverseId });
+        console.log("Saved assignmentDataverseId to Firestore:", assignmentDataverseId);
+      } catch (updateError) {
+        console.error("Failed to save assignmentDataverseId to Firestore:", updateError);
+      }
+    }
+
     return {
       success: true,
       message: "Student synced to CRM successfully",
       studentDataverseId: studentDataverseId,
+      assignmentDataverseId: assignmentDataverseId,
     };
   } catch (error) {
     return {
