@@ -289,6 +289,124 @@ export const getUserClaims = onRequest(async (req, res) => {
 });
 
 // ------------------------------------------------------------------
+// BACKFILL PAYMENT SUMMARIES (One-time HTTP endpoint)
+// Run once to populate providerSummaries from existing payments
+// ------------------------------------------------------------------
+export const backfillPaymentSummaries = onRequest(async (req, res) => {
+  if (req.method !== "POST") {
+    res.status(405).json({ success: false, error: "Method not allowed. Use POST." });
+    return;
+  }
+
+  const db = admin.firestore();
+  
+  try {
+    logger.info("Starting payment summaries backfill...");
+
+    // Get all payments
+    const paymentsSnapshot = await db.collection("payments").get();
+    logger.info(`Found ${paymentsSnapshot.size} total payments`);
+
+    // Group payments by provider
+    const paymentsByProvider: Record<string, FirebaseFirestore.QueryDocumentSnapshot[]> = {};
+
+    paymentsSnapshot.forEach((doc) => {
+      const data = doc.data();
+      const providerId = data.providerId;
+      if (providerId) {
+        if (!paymentsByProvider[providerId]) {
+          paymentsByProvider[providerId] = [];
+        }
+        paymentsByProvider[providerId].push(doc);
+      }
+    });
+
+    const providerIds = Object.keys(paymentsByProvider);
+    logger.info(`Found ${providerIds.length} providers with payments`);
+
+    const results: Record<string, { totalPayments: number; totalAmount: number }> = {};
+
+    // Process each provider
+    for (const providerId of providerIds) {
+      const payments = paymentsByProvider[providerId];
+
+      // Calculate summary
+      const summary: Record<string, unknown> = {
+        providerId,
+        totalPayments: 0,
+        totalAmount: 0,
+        byMonth: {} as Record<string, { count: number; amount: number }>,
+        bySource: {
+          NSFAS: { count: 0, amount: 0 },
+          Manual: { count: 0, amount: 0 },
+        },
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+
+      let totalPayments = 0;
+      let totalAmount = 0;
+
+      for (const doc of payments) {
+        const payment = doc.data();
+
+        // Only count Posted payments
+        if (payment.status !== "Posted") {
+          continue;
+        }
+
+        const amount = payment.disbursedAmount || 0;
+        const source = payment.source as string;
+        const paymentPeriod = payment.paymentPeriod;
+
+        totalPayments += 1;
+        totalAmount += amount;
+
+        // Update by source
+        if (source === "NSFAS" || source === "Manual") {
+          const bySource = summary.bySource as Record<string, { count: number; amount: number }>;
+          bySource[source].count += 1;
+          bySource[source].amount += amount;
+        }
+
+        // Update by month
+        if (paymentPeriod) {
+          const yearMonth = paymentPeriod.slice(0, 7);
+          const byMonth = summary.byMonth as Record<string, { count: number; amount: number }>;
+          if (!byMonth[yearMonth]) {
+            byMonth[yearMonth] = { count: 0, amount: 0 };
+          }
+          byMonth[yearMonth].count += 1;
+          byMonth[yearMonth].amount += amount;
+        }
+      }
+
+      summary.totalPayments = totalPayments;
+      summary.totalAmount = totalAmount;
+
+      // Write summary to Firestore
+      await db.collection("providerSummaries").doc(providerId).set(summary);
+
+      results[providerId] = { totalPayments, totalAmount };
+    }
+
+    logger.info("Backfill complete!", { providerCount: providerIds.length });
+
+    res.status(200).json({
+      success: true,
+      message: "Backfill complete",
+      providersProcessed: providerIds.length,
+      results,
+    });
+  } catch (error) {
+    logger.error("Error during backfill", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error during backfill",
+    });
+  }
+});
+
+// ------------------------------------------------------------------
 // PAYMENT SUMMARY AGGREGATION (Firestore Trigger)
 // Maintains denormalized summary documents for efficient dashboard reads
 // ------------------------------------------------------------------
