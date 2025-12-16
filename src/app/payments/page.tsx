@@ -86,6 +86,7 @@ import {
   getPropertiesByProvider,
   getPaymentsByProvider,
   getPaymentSummary,
+  getPaymentSummaryFromAggregation,
   createPayment,
   approvePayment,
   rejectPayment,
@@ -222,8 +223,8 @@ function PaymentsContent() {
 
       setPayments(enrichedPayments);
 
-      // Update summary
-      const summaryData = await getPaymentSummary(provId, selectedPeriod || undefined);
+      // Update summary (uses pre-aggregated data when available - 1 read vs hundreds)
+      const summaryData = await getPaymentSummaryFromAggregation(provId, selectedPeriod || undefined);
       setSummary(summaryData);
     } catch (error) {
       console.error("Error fetching payments:", error);

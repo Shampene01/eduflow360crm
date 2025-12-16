@@ -1511,6 +1511,76 @@ export async function deletePayment(paymentId: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTIONS.PAYMENTS, paymentId));
 }
 
+// Provider Summary interface (from Cloud Function aggregation)
+export interface ProviderPaymentSummary {
+  providerId: string;
+  totalPayments: number;
+  totalAmount: number;
+  byMonth: Record<string, { count: number; amount: number }>;
+  bySource: {
+    NSFAS: { count: number; amount: number };
+    Manual: { count: number; amount: number };
+  };
+  updatedAt?: Timestamp;
+}
+
+// Get pre-aggregated summary from providerSummaries collection (1 read!)
+export async function getProviderPaymentSummary(
+  providerId: string
+): Promise<ProviderPaymentSummary | null> {
+  if (!db) return null;
+  const docSnap = await getDoc(doc(db, "providerSummaries", providerId));
+  return docSnap.exists() ? (docSnap.data() as ProviderPaymentSummary) : null;
+}
+
+// Get summary for a specific month from the aggregated data
+export async function getPaymentSummaryFromAggregation(
+  providerId: string,
+  paymentPeriod?: string
+): Promise<{
+  totalPaid: number;
+  nsfasPaid: number;
+  manualPaid: number;
+  pendingApproval: number;
+}> {
+  const summary = await getProviderPaymentSummary(providerId);
+  
+  if (!summary) {
+    // Fallback to legacy method if no summary exists yet
+    return getPaymentSummary(providerId, paymentPeriod);
+  }
+  
+  // If specific period requested, get from byMonth
+  if (paymentPeriod) {
+    const yearMonth = paymentPeriod.slice(0, 7);
+    const monthData = summary.byMonth?.[yearMonth];
+    
+    if (monthData) {
+      // For monthly data, we need to query payments for pending (not in summary)
+      const pendingPayments = await getPaymentsByProvider(providerId, { 
+        paymentPeriod, 
+        status: "PendingApproval" 
+      });
+      
+      return {
+        totalPaid: monthData.amount,
+        nsfasPaid: summary.bySource?.NSFAS?.amount || 0,
+        manualPaid: summary.bySource?.Manual?.amount || 0,
+        pendingApproval: pendingPayments.reduce((sum, p) => sum + p.disbursedAmount, 0),
+      };
+    }
+  }
+  
+  // Return all-time totals
+  return {
+    totalPaid: summary.totalAmount || 0,
+    nsfasPaid: summary.bySource?.NSFAS?.amount || 0,
+    manualPaid: summary.bySource?.Manual?.amount || 0,
+    pendingApproval: 0, // Pending not tracked in summary (they're not Posted)
+  };
+}
+
+// Legacy function - still works but reads more documents
 export async function getPaymentSummary(
   providerId: string,
   paymentPeriod?: string
