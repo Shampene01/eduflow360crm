@@ -971,6 +971,7 @@ export interface StudentSyncPayload {
   startDate: string;
   endDate: string;
   monthlyRate: number;
+  totalAccommodationCost: number;    // monthlyRate x 10
   assignmentStatusLabel: string;     // Assignment status label (e.g., "Active", "Pending")
   assignmentStatusValue: number;     // Assignment status code (0-5)
   
@@ -1082,6 +1083,7 @@ export async function syncStudentToCRM(
       startDate: String(assignment?.startDate || ""),
       endDate: String(assignment?.endDate || ""),
       monthlyRate: Number(assignment?.monthlyRate || 0),
+      totalAccommodationCost: Number((assignment?.monthlyRate || 0) * 10),
       assignmentStatusLabel: String(assignment?.status || "Pending"),
       assignmentStatusValue: ASSIGNMENT_STATUS_CODES[assignment?.status || "Pending"] ?? 0,
       
