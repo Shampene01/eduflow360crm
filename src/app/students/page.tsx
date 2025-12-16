@@ -69,6 +69,7 @@ import {
   createStudent,
   createStudentAssignment,
   getRoomConfiguration,
+  updateStudent,
 } from "@/lib/db";
 import { RoomConfiguration } from "@/lib/schema";
 
@@ -86,6 +87,47 @@ function StudentsContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [providerId, setProviderId] = useState<string>("");
+
+  // Student status options with meanings
+  const STUDENT_STATUSES = [
+    { value: "Pending", label: "Pending", description: "Application submitted, awaiting approval" },
+    { value: "Rejected", label: "Rejected", description: "Application declined" },
+    { value: "Approved", label: "Approved", description: "Approved, awaiting move-in" },
+    { value: "Active", label: "Active", description: "Currently residing" },
+    { value: "Suspended", label: "Suspended", description: "Access suspended (non-payment, etc.)" },
+    { value: "Vacated", label: "Vacated", description: "Left in good standing" },
+    { value: "Terminated", label: "Terminated", description: "Lease ended early/forced removal" },
+  ];
+
+  // Check if user can update student status (roleCode >= 2: provider, admin, superAdmin)
+  const canUpdateStatus = (user?.roleCode ?? 0) >= 2;
+
+  // Student status type
+  type StudentStatus = "Pending" | "Rejected" | "Approved" | "Active" | "Suspended" | "Vacated" | "Terminated";
+
+  // Handle student status update
+  const handleStatusUpdate = async (studentId: string, newStatus: StudentStatus) => {
+    if (!canUpdateStatus) {
+      toast.error("You don't have permission to update student status");
+      return;
+    }
+
+    try {
+      await updateStudent(studentId, { status: newStatus });
+      // Update local state
+      setStudentsWithProperties(prev => 
+        prev.map(item => 
+          item.student.studentId === studentId 
+            ? { ...item, student: { ...item.student, status: newStatus } }
+            : item
+        )
+      );
+      toast.success(`Student status updated to ${newStatus}`);
+    } catch (error) {
+      console.error("Error updating student status:", error);
+      toast.error("Failed to update student status");
+    }
+  };
 
   // Add Student Dialog State
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -726,20 +768,68 @@ function StudentsContent() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={
-                              assignment.status === "Active"
-                                ? "border-green-500 text-green-700 bg-green-50"
-                                : assignment.status === "Future"
-                                ? "border-blue-500 text-blue-700 bg-blue-50"
-                                : assignment.status === "Closed"
-                                ? "border-gray-500 text-gray-700 bg-gray-50"
-                                : "border-red-500 text-red-700 bg-red-50"
-                            }
-                          >
-                            {assignment.status}
-                          </Badge>
+                          {canUpdateStatus ? (
+                            <Select
+                              value={student.status || "Pending"}
+                              onValueChange={(value) => handleStatusUpdate(student.studentId, value as StudentStatus)}
+                            >
+                              <SelectTrigger className="w-[130px] h-8">
+                                <SelectValue>
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      student.status === "Active"
+                                        ? "border-green-500 text-green-700 bg-green-50"
+                                        : student.status === "Approved"
+                                        ? "border-blue-500 text-blue-700 bg-blue-50"
+                                        : student.status === "Pending"
+                                        ? "border-yellow-500 text-yellow-700 bg-yellow-50"
+                                        : student.status === "Suspended"
+                                        ? "border-orange-500 text-orange-700 bg-orange-50"
+                                        : student.status === "Vacated"
+                                        ? "border-gray-500 text-gray-700 bg-gray-50"
+                                        : student.status === "Rejected" || student.status === "Terminated"
+                                        ? "border-red-500 text-red-700 bg-red-50"
+                                        : "border-gray-500 text-gray-700 bg-gray-50"
+                                    }
+                                  >
+                                    {student.status || "Pending"}
+                                  </Badge>
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {STUDENT_STATUSES.map((status) => (
+                                  <SelectItem key={status.value} value={status.value}>
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{status.label}</span>
+                                      <span className="text-xs text-gray-500">{status.description}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className={
+                                student.status === "Active"
+                                  ? "border-green-500 text-green-700 bg-green-50"
+                                  : student.status === "Approved"
+                                  ? "border-blue-500 text-blue-700 bg-blue-50"
+                                  : student.status === "Pending"
+                                  ? "border-yellow-500 text-yellow-700 bg-yellow-50"
+                                  : student.status === "Suspended"
+                                  ? "border-orange-500 text-orange-700 bg-orange-50"
+                                  : student.status === "Vacated"
+                                  ? "border-gray-500 text-gray-700 bg-gray-50"
+                                  : student.status === "Rejected" || student.status === "Terminated"
+                                  ? "border-red-500 text-red-700 bg-red-50"
+                                  : "border-gray-500 text-gray-700 bg-gray-50"
+                              }
+                            >
+                              {student.status || "Pending"}
+                            </Badge>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

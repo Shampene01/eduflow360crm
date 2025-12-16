@@ -475,7 +475,7 @@ export interface Student {
   homeAddressId?: string;            // FK → Address
   
   // Status
-  status: "Pending" | "Verified" | "Active" | "Inactive" | "Graduated";
+  status: "Pending" | "Rejected" | "Approved" | "Active" | "Suspended" | "Vacated" | "Terminated";
   
   // CRM Sync
   dataverseId?: string;              // Dataverse student ID (returned from Power Automate)
