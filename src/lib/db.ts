@@ -17,6 +17,8 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
+  DocumentSnapshot,
   serverTimestamp,
   writeBatch,
   Timestamp,
@@ -1310,6 +1312,89 @@ export async function getPaymentById(paymentId: string): Promise<Payment | null>
   return docSnap.exists() ? (docSnap.data() as Payment) : null;
 }
 
+// Paginated result type for cursor-based pagination
+export interface PaginatedResult<T> {
+  data: T[];
+  lastDoc: DocumentSnapshot | null;
+  hasMore: boolean;
+  totalEstimate?: number;
+}
+
+export async function getPaymentsByProviderPaginated(
+  providerId: string,
+  options: {
+    pageSize?: number;
+    cursor?: DocumentSnapshot | null;
+    filters?: {
+      propertyId?: string;
+      paymentPeriod?: string;
+      source?: PaymentSource;
+      status?: PaymentStatus;
+    };
+  } = {}
+): Promise<PaginatedResult<Payment>> {
+  if (!db) return { data: [], lastDoc: null, hasMore: false };
+  
+  const { pageSize = 20, cursor, filters } = options;
+  
+  // Build query with server-side filters where possible
+  let constraints: any[] = [
+    where("providerId", "==", providerId),
+    orderBy("createdAt", "desc"),
+  ];
+  
+  // Add status filter at database level (most common filter)
+  if (filters?.status) {
+    constraints.push(where("status", "==", filters.status));
+  }
+  
+  // Add source filter at database level
+  if (filters?.source) {
+    constraints.push(where("source", "==", filters.source));
+  }
+  
+  // Add cursor for pagination
+  if (cursor) {
+    constraints.push(startAfter(cursor));
+  }
+  
+  // Fetch extra to check if there are more results
+  constraints.push(limit(pageSize + 1));
+  
+  const q = query(collection(db, COLLECTIONS.PAYMENTS), ...constraints);
+  const snap = await getDocs(q);
+  
+  let payments = snap.docs.map(d => ({ doc: d, data: d.data() as Payment }));
+  
+  // Apply client-side filters that can't be done server-side
+  if (filters?.propertyId) {
+    payments = payments.filter(p => p.data.propertyId === filters.propertyId);
+  }
+  if (filters?.paymentPeriod) {
+    payments = payments.filter(p => {
+      if (!p.data.paymentPeriod) return false;
+      const storedYearMonth = p.data.paymentPeriod.slice(0, 7);
+      const filterYearMonth = filters.paymentPeriod!.slice(0, 7);
+      return storedYearMonth === filterYearMonth;
+    });
+  }
+  
+  // Determine if there are more results
+  const hasMore = payments.length > pageSize;
+  if (hasMore) {
+    payments = payments.slice(0, pageSize);
+  }
+  
+  const lastDoc = payments.length > 0 ? payments[payments.length - 1].doc : null;
+  
+  return {
+    data: payments.map(p => p.data),
+    lastDoc,
+    hasMore,
+  };
+}
+
+// Keep legacy function for backward compatibility but with limit
 export async function getPaymentsByProvider(
   providerId: string,
   filters?: {
@@ -1321,34 +1406,38 @@ export async function getPaymentsByProvider(
 ): Promise<Payment[]> {
   if (!db) return [];
   
-  let q = query(
-    collection(db, COLLECTIONS.PAYMENTS),
+  // Build query with server-side filters where possible
+  let constraints: any[] = [
     where("providerId", "==", providerId),
-    orderBy("createdAt", "desc")
-  );
+    orderBy("createdAt", "desc"),
+  ];
   
+  // Add status and source filters at database level
+  if (filters?.status) {
+    constraints.push(where("status", "==", filters.status));
+  }
+  if (filters?.source) {
+    constraints.push(where("source", "==", filters.source));
+  }
+  
+  // Limit results to prevent reading too many documents
+  constraints.push(limit(500));
+  
+  const q = query(collection(db, COLLECTIONS.PAYMENTS), ...constraints);
   const snap = await getDocs(q);
   let payments = snap.docs.map(d => d.data() as Payment);
   
-  // Apply client-side filters (Firestore limitation on multiple where clauses)
+  // Apply client-side filters that can't be done server-side
   if (filters?.propertyId) {
     payments = payments.filter(p => p.propertyId === filters.propertyId);
   }
   if (filters?.paymentPeriod) {
-    // Handle both YYYY-MM format and full ISO date format
     payments = payments.filter(p => {
       if (!p.paymentPeriod) return false;
-      // Extract YYYY-MM from the stored paymentPeriod (handles both formats)
       const storedYearMonth = p.paymentPeriod.slice(0, 7);
       const filterYearMonth = filters.paymentPeriod!.slice(0, 7);
       return storedYearMonth === filterYearMonth;
     });
-  }
-  if (filters?.source) {
-    payments = payments.filter(p => p.source === filters.source);
-  }
-  if (filters?.status) {
-    payments = payments.filter(p => p.status === filters.status);
   }
   
   return payments;

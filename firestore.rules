@@ -367,5 +367,16 @@ service cloud.firestore {
       // Only admins can delete tasks
       allow delete: if isAdmin();
     }
+
+    // =====================================================
+    // 16. PROVIDER SUMMARIES (Aggregated data for dashboards)
+    // =====================================================
+    match /providerSummaries/{providerId} {
+      // Providers can read their own summary
+      allow read: if isAdmin() || isProviderOwner(providerId);
+
+      // Only Cloud Functions can write (no client writes)
+      allow write: if false;
+    }
   }
 }

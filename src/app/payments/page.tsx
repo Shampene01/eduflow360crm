@@ -143,6 +143,10 @@ function PaymentsContent() {
   });
   const [rejectionReason, setRejectionReason] = useState("");
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   // Role-based permissions
   const isSuperAdmin = user?.roleCode === 4 || user?.platformRole === "superAdmin";
   const isAdmin = (user?.roleCode && user.roleCode >= 3) || isSuperAdmin;
@@ -268,6 +272,18 @@ function PaymentsContent() {
       payment.student?.studentNumber?.toLowerCase().includes(search)
     );
   });
+
+  // Pagination calculations
+  const totalRecords = filteredPayments.length;
+  const totalPages = Math.ceil(totalRecords / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedPayments = filteredPayments.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedPropertyId, selectedPeriod, selectedSource, selectedStatus, pageSize]);
 
   // Add manual payment
   const handleAddPayment = async () => {
@@ -610,7 +626,7 @@ function PaymentsContent() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredPayments.map((payment) => (
+                      {paginatedPayments.map((payment) => (
                         <TableRow key={payment.paymentId}>
                           <TableCell className="font-medium">
                             {payment.student?.firstNames} {payment.student?.surname}
@@ -670,6 +686,68 @@ function PaymentsContent() {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              {totalRecords > 0 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span>Showing</span>
+                    <Select
+                      value={pageSize.toString()}
+                      onValueChange={(value) => setPageSize(Number(value))}
+                    >
+                      <SelectTrigger className="w-20 h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="25">25</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <span>of {totalRecords} records</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                      >
+                        First
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                      >
+                        Last
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
             </CardContent>

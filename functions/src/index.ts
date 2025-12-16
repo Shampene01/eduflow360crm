@@ -5,6 +5,7 @@
 
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onRequest } from "firebase-functions/v2/https";
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 
@@ -286,3 +287,145 @@ export const getUserClaims = onRequest(async (req, res) => {
     });
   }
 });
+
+// ------------------------------------------------------------------
+// PAYMENT SUMMARY AGGREGATION (Firestore Trigger)
+// Maintains denormalized summary documents for efficient dashboard reads
+// ------------------------------------------------------------------
+export const updatePaymentSummary = onDocumentWritten(
+  "payments/{paymentId}",
+  async (event) => {
+    const db = admin.firestore();
+    
+    const beforeData = event.data?.before?.data();
+    const afterData = event.data?.after?.data();
+    
+    // Determine the providerId from before or after data
+    const providerId = afterData?.providerId || beforeData?.providerId;
+    if (!providerId) {
+      logger.warn("No providerId found in payment document");
+      return;
+    }
+    
+    // Calculate delta for amount and count
+    let amountDelta = 0;
+    let countDelta = 0;
+    
+    const beforeAmount = beforeData?.disbursedAmount || 0;
+    const afterAmount = afterData?.disbursedAmount || 0;
+    const beforeStatus = beforeData?.status;
+    const afterStatus = afterData?.status;
+    
+    // Only count "Posted" payments in the summary
+    const wasPosted = beforeStatus === "Posted";
+    const isPosted = afterStatus === "Posted";
+    
+    if (!beforeData && afterData) {
+      // Document created
+      if (isPosted) {
+        amountDelta = afterAmount;
+        countDelta = 1;
+      }
+    } else if (beforeData && !afterData) {
+      // Document deleted
+      if (wasPosted) {
+        amountDelta = -beforeAmount;
+        countDelta = -1;
+      }
+    } else if (beforeData && afterData) {
+      // Document updated
+      if (wasPosted && !isPosted) {
+        // Status changed from Posted to something else
+        amountDelta = -beforeAmount;
+        countDelta = -1;
+      } else if (!wasPosted && isPosted) {
+        // Status changed to Posted
+        amountDelta = afterAmount;
+        countDelta = 1;
+      } else if (wasPosted && isPosted) {
+        // Still Posted, but amount might have changed
+        amountDelta = afterAmount - beforeAmount;
+      }
+    }
+    
+    // Skip if no changes to Posted payments
+    if (amountDelta === 0 && countDelta === 0) {
+      return;
+    }
+    
+    // Get payment period for monthly breakdown
+    const paymentPeriod = afterData?.paymentPeriod || beforeData?.paymentPeriod;
+    const yearMonth = paymentPeriod ? paymentPeriod.slice(0, 7) : null;
+    
+    // Get source for source breakdown
+    const source = afterData?.source || beforeData?.source;
+    
+    // Update the summary document
+    const summaryRef = db.collection("providerSummaries").doc(providerId);
+    
+    try {
+      await db.runTransaction(async (transaction) => {
+        const summaryDoc = await transaction.get(summaryRef);
+        
+        if (!summaryDoc.exists) {
+          // Create new summary document
+          const newSummary: Record<string, unknown> = {
+            providerId,
+            totalPayments: Math.max(0, countDelta),
+            totalAmount: Math.max(0, amountDelta),
+            byMonth: {} as Record<string, { count: number; amount: number }>,
+            bySource: {
+              NSFAS: { count: 0, amount: 0 },
+              Manual: { count: 0, amount: 0 },
+            },
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          };
+          
+          if (yearMonth) {
+            (newSummary.byMonth as Record<string, { count: number; amount: number }>)[yearMonth] = {
+              count: Math.max(0, countDelta),
+              amount: Math.max(0, amountDelta),
+            };
+          }
+          
+          if (source && (source === "NSFAS" || source === "Manual")) {
+            (newSummary.bySource as Record<string, { count: number; amount: number }>)[source] = {
+              count: Math.max(0, countDelta),
+              amount: Math.max(0, amountDelta),
+            };
+          }
+          
+          transaction.set(summaryRef, newSummary);
+        } else {
+          // Update existing summary
+          const updates: Record<string, unknown> = {
+            totalPayments: admin.firestore.FieldValue.increment(countDelta),
+            totalAmount: admin.firestore.FieldValue.increment(amountDelta),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          };
+          
+          if (yearMonth) {
+            updates[`byMonth.${yearMonth}.count`] = admin.firestore.FieldValue.increment(countDelta);
+            updates[`byMonth.${yearMonth}.amount`] = admin.firestore.FieldValue.increment(amountDelta);
+          }
+          
+          if (source && (source === "NSFAS" || source === "Manual")) {
+            updates[`bySource.${source}.count`] = admin.firestore.FieldValue.increment(countDelta);
+            updates[`bySource.${source}.amount`] = admin.firestore.FieldValue.increment(amountDelta);
+          }
+          
+          transaction.update(summaryRef, updates);
+        }
+      });
+      
+      logger.info(`Updated payment summary for provider ${providerId}`, {
+        amountDelta,
+        countDelta,
+        yearMonth,
+        source,
+      });
+    } catch (error) {
+      logger.error("Error updating payment summary", error);
+    }
+  }
+);
