@@ -1543,6 +1543,12 @@ export async function getPaymentSummaryFromAggregation(
   manualPaid: number;
   pendingApproval: number;
 }> {
+  // If specific period requested, use legacy method which correctly filters by month
+  // The aggregated summary.bySource contains all-time totals, not per-month breakdown
+  if (paymentPeriod) {
+    return getPaymentSummary(providerId, paymentPeriod);
+  }
+  
   const summary = await getProviderPaymentSummary(providerId);
   
   if (!summary) {
@@ -1550,28 +1556,7 @@ export async function getPaymentSummaryFromAggregation(
     return getPaymentSummary(providerId, paymentPeriod);
   }
   
-  // If specific period requested, get from byMonth
-  if (paymentPeriod) {
-    const yearMonth = paymentPeriod.slice(0, 7);
-    const monthData = summary.byMonth?.[yearMonth];
-    
-    if (monthData) {
-      // For monthly data, we need to query payments for pending (not in summary)
-      const pendingPayments = await getPaymentsByProvider(providerId, { 
-        paymentPeriod, 
-        status: "PendingApproval" 
-      });
-      
-      return {
-        totalPaid: monthData.amount,
-        nsfasPaid: summary.bySource?.NSFAS?.amount || 0,
-        manualPaid: summary.bySource?.Manual?.amount || 0,
-        pendingApproval: pendingPayments.reduce((sum, p) => sum + p.disbursedAmount, 0),
-      };
-    }
-  }
-  
-  // Return all-time totals
+  // Return all-time totals (no period filter)
   return {
     totalPaid: summary.totalAmount || 0,
     nsfasPaid: summary.bySource?.NSFAS?.amount || 0,
