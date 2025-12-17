@@ -23,6 +23,7 @@ import {
   X,
   Flag,
   ArrowUpRight,
+  UserPlus,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardFooter } from "@/components/DashboardFooter";
@@ -76,6 +77,7 @@ import {
   getStudentsByProvider,
   updateStudent,
 } from "@/lib/db";
+import { InviteStaffModal, StaffInvitationsList } from "@/components/staff";
 
 // Unified task item type that can be either a manual task or auto-generated from entities
 interface UnifiedTaskItem {
@@ -133,6 +135,8 @@ function TasksContent() {
   const [typeFilter, setTypeFilter] = useState<TaskType | "All">("All");
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | "All">("All");
   const [activeTab, setActiveTab] = useState("pending");
+  const [providerName, setProviderName] = useState("");
+  const [invitationsRefresh, setInvitationsRefresh] = useState(0);
   
   // Summary stats
   const [summary, setSummary] = useState({
@@ -177,6 +181,7 @@ function TasksContent() {
       const provider = await getProviderByUserId(uid);
       if (provider) {
         setProviderId(provider.providerId);
+        setProviderName(provider.companyName || "");
         
         // Fetch tasks, summary, and pending students
         const [tasksData, summaryData, studentsData] = await Promise.all([
@@ -599,6 +604,10 @@ function TasksContent() {
                 <XCircle className="w-4 h-4" />
                 Cancelled ({summary.cancelled})
               </TabsTrigger>
+              <TabsTrigger value="staffInvitations" className="flex items-center gap-2">
+                <UserPlus className="w-4 h-4" />
+                Staff Invitations
+              </TabsTrigger>
             </TabsList>
 
             {/* Student Approvals Tab */}
@@ -671,6 +680,40 @@ function TasksContent() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Staff Invitations Tab */}
+            <TabsContent value="staffInvitations">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg">Staff Invitations</CardTitle>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Invite new staff members to join your organization
+                    </p>
+                  </div>
+                  {providerId && providerName && (
+                    <InviteStaffModal
+                      providerId={providerId}
+                      providerName={providerName}
+                      onInviteSent={() => setInvitationsRefresh((prev) => prev + 1)}
+                    />
+                  )}
+                </CardHeader>
+                <CardContent>
+                  {providerId ? (
+                    <StaffInvitationsList
+                      providerId={providerId}
+                      refreshTrigger={invitationsRefresh}
+                    />
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <UserPlus className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                      <p>Loading provider information...</p>
                     </div>
                   )}
                 </CardContent>
