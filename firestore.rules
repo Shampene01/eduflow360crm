@@ -378,5 +378,31 @@ service cloud.firestore {
       // Only Cloud Functions can write (no client writes)
       allow write: if false;
     }
+
+    // =====================================================
+    // 17. STAFF INVITATIONS
+    // =====================================================
+    match /staffInvitations/{invitationId} {
+      // Providers can read invitations for their own provider
+      allow read: if isAdmin() || isProviderOwner(resource.data.providerId);
+
+      // Providers (roleCode >= 2) can create invitations for their own provider
+      allow create: if isAuthenticated() && roleCode() >= 2 && 
+        request.resource.data.providerId == providerIdClaim();
+
+      // Providers can update their own invitations (e.g., revoke)
+      allow update: if isAdmin() || isProviderOwner(resource.data.providerId);
+
+      // Only admins can delete invitations
+      allow delete: if isAdmin();
+    }
+
+    // =====================================================
+    // 18. MAIL (For Firebase Trigger Email Extension)
+    // =====================================================
+    match /mail/{mailId} {
+      // Only Cloud Functions can read/write
+      allow read, write: if false;
+    }
   }
 }
