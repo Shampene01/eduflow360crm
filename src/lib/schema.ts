@@ -932,6 +932,9 @@ export const COLLECTIONS = {
   
   // Provider Manager Tasks
   TASKS: "tasks",
+  
+  // Staff Invitations
+  STAFF_INVITATIONS: "staffInvitations",
 } as const;
 
 // ============================================================================
@@ -993,6 +996,74 @@ export function getRoomConfigurationPath(providerId: string, propertyId: string)
  */
 export function getTicketUpdatesPath(ticketId: string): string {
   return `${COLLECTIONS.TICKETS}/${ticketId}/${COLLECTIONS.TICKET_UPDATES}`;
+}
+
+// ============================================================================
+// 13. STAFF INVITATIONS TABLE
+// ============================================================================
+
+export type InvitationStatus = "pending" | "accepted" | "expired" | "revoked";
+
+/**
+ * Custom Claims Role Map (from Firebase Functions):
+ * - 0: none (no claims)
+ * - 1: providerStaff (registers students, manages bookings)
+ * - 2: provider (accommodation provider owner)
+ * - 3: admin (platform administrators)
+ * - 4: superAdmin (platform owner)
+ */
+export const CUSTOM_CLAIM_ROLES = {
+  none: 0,
+  providerStaff: 1,
+  provider: 2,
+  admin: 3,
+  superAdmin: 4,
+} as const;
+
+export type CustomClaimRole = keyof typeof CUSTOM_CLAIM_ROLES;
+
+export const CUSTOM_CLAIM_ROLE_LABELS: Record<number, string> = {
+  0: "None",
+  1: "Provider Staff",
+  2: "Provider",
+  3: "Admin",
+  4: "Super Admin",
+};
+
+export interface StaffInvitation {
+  invitationId: string;              // UUID, PK
+  
+  // Invitation Details
+  email: string;                     // Email of the invited person
+  assignedRole: CustomClaimRole;     // Role to assign (providerStaff, provider, admin)
+  assignedRoleCode: number;          // Numeric role code (1, 2, 3)
+  
+  // Provider Association
+  providerId: string;                // FK → Provider (staff will be associated with this provider)
+  providerName?: string;             // Provider name for display
+  
+  // Security
+  token: string;                     // Secure random token for the invitation link
+  expiresAt: Timestamp;              // Expiration timestamp (default: 7 days)
+  
+  // Status
+  status: InvitationStatus;
+  
+  // Inviter Information
+  invitedBy: string;                 // userId of the person who sent the invitation
+  invitedByName?: string;            // Name of inviter for display
+  invitedByEmail?: string;           // Email of inviter
+  
+  // Acceptance Details (populated when accepted)
+  acceptedAt?: Timestamp;
+  acceptedByUserId?: string;         // userId of the person who accepted
+  
+  // Audit
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+  revokedAt?: Timestamp;
+  revokedBy?: string;
+  revokedReason?: string;
 }
 
 // ============================================================================
