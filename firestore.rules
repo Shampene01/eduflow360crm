@@ -47,6 +47,16 @@ service cloud.firestore {
       return isProvider() && providerIdClaim() == targetProviderId;
     }
 
+    // Provider staff: roleCode 1 with matching providerId claim
+    function isProviderStaff(targetProviderId) {
+      return hasValidClaims() && roleCode() == 1 && providerIdClaim() == targetProviderId;
+    }
+
+    // Either provider owner OR their staff can access provider data
+    function canAccessProvider(targetProviderId) {
+      return isProviderOwner(targetProviderId) || isProviderStaff(targetProviderId) || isAdmin();
+    }
+
     function isPropertyOwnerByPropertyId(propertyId) {
       return isProvider() &&
         exists(/databases/$(database)/documents/properties/$(propertyId)) &&
@@ -85,8 +95,8 @@ service cloud.firestore {
       // Super admins can do anything
       allow read, create, update, delete: if isSuperAdmin();
 
-      // Provider can read their own
-      allow read: if isProviderOwner(providerId);
+      // Provider owner or staff can read
+      allow read: if canAccessProvider(providerId);
 
       // Allow authenticated users to read their own provider record (for checking provider status)
       // This supports new users before claims are set
@@ -116,41 +126,41 @@ service cloud.firestore {
         // Public listing (Active only)
         allow read: if resource.data.status == "Active";
 
-        // Provider & admin read
-        allow read: if isProviderOwner(providerId) || isAdmin();
+        // Provider, staff & admin read
+        allow read: if canAccessProvider(providerId);
 
         // Admin can do anything
         allow create, update, delete: if isAdmin();
 
-        // Provider create
-        allow create: if isProviderOwner(providerId);
+        // Provider or staff can create
+        allow create: if canAccessProvider(providerId);
 
-        // Provider can update non-status fields only
-        allow update: if isProviderOwner(providerId) &&
+        // Provider/staff can update non-status fields only
+        allow update: if canAccessProvider(providerId) &&
           !request.resource.data.diff(resource.data).affectedKeys()
             .hasAny(['nsfasApproved', 'status']);
 
-        // Provider can delete drafts only
+        // Provider can delete drafts only (staff cannot delete)
         allow delete: if isProviderOwner(providerId) && resource.data.status == "Draft";
 
         // ---------------------------
         // PROPERTY DOCUMENTS
         // ---------------------------
         match /documents/{docId} {
-          allow read: if isProviderOwner(providerId) || isAdmin();
+          allow read: if canAccessProvider(providerId);
 
           // Admin can do anything
           allow create, update, delete: if isAdmin();
 
-          allow create: if isProviderOwner(providerId) &&
+          allow create: if canAccessProvider(providerId) &&
             request.resource.data.verified == false;
 
-          // Provider can update non-verification fields only
-          allow update: if isProviderOwner(providerId) &&
+          // Provider/staff can update non-verification fields only
+          allow update: if canAccessProvider(providerId) &&
             !request.resource.data.diff(resource.data).affectedKeys()
               .hasAny(['verified', 'verifiedAt', 'verifiedBy']);
 
-          // Provider can delete only if not verified
+          // Only provider owner can delete (not staff)
           allow delete: if isProviderOwner(providerId) && resource.data.verified == false;
         }
 
@@ -159,14 +169,15 @@ service cloud.firestore {
         // ---------------------------
         match /images/{imageId} {
           allow read: if true;
-          allow create, update, delete: if isProviderOwner(providerId) || isAdmin();
+          allow create, update, delete: if canAccessProvider(providerId);
         }
 
         // ---------------------------
         // ROOM CONFIGURATIONS
         // ---------------------------
         match /roomConfigurations/{configId} {
-          allow read, create, update, delete: if isProviderOwner(providerId) || isAdmin();
+          allow read, create, update: if canAccessProvider(providerId);
+          allow delete: if isProviderOwner(providerId) || isAdmin();
         }
       }
     }
@@ -219,8 +230,13 @@ service cloud.firestore {
     // 7. STUDENTS
     // =====================================================
     match /students/{studentId} {
-      // Provider/admin access
-      allow read, create, update: if isAdmin() || isProvider();
+      // Provider, staff & admin access (staff with matching providerId)
+      allow read, create, update: if isAdmin() || 
+        (hasValidClaims() && roleCode() >= 1 && providerIdClaim() == resource.data.providerId);
+      
+      // For create, check the incoming data
+      allow create: if isAdmin() || 
+        (hasValidClaims() && roleCode() >= 1 && providerIdClaim() == request.resource.data.providerId);
 
       // Student self-read if linked
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
@@ -232,8 +248,8 @@ service cloud.firestore {
     // 8. STUDENT PROPERTY ASSIGNMENTS
     // =====================================================
     match /studentPropertyAssignments/{assignmentId} {
-      allow read, update: if isAdmin() || isProviderOwner(resource.data.providerId);
-      allow create: if isAdmin() || isProviderOwner(request.resource.data.providerId);
+      allow read, update: if isAdmin() || canAccessProvider(resource.data.providerId);
+      allow create: if isAdmin() || canAccessProvider(request.resource.data.providerId);
       allow delete: if isAdmin();
     }
 
@@ -241,7 +257,7 @@ service cloud.firestore {
     // 9. PROVIDER CONTACT PERSONS
     // =====================================================
     match /providerContactPersons/{contactId} {
-      allow read: if isAdmin() || isProviderOwner(resource.data.providerId);
+      allow read: if isAdmin() || canAccessProvider(resource.data.providerId);
       
       // Admin can create, or provider owner, or the user who created the provider (for new applications before claims are set)
       allow create: if isAdmin() || isProviderOwner(request.resource.data.providerId) ||
@@ -249,7 +265,7 @@ service cloud.firestore {
          exists(/databases/$(database)/documents/accommodationProviders/$(request.resource.data.providerId)) &&
          get(/databases/$(database)/documents/accommodationProviders/$(request.resource.data.providerId)).data.userId == request.auth.uid);
       
-      allow update: if isAdmin() || isProviderOwner(resource.data.providerId);
+      allow update: if isAdmin() || canAccessProvider(resource.data.providerId);
       allow delete: if isAdmin();
     }
 
@@ -257,7 +273,7 @@ service cloud.firestore {
     // 10. PROVIDER DOCUMENTS (TOP-LEVEL)
     // =====================================================
     match /providerDocuments/{docId} {
-      allow read: if isAdmin() || isProviderOwner(resource.data.providerId);
+      allow read: if isAdmin() || canAccessProvider(resource.data.providerId);
 
       // Admin can create, or provider owner, or the user who created the provider (for new applications before claims are set)
       allow create: if isAdmin() || 
@@ -282,9 +298,10 @@ service cloud.firestore {
     // 11. INVOICES
     // =====================================================
     match /invoices/{invoiceId} {
-      allow read: if isAdmin() || isProviderOwner(resource.data.providerId);
-      allow create: if isAdmin() || isProviderOwner(request.resource.data.providerId);
-      allow update, delete: if isAdmin() || isProviderOwner(resource.data.providerId);
+      allow read: if isAdmin() || canAccessProvider(resource.data.providerId);
+      allow create: if isAdmin() || canAccessProvider(request.resource.data.providerId);
+      allow update: if isAdmin() || canAccessProvider(resource.data.providerId);
+      allow delete: if isAdmin();
     }
 
     // =====================================================
@@ -338,14 +355,14 @@ service cloud.firestore {
     // 14. PAYMENTS
     // =====================================================
     match /payments/{paymentId} {
-      // Providers can read payments for their own properties
-      allow read: if isAdmin() || isProviderOwner(resource.data.providerId);
+      // Providers & staff can read payments for their provider
+      allow read: if isAdmin() || canAccessProvider(resource.data.providerId);
 
-      // Providers can create payments (manual payments require approval)
-      allow create: if isAdmin() || isProviderOwner(request.resource.data.providerId);
+      // Providers & staff can create payments
+      allow create: if isAdmin() || canAccessProvider(request.resource.data.providerId);
 
-      // Admins can update any payment; providers can update their own
-      allow update: if isAdmin() || isProviderOwner(resource.data.providerId);
+      // Providers & staff can update payments
+      allow update: if isAdmin() || canAccessProvider(resource.data.providerId);
 
       // Only admins can delete payments
       allow delete: if isAdmin();
@@ -355,14 +372,14 @@ service cloud.firestore {
     // 15. TASKS (Provider Manager Tasks)
     // =====================================================
     match /tasks/{taskId} {
-      // Providers can read tasks for their own provider
-      allow read: if isAdmin() || isProviderOwner(resource.data.providerId);
+      // Providers & staff can read tasks
+      allow read: if isAdmin() || canAccessProvider(resource.data.providerId);
 
-      // Providers can create tasks for their own provider
-      allow create: if isAdmin() || isProviderOwner(request.resource.data.providerId);
+      // Providers & staff can create tasks
+      allow create: if isAdmin() || canAccessProvider(request.resource.data.providerId);
 
-      // Providers can update their own tasks; admins can update any
-      allow update: if isAdmin() || isProviderOwner(resource.data.providerId);
+      // Providers & staff can update tasks
+      allow update: if isAdmin() || canAccessProvider(resource.data.providerId);
 
       // Only admins can delete tasks
       allow delete: if isAdmin();
@@ -372,11 +389,28 @@ service cloud.firestore {
     // 16. PROVIDER SUMMARIES (Aggregated data for dashboards)
     // =====================================================
     match /providerSummaries/{providerId} {
-      // Providers can read their own summary
-      allow read: if isAdmin() || isProviderOwner(providerId);
+      // Providers & staff can read their provider's summary
+      allow read: if isAdmin() || canAccessProvider(providerId);
 
       // Only Cloud Functions can write (no client writes)
       allow write: if false;
+    }
+
+    // =====================================================
+    // 17. PENDING USERS (Staff Onboarding Queue)
+    // =====================================================
+    match /pendingUsers/{pendingUserId} {
+      // Providers & staff can read pending users for their provider
+      allow read: if isAdmin() || canAccessProvider(resource.data.providerId);
+
+      // Providers can create pending users for their provider
+      allow create: if isAdmin() || canAccessProvider(request.resource.data.providerId);
+
+      // Only admins/system can update (Power Automate will use service account)
+      allow update: if isAdmin();
+
+      // Only admins can delete
+      allow delete: if isAdmin();
     }
   }
 }

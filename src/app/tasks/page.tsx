@@ -23,6 +23,8 @@ import {
   X,
   Flag,
   ArrowUpRight,
+  UserPlus,
+  Users,
 } from "lucide-react";
 import { DashboardHeader } from "@/components/DashboardHeader";
 import { DashboardFooter } from "@/components/DashboardFooter";
@@ -76,6 +78,7 @@ import {
   getStudentsByProvider,
   updateStudent,
 } from "@/lib/db";
+import { StaffOnboardingModal } from "@/components/staff";
 
 // Unified task item type that can be either a manual task or auto-generated from entities
 interface UnifiedTaskItem {
@@ -133,6 +136,7 @@ function TasksContent() {
   const [typeFilter, setTypeFilter] = useState<TaskType | "All">("All");
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | "All">("All");
   const [activeTab, setActiveTab] = useState("pending");
+  const [providerName, setProviderName] = useState("");
   
   // Summary stats
   const [summary, setSummary] = useState({
@@ -177,6 +181,7 @@ function TasksContent() {
       const provider = await getProviderByUserId(uid);
       if (provider) {
         setProviderId(provider.providerId);
+        setProviderName(provider.companyName || "");
         
         // Fetch tasks, summary, and pending students
         const [tasksData, summaryData, studentsData] = await Promise.all([
@@ -599,6 +604,10 @@ function TasksContent() {
                 <XCircle className="w-4 h-4" />
                 Cancelled ({summary.cancelled})
               </TabsTrigger>
+              <TabsTrigger value="staff" className="flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Staff
+              </TabsTrigger>
             </TabsList>
 
             {/* Student Approvals Tab */}
@@ -673,6 +682,39 @@ function TasksContent() {
                       ))}
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Staff Tab */}
+            <TabsContent value="staff">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg">Staff Management</CardTitle>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Onboard and manage staff members for your organization
+                    </p>
+                  </div>
+                  {providerId && providerName && (
+                    <StaffOnboardingModal
+                      providerId={providerId}
+                      providerName={providerName}
+                      onUserCreated={() => toast.success("Staff member added to onboarding queue")}
+                    />
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8 text-gray-500">
+                    <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p className="font-medium">Staff Onboarding</p>
+                    <p className="text-sm mt-1">
+                      Click &quot;Add Staff Member&quot; to onboard new team members.
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      New staff accounts will be created and activated automatically.
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

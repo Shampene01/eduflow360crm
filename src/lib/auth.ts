@@ -17,9 +17,30 @@ export async function signIn(email: string, password: string): Promise<User> {
     const firebaseUser = userCredential.user;
 
     // Fetch user profile first (critical path)
-    const userProfile = await getUserProfile(firebaseUser.uid);
+    let userProfile = await getUserProfile(firebaseUser.uid);
     if (!userProfile) {
-      throw new Error("User profile not found");
+      // User exists in Firebase Auth but not in Firestore
+      // This can happen when users are created via backend (e.g., Power Automate)
+      // Auto-create a basic profile so they can log in
+      console.log("Creating Firestore profile for backend-created user:", firebaseUser.uid);
+      
+      const newProfile: User = {
+        uid: firebaseUser.uid,
+        userId: firebaseUser.uid,
+        email: firebaseUser.email || email,
+        emailVerified: firebaseUser.emailVerified,
+        createdAt: Timestamp.now(),
+        lastLoginAt: Timestamp.now(),
+        isActive: true,
+        crmSynced: false,
+        // Default role - can be updated by admin later
+        role: "provider",
+        roleCode: 2,
+      };
+
+      const userRef = doc(db, "users", firebaseUser.uid);
+      await setDoc(userRef, newProfile);
+      userProfile = newProfile;
     }
 
     // Update last login time and init presence in background (non-blocking)
@@ -151,6 +172,8 @@ export function getAuthErrorMessage(errorCode: string): string {
       return "An account with this email already exists.";
     case "auth/weak-password":
       return "Password is too weak. Please use at least 6 characters.";
+    case "auth/profile-not-found":
+      return "Your account exists but profile setup is incomplete. Please contact support.";
     default:
       return "An error occurred. Please try again.";
   }

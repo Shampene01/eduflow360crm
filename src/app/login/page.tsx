@@ -83,6 +83,7 @@ export default function LoginPage() {
       setSuccess("Login successful! Redirecting...");
       // Keep loading=true while waiting for AuthContext to update and trigger redirect
     } catch (err: any) {
+      console.error("Login error:", err.code, err.message);
       setError(getAuthErrorMessage(err.code));
       setLoading(false);
     }
