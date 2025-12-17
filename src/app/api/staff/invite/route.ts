@@ -2,10 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { COLLECTIONS, CUSTOM_CLAIM_ROLES, type CustomClaimRole, type StaffInvitation } from "@/lib/schema";
-import crypto from "crypto";
 
 // Invitation expiry: 7 days
 const INVITATION_EXPIRY_DAYS = 7;
+
+/**
+ * Generate a secure random token using Web Crypto API
+ */
+function generateSecureToken(length: number = 32): string {
+  const array = new Uint8Array(length);
+  crypto.getRandomValues(array);
+  return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
 
 /**
  * Role hierarchy for permission checks
@@ -105,7 +113,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate secure token
-    const token = crypto.randomBytes(32).toString("hex");
+    const token = generateSecureToken(32);
 
     // Calculate expiry date
     const expiresAt = Timestamp.fromDate(
@@ -141,10 +149,19 @@ export async function POST(request: NextRequest) {
       expiresAt: expiresAt.toDate().toISOString(),
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating staff invitation:", error);
+    
+    // Check for Firestore index error
+    if (error?.code === "failed-precondition" || error?.message?.includes("index")) {
+      return NextResponse.json(
+        { success: false, error: "Database index required. Please contact administrator." },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
-      { success: false, error: "Failed to create invitation" },
+      { success: false, error: error?.message || "Failed to create invitation" },
       { status: 500 }
     );
   }
@@ -186,10 +203,10 @@ export async function GET(request: NextRequest) {
       invitations,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching invitations:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch invitations" },
+      { success: false, error: error?.message || "Failed to fetch invitations" },
       { status: 500 }
     );
   }
