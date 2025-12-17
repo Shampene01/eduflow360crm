@@ -3,8 +3,8 @@
 import { useEffect, useCallback, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
-const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes in milliseconds
-const WARNING_BEFORE_LOGOUT_MS = 2 * 60 * 1000; // Show warning 2 minutes before logout
+const INACTIVITY_TIMEOUT_MS = 60 * 1000; // 15 minutes in milliseconds
+const WARNING_BEFORE_LOGOUT_MS = 40 * 1000; // Show warning 2 minutes before logout
 
 /**
  * Hook that automatically logs out the user after a period of inactivity.
