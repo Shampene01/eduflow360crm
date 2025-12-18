@@ -211,6 +211,12 @@ export interface User {
   roleCode?: number;                 // Numeric role code (0-6)
   roles?: UserRole[];                // Legacy: array of roles (deprecated, use role)
 
+  // Provider Staff fields (for users with role "providerStaff" or "manager")
+  providerId?: string;               // FK → AccommodationProvider (for staff members)
+  providerName?: string;             // Provider name for quick reference
+  createdBy?: string;                // userId of who created this staff member
+  createdByName?: string;            // Name of who created this staff member
+
   // System fields
   isActive: boolean;
   emailVerified: boolean;
@@ -546,6 +552,7 @@ export interface StudentPropertyAssignment {
   assignmentId: string;              // UUID, PK
   studentId: string;                 // FK → Student
   propertyId: string;                // FK → Property
+  providerId: string;                // FK → Provider (for security rules)
   roomId?: string;                   // FK → PropertyRoom (optional)
   bedId?: string;                    // FK → PropertyBed (optional)
   
@@ -993,6 +1000,143 @@ export function getRoomConfigurationPath(providerId: string, propertyId: string)
  */
 export function getTicketUpdatesPath(ticketId: string): string {
   return `${COLLECTIONS.TICKETS}/${ticketId}/${COLLECTIONS.TICKET_UPDATES}`;
+}
+
+// ============================================================================
+// RBAC SYSTEM TYPES
+// ============================================================================
+
+/**
+ * Platform role codes (Layer 1 - Custom Claims)
+ */
+export type PlatformRoleCode = 0 | 1 | 2 | 3 | 4;
+
+export const PLATFORM_ROLES = {
+  superAdmin: 4,
+  admin: 3,
+  provider: 2,
+  providerStaff: 1,
+  none: 0,
+} as const;
+
+/**
+ * Provider role keys (Layer 2 - Firestore)
+ */
+export type ProviderRoleKey = 
+  | "property_manager"
+  | "intake_officer"
+  | "finance_viewer"
+  | "support_staff";
+
+/**
+ * Permission keys following {module}.{action} convention
+ */
+export type PermissionKey =
+  // Properties
+  | "properties.view"
+  | "properties.edit"
+  | "rooms.view"
+  | "rooms.manage"
+  // Students
+  | "students.view"
+  | "students.create"
+  | "students.edit"
+  | "students.delete"
+  // Documents
+  | "documents.view"
+  | "documents.upload"
+  | "documents.manage"
+  // Placements
+  | "placements.view"
+  | "placements.manage"
+  // Funding
+  | "funding.view"
+  | "funding.edit"
+  // Payments
+  | "payments.view"
+  | "payments.record"
+  // Maintenance
+  | "maintenance.view"
+  | "maintenance.create"
+  | "maintenance.manage"
+  // Staff
+  | "staff.view"
+  | "staff.manage"
+  // Reports
+  | "reports.students"
+  | "reports.financial"
+  | "reports.occupancy"
+  // Provider
+  | "provider.view"
+  | "provider.edit";
+
+/**
+ * Provider role definition in /system/rbac
+ */
+export interface ProviderRoleDefinition {
+  label: string;
+  description: string;
+  permissions: PermissionKey[];
+  sortOrder: number;
+}
+
+/**
+ * Permission definition in /system/rbac
+ */
+export interface PermissionDefinition {
+  label: string;
+  description: string;
+  module: string;
+}
+
+/**
+ * Module definition in /system/rbac
+ */
+export interface ModuleDefinition {
+  label: string;
+  description: string;
+  icon: string;
+  sortOrder: number;
+}
+
+/**
+ * Platform role definition in /system/rbac
+ */
+export interface PlatformRoleDefinition {
+  code: number;
+  label: string;
+  description: string;
+  scope: "platform" | "provider" | "none";
+  implicitPermissions?: "all";
+  requiresProviderRole?: boolean;
+}
+
+/**
+ * System RBAC document structure (/system/rbac)
+ */
+export interface SystemRBAC {
+  version: string;
+  updatedAt: Timestamp | null;
+  updatedBy: string | null;
+  providerRoles: Record<ProviderRoleKey, ProviderRoleDefinition>;
+  permissions: Record<PermissionKey, PermissionDefinition>;
+  modules: Record<string, ModuleDefinition>;
+  platformRoles: Record<string, PlatformRoleDefinition>;
+}
+
+/**
+ * Staff document structure (/providers/{providerId}/staff/{staffUid})
+ */
+export interface StaffDocument {
+  userId: string;
+  email: string;
+  displayName: string;
+  providerRole: ProviderRoleKey;
+  status: "active" | "inactive";
+  createdAt: Timestamp;
+  createdBy: string;
+  updatedAt?: Timestamp;
+  updatedBy?: string;
 }
 
 // ============================================================================

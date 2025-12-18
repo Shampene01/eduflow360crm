@@ -60,17 +60,7 @@ import { toast } from "sonner";
 import { BulkImportDialog } from "@/components/students/BulkImportDialog";
 import { Student, StudentPropertyAssignment, Property } from "@/lib/schema";
 import * as XLSX from "xlsx";
-import {
-  getProviderByUserId,
-  getPropertiesByProvider,
-  getPropertyAssignments,
-  getStudentById,
-  getStudentByIdNumber,
-  createStudent,
-  createStudentAssignment,
-  getRoomConfiguration,
-  updateStudent,
-} from "@/lib/db";
+import { getProviderByUserId, getProviderById, getPropertiesByProvider, getPropertyAssignments, getStudentById, getStudentByIdNumber, createStudent, createStudentAssignment, getRoomConfiguration, updateStudent } from "@/lib/db";
 import { RoomConfiguration } from "@/lib/schema";
 
 interface StudentWithProperty {
@@ -419,6 +409,7 @@ function StudentsContent() {
       const assignment = await createStudentAssignment({
         studentId: student.studentId,
         propertyId: selectedProperty.propertyId,
+        providerId: selectedProperty.providerId,
         startDate: studentForm.startDate || new Date().toISOString().split("T")[0],
         roomType: studentForm.roomType as import("@/lib/schema").RoomType,
         roomNumber: studentForm.roomNumber || undefined,
@@ -449,8 +440,13 @@ function StudentsContent() {
     }
 
     try {
-      // Get provider
-      const provider = await getProviderByUserId(uid);
+      // Get provider (check staff's providerId first)
+      let provider = null;
+      if ((user as any)?.providerId) {
+        provider = await getProviderById((user as any).providerId);
+      } else {
+        provider = await getProviderByUserId(uid);
+      }
       if (!provider) {
         setLoading(false);
         return;
@@ -466,7 +462,7 @@ function StudentsContent() {
       
       for (const property of providerProperties) {
         // Get assignments for this property
-        const assignments = await getPropertyAssignments(property.propertyId);
+        const assignments = await getPropertyAssignments(property.propertyId, undefined, provider.providerId);
         
         // Get student details for each assignment
         for (const assignment of assignments) {

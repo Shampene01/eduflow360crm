@@ -64,6 +64,51 @@ service cloud.firestore {
     }
 
     // =====================================================
+    // RBAC PERMISSION HELPERS (Layer 2)
+    // =====================================================
+    
+    // Get staff document for current user
+    function getStaffDoc(providerId) {
+      return get(/databases/$(database)/documents/accommodationProviders/$(providerId)/staff/$(request.auth.uid)).data;
+    }
+    
+    // Get providerRole from staff document
+    function getProviderRole(providerId) {
+      return getStaffDoc(providerId).providerRole;
+    }
+    
+    // Get permissions array for a role from /system/rbac
+    function getRolePermissions(providerRole) {
+      return get(/databases/$(database)/documents/system/rbac).data.providerRoles[providerRole].permissions;
+    }
+    
+    // Check if staff member has specific permission
+    function staffHasPermission(providerId, permission) {
+      let staffDoc = getStaffDoc(providerId);
+      // Check if staff is active
+      return staffDoc.status == 'active' &&
+        permission in getRolePermissions(staffDoc.providerRole);
+    }
+    
+    // Check if staff exists and is active
+    function isActiveStaff(providerId) {
+      return exists(/databases/$(database)/documents/accommodationProviders/$(providerId)/staff/$(request.auth.uid)) &&
+        getStaffDoc(providerId).status == 'active';
+    }
+    
+    // Main permission check: Platform admin OR Provider owner OR Staff with permission
+    function canAccess(providerId, permission) {
+      return isAdmin()
+        || isProviderOwner(providerId)
+        || (isProviderStaff(providerId) && isActiveStaff(providerId) && staffHasPermission(providerId, permission));
+    }
+    
+    // Simplified check for read operations (most common)
+    function canView(providerId, permission) {
+      return canAccess(providerId, permission);
+    }
+
+    // =====================================================
     // 1. USERS
     // =====================================================
     match /users/{userId} {
@@ -86,6 +131,16 @@ service cloud.firestore {
     match /addresses/{addressId} {
       allow read, create, update: if isAuthenticated();
       allow delete: if isAdmin();
+    }
+
+    // =====================================================
+    // 2.5 SYSTEM CONFIGURATION (RBAC)
+    // =====================================================
+    match /system/{document} {
+      // All authenticated staff can read role definitions (roleCode >= 1)
+      allow read: if hasValidClaims() && roleCode() >= 1;
+      // Only superAdmin can modify system config
+      allow write: if isSuperAdmin();
     }
 
     // =====================================================
@@ -118,6 +173,23 @@ service cloud.firestore {
 
       // Admins can delete providers
       allow delete: if isAdmin();
+
+      // -------------------------------
+      // STAFF (SUBCOLLECTION - RBAC Layer 2)
+      // -------------------------------
+      match /staff/{staffId} {
+        // Staff can read their own document
+        allow read: if request.auth.uid == staffId;
+        
+        // Provider owner can read all staff
+        allow read: if isProviderOwner(providerId);
+        
+        // Admin can read/write anything
+        allow read, write: if isAdmin();
+        
+        // Only provider owner can manage staff (invite, edit roles, deactivate)
+        allow create, update, delete: if isProviderOwner(providerId);
+      }
 
       // -------------------------------
       // PROPERTIES (SUBCOLLECTION)
@@ -248,7 +320,18 @@ service cloud.firestore {
     // 8. STUDENT PROPERTY ASSIGNMENTS
     // =====================================================
     match /studentPropertyAssignments/{assignmentId} {
-      allow read, update: if isAdmin() || canAccessProvider(resource.data.providerId);
+      // Allow read if admin
+      allow read: if isAdmin();
+      
+      // Allow read if user can access the provider (for single doc reads)
+      allow read: if canAccessProvider(resource.data.providerId);
+      
+      // Allow list queries that filter by providerId matching user's claim
+      // This enables queries like: where("providerId", "==", userProviderId)
+      allow read: if hasValidClaims() && roleCode() >= 1 && 
+        resource.data.providerId == providerIdClaim();
+      
+      allow update: if isAdmin() || canAccessProvider(resource.data.providerId);
       allow create: if isAdmin() || canAccessProvider(request.resource.data.providerId);
       allow delete: if isAdmin();
     }
@@ -308,9 +391,9 @@ service cloud.firestore {
     // 12. TICKETS
     // =====================================================
     match /tickets/{ticketId} {
-      // Submitter, provider (if ticket has providerId), or admin can read
+      // Submitter, provider/staff (if ticket has providerId), or admin can read
       allow read: if isAdmin() || (isAuthenticated() && resource.data.submittedBy == request.auth.uid);
-      allow read: if isProvider() && resource.data.providerId == providerIdClaim();
+      allow read: if hasValidClaims() && roleCode() >= 1 && resource.data.providerId == providerIdClaim();
 
       // Submitter can create their own ticket
       allow create: if isAuthenticated() && request.resource.data.submittedBy == request.auth.uid;

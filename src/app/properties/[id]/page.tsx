@@ -30,7 +30,7 @@ import { Property, Address, RoomConfiguration, PropertyDocument, PropertyImage }
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getProviderByUserId, getPropertyById, getAddressById, getRoomConfiguration, updateProperty, getActiveStudentCountForProperty, getPropertyDocuments, getPropertyImages } from "@/lib/db";
+import { getProviderByUserId, getProviderById, getPropertiesByProvider, getPropertyById, getAddressById, getRoomConfiguration, updateProperty, getActiveStudentCountForProperty, getPropertyDocuments, getPropertyImages } from "@/lib/db";
 import { syncPropertyToCRM } from "@/lib/crmSync";
 import { toast } from "sonner";
 import {
@@ -71,8 +71,13 @@ function PropertyDetailsContent() {
       if (!id || !uid) return;
 
       try {
-        // First get the provider for this user
-        const provider = await getProviderByUserId(uid);
+        // First get the provider for this user (check staff's providerId first)
+        let provider = null;
+        if ((user as any)?.providerId) {
+          provider = await getProviderById((user as any).providerId);
+        } else {
+          provider = await getProviderByUserId(uid);
+        }
         if (!provider) {
           console.error("No provider found for user");
           setLoading(false);

@@ -37,7 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getProviderByUserId, getAddressById } from "@/lib/db";
+import { getProviderByUserId, getProviderById, getPropertiesByProvider, getAddressById } from "@/lib/db";
 import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
 import { AccommodationProvider, Address } from "@/lib/schema";
 import { toast } from "sonner";
@@ -61,8 +61,13 @@ function InvoicesContent() {
       }
 
       try {
-        // First get the provider for this user
-        const providerData = await getProviderByUserId(uid);
+        // First get the provider for this user (check staff's providerId first)
+        let providerData = null;
+        if ((user as any)?.providerId) {
+          providerData = await getProviderById((user as any).providerId);
+        } else {
+          providerData = await getProviderByUserId(uid);
+        }
         if (!providerData) {
           setInvoices([]);
           setLoading(false);

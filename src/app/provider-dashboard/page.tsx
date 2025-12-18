@@ -50,7 +50,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getProviderByUserId, getAddressById, getProviderContacts, getProviderDocuments, getPropertiesByProvider, getPropertyAssignments, updateProviderContact } from "@/lib/db";
+import { getProviderByUserId, getProviderById, getAddressById, getProviderContacts, getProviderDocuments, getPropertiesByProvider, getPropertyAssignments, updateProviderContact } from "@/lib/db";
 import { syncProviderToCRM } from "@/lib/crmSync";
 import { toast } from "sonner";
 import { AccommodationProvider, Address, ProviderContactPerson, ProviderDocument, Property, Student, StudentPropertyAssignment } from "@/lib/schema";
@@ -196,7 +196,16 @@ function ProviderDashboardContent() {
         return;
       }
       try {
-        const provider = await getProviderByUserId(uid);
+        let provider: AccommodationProvider | null = null;
+        
+        // First check if user is staff with providerId
+        if ((user as any)?.providerId) {
+          provider = await getProviderById((user as any).providerId);
+        } else {
+          // Check if user is a provider owner
+          provider = await getProviderByUserId(uid);
+        }
+        
         setProviderStatus(provider);
 
         // Redirect to dashboard if no provider or not approved
@@ -232,76 +241,90 @@ function ProviderDashboardContent() {
         return;
       }
 
+      // Use the provider's ID, not the user's ID
+      const providerId = providerStatus.providerId;
+      console.log("fetchStats: Starting with providerId:", providerId);
+
+      let totalProperties = 0;
+      let totalBeds = 0;
+      let totalStudents = 0;
+      let openTicketsCount = 0;
+      const allStudentsWithProperties: StudentWithProperty[] = [];
+      let properties: Property[] = [];
+
+      // 1. Fetch properties
       try {
-        // Use the provider's ID, not the user's ID
-        const providerId = providerStatus.providerId;
-
-        // Fetch all properties for this provider
-        const properties = await getPropertiesByProvider(providerId);
-        const totalProperties = properties.length;
-        
-        // Store properties list (limit to 10 for dashboard display)
+        properties = await getPropertiesByProvider(providerId);
+        totalProperties = properties.length;
         setPropertiesList(properties.slice(0, 10));
-
-        // Calculate total beds across all properties
-        let totalBeds = 0;
         properties.forEach((property) => {
           totalBeds += property.totalBeds || 0;
         });
+        console.log("fetchStats: Properties fetched successfully:", totalProperties);
+      } catch (propError) {
+        console.error("fetchStats: Error fetching properties:", propError);
+      }
 
-        // Fetch all active student assignments across all properties
-        // Only count assignments where the student still exists (handles external deletions)
-        let totalStudents = 0;
-        const allStudentsWithProperties: StudentWithProperty[] = [];
-        
+      // 2. Fetch student assignments and students
+      try {
         for (const property of properties) {
-          const assignments = await getPropertyAssignments(property.propertyId);
-          const activeAssignments = assignments.filter(a => a.status === "Active");
-          
-          // Verify each student exists before counting
-          for (const assignment of activeAssignments) {
-            const student = await getStudentById(assignment.studentId);
-            if (student) {
-              totalStudents += 1;
-              // Store for display (limit to 10)
-              if (allStudentsWithProperties.length < 10) {
-                allStudentsWithProperties.push({
-                  student,
-                  assignment,
-                  property,
-                });
+          try {
+            const assignments = await getPropertyAssignments(property.propertyId, undefined, providerId);
+            const activeAssignments = assignments.filter(a => a.status === "Active");
+            
+            for (const assignment of activeAssignments) {
+              try {
+                const student = await getStudentById(assignment.studentId);
+                if (student) {
+                  totalStudents += 1;
+                  if (allStudentsWithProperties.length < 10) {
+                    allStudentsWithProperties.push({
+                      student,
+                      assignment,
+                      property,
+                    });
+                  }
+                }
+              } catch (studentError) {
+                console.error("fetchStats: Error fetching student:", assignment.studentId, studentError);
               }
             }
+          } catch (assignError) {
+            console.error("fetchStats: Error fetching assignments for property:", property.propertyId, assignError);
           }
         }
-        
-        // Store students list
         setStudentsList(allStudentsWithProperties);
+        console.log("fetchStats: Students fetched successfully:", totalStudents);
+      } catch (studentsError) {
+        console.error("fetchStats: Error in students loop:", studentsError);
+      }
 
-        // Calculate occupancy rate based on total beds vs assigned students
-        const occupancyRate = totalBeds > 0 ? Math.round((totalStudents / totalBeds) * 100) : 0;
-
-        // Fetch open tickets (still uses userId for ticket ownership)
+      // 3. Fetch tickets
+      try {
         const ticketsQuery = query(
           collection(db, "tickets"),
-          where("userId", "==", uid),
+          where("providerId", "==", providerId),
           where("status", "in", ["open", "in_progress"])
         );
         const ticketsSnap = await getDocs(ticketsQuery);
-
-        setStats({
-          totalProperties,
-          totalStudents,
-          occupancyRate,
-          pendingInvoices: 0, // Invoicing not implemented yet
-          openTickets: ticketsSnap.size,
-          monthlyRevenue: 0, // Would need more complex calculation
-        });
-      } catch (error) {
-        console.error("Error fetching stats:", error);
-      } finally {
-        setLoading(false);
+        openTicketsCount = ticketsSnap.size;
+        console.log("fetchStats: Tickets fetched successfully:", openTicketsCount);
+      } catch (ticketError) {
+        console.log("fetchStats: Tickets query skipped:", ticketError);
       }
+
+      // Calculate occupancy rate
+      const occupancyRate = totalBeds > 0 ? Math.round((totalStudents / totalBeds) * 100) : 0;
+
+      setStats({
+        totalProperties,
+        totalStudents,
+        occupancyRate,
+        pendingInvoices: 0,
+        openTickets: openTicketsCount,
+        monthlyRevenue: 0,
+      });
+      setLoading(false);
     };
 
     fetchStats();

@@ -81,19 +81,7 @@ import {
   Student,
   StudentPropertyAssignment,
 } from "@/lib/schema";
-import {
-  getProviderByUserId,
-  getPropertiesByProvider,
-  getPaymentsByProvider,
-  getPaymentSummary,
-  getPaymentSummaryFromAggregation,
-  createPayment,
-  approvePayment,
-  rejectPayment,
-  deletePayment,
-  getStudentById,
-  getPropertyAssignments,
-} from "@/lib/db";
+import { getProviderByUserId, getProviderById, getPropertiesByProvider, getPaymentsByProvider, getPaymentSummary, getPaymentSummaryFromAggregation, createPayment, approvePayment, rejectPayment, deletePayment, getStudentById, getPropertyAssignments } from "@/lib/db";
 
 interface PaymentWithStudent extends Payment {
   student?: Student;
@@ -163,7 +151,12 @@ function PaymentsContent() {
       if (!uid) return;
 
       try {
-        const provider = await getProviderByUserId(uid);
+        let provider = null;
+        if ((user as any)?.providerId) {
+          provider = await getProviderById((user as any).providerId);
+        } else {
+          provider = await getProviderByUserId(uid);
+        }
         if (!provider) {
           toast.error("No provider found");
           setLoading(false);
@@ -236,7 +229,7 @@ function PaymentsContent() {
       const allAssigned: { student: Student; assignment: StudentPropertyAssignment; propertyName: string }[] = [];
       
       for (const property of props) {
-        const assignments = await getPropertyAssignments(property.propertyId, "Active");
+        const assignments = await getPropertyAssignments(property.propertyId, "Active", provId);
         for (const assignment of assignments) {
           const student = await getStudentById(assignment.studentId);
           if (student) {

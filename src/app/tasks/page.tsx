@@ -37,6 +37,7 @@ import {
   TaskType,
   TaskPriority,
   Student,
+  User as UserType,
 } from "@/lib/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,8 +76,10 @@ import {
   completeTask,
   cancelTask,
   getProviderByUserId,
+  getProviderById,
   getStudentsByProvider,
   updateStudent,
+  getStaffByProviderId,
 } from "@/lib/db";
 import { StaffOnboardingModal } from "@/components/staff";
 
@@ -283,6 +286,7 @@ function TasksContent() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [pendingStudents, setPendingStudents] = useState<Student[]>([]);
+  const [staffMembers, setStaffMembers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
   const [providerId, setProviderId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -332,21 +336,30 @@ function TasksContent() {
     if (!uid) return;
 
     try {
-      const provider = await getProviderByUserId(uid);
+      // Check if user is staff with providerId, or a provider owner
+      let provider = null;
+      if ((user as any)?.providerId) {
+        provider = await getProviderById((user as any).providerId);
+      } else {
+        provider = await getProviderByUserId(uid);
+      }
+      
       if (provider) {
         setProviderId(provider.providerId);
         setProviderName(provider.companyName || "");
         
-        // Fetch tasks, summary, and pending students
-        const [tasksData, summaryData, studentsData] = await Promise.all([
+        // Fetch tasks, summary, pending students, and staff members
+        const [tasksData, summaryData, studentsData, staffData] = await Promise.all([
           getTasksByProvider(provider.providerId),
           getTaskSummary(provider.providerId),
           getStudentsByProvider(provider.providerId),
+          getStaffByProviderId(provider.providerId),
         ]);
         
         // Filter for pending students only
         const pending = studentsData.filter(s => s.status === "Pending");
         setPendingStudents(pending);
+        setStaffMembers(staffData);
         
         setTasks(tasksData);
         setSummary({ ...summaryData, pendingStudents: pending.length });
@@ -902,30 +915,106 @@ function TasksContent() {
                   <div>
                     <CardTitle className="text-lg font-semibold text-slate-800">Staff Management</CardTitle>
                     <p className="text-sm text-slate-500 mt-1">
-                      Onboard and manage staff members for your organization
+                      {staffMembers.length} staff member{staffMembers.length !== 1 ? 's' : ''} in your organization
                     </p>
                   </div>
                   {providerId && providerName && (
                     <StaffOnboardingModal
                       providerId={providerId}
                       providerName={providerName}
-                      onUserCreated={() => toast.success("Staff member added to onboarding queue")}
+                      onUserCreated={() => {
+                        toast.success("Staff member added successfully");
+                        fetchData();
+                      }}
                     />
                   )}
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="text-center py-16">
-                    <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center">
-                      <Users className="w-10 h-10 text-indigo-400" />
+                  {staffMembers.length === 0 ? (
+                    <div className="text-center py-16">
+                      <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center">
+                        <Users className="w-10 h-10 text-indigo-400" />
+                      </div>
+                      <p className="font-semibold text-slate-700 text-lg">No Staff Members Yet</p>
+                      <p className="text-slate-500 mt-1">
+                        Click &quot;Add Staff Member&quot; to onboard your first team member.
+                      </p>
+                      <p className="text-xs text-slate-400 mt-3">
+                        New staff accounts will be created and activated automatically.
+                      </p>
                     </div>
-                    <p className="font-semibold text-slate-700 text-lg">Staff Onboarding</p>
-                    <p className="text-slate-500 mt-1">
-                      Click &quot;Add Staff Member&quot; to onboard new team members.
-                    </p>
-                    <p className="text-xs text-slate-400 mt-3">
-                      New staff accounts will be created and activated automatically.
-                    </p>
-                  </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100">
+                      {staffMembers.map((staff) => (
+                        <div
+                          key={staff.userId}
+                          className="p-5 hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-transparent transition-all duration-200 group"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="relative">
+                                {staff.profilePhotoUrl ? (
+                                  <img 
+                                    src={staff.profilePhotoUrl} 
+                                    alt={`${staff.firstNames} ${staff.surname}`}
+                                    className="w-12 h-12 rounded-full object-cover border-2 border-indigo-100"
+                                  />
+                                ) : (
+                                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center text-white font-semibold text-lg shadow-lg shadow-indigo-200">
+                                    {staff.firstNames?.charAt(0)}{staff.surname?.charAt(0)}
+                                  </div>
+                                )}
+                                <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white ${staff.isActive ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-semibold text-slate-800">
+                                    {staff.firstNames} {staff.surname}
+                                  </h3>
+                                  <Badge className={`text-xs border-0 ${
+                                    staff.role === 'manager' || staff.roleCode === 1
+                                      ? 'bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700'
+                                      : 'bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700'
+                                  }`}>
+                                    {staff.role === 'manager' || staff.roleCode === 1 ? 'Manager' : 'Staff'}
+                                  </Badge>
+                                  {staff.isActive ? (
+                                    <Badge className="bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-700 text-xs border-0">
+                                      Active
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-gradient-to-r from-slate-100 to-slate-200 text-slate-600 text-xs border-0">
+                                      Inactive
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-slate-500 mt-1">
+                                  {staff.email}
+                                </p>
+                                <div className="flex items-center gap-4 mt-1.5 text-xs text-slate-400">
+                                  {staff.phoneNumber && (
+                                    <span>{staff.phoneNumber}</span>
+                                  )}
+                                  {staff.createdAt && (
+                                    <span>Added {new Date((staff.createdAt as any).seconds ? (staff.createdAt as any).seconds * 1000 : staff.createdAt as any).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="hover:bg-slate-100 rounded-xl text-slate-600"
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

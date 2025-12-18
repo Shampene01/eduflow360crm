@@ -267,6 +267,7 @@ export async function importStudentBatch(
                 assignmentId: generateId(),
                 studentId,
                 propertyId: crmContext.propertyId,
+                providerId: crmContext.firebaseProviderId || "",
                 startDate: new Date().toISOString().split("T")[0], // Today's date
                 status: "Pending", // Newly imported students are pending assignment confirmation
                 createdBy: crmContext.userDataverseId || "",

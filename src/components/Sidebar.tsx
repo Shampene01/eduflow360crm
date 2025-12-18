@@ -5,9 +5,10 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
-import { getProviderByUserId } from "@/lib/db";
-import { AccommodationProvider } from "@/lib/schema";
+import { getProviderByUserId, getProviderById } from "@/lib/db";
+import { AccommodationProvider, PermissionKey } from "@/lib/schema";
 import { OnlineStatus } from "@/components/OnlineStatus";
+import { useRBAC } from "@/hooks/useRBAC";
 import {
   Home,
   Building2,
@@ -30,6 +31,7 @@ interface SidebarItem {
   label: string;
   href: string;
   icon: LucideIcon;
+  permission?: PermissionKey; // Required permission to see this item
 }
 
 interface SidebarSection {
@@ -41,22 +43,22 @@ const providerSections: SidebarSection[] = [
   {
     title: "Main",
     items: [
-      { label: "Dashboard", href: "/provider-dashboard", icon: Home },
-      { label: "Properties", href: "/properties", icon: Building2 },
-      { label: "Occupancy & Capacity", href: "/rooms", icon: BedDouble },
-      { label: "Students", href: "/students", icon: Users },
-      { label: "Payments", href: "/payments", icon: CreditCard },
-      { label: "Invoices", href: "/invoices", icon: FileText },
+      { label: "Dashboard", href: "/provider-dashboard", icon: Home, permission: "provider.view" },
+      { label: "Properties", href: "/properties", icon: Building2, permission: "properties.view" },
+      { label: "Occupancy & Capacity", href: "/rooms", icon: BedDouble, permission: "rooms.view" },
+      { label: "Students", href: "/students", icon: Users, permission: "students.view" },
+      { label: "Payments", href: "/payments", icon: CreditCard, permission: "payments.view" },
+      { label: "Invoices", href: "/invoices", icon: FileText, permission: "payments.view" },
     ],
   },
   {
     title: "Operations",
     items: [
-      { label: "Manager Tasks", href: "/tasks", icon: ClipboardList },
-      { label: "Compliance Centre", href: "/compliance", icon: ShieldCheck },
-      { label: "Inspections", href: "/inspections", icon: ClipboardCheck },
-      { label: "Maintenance", href: "/maintenance", icon: Wrench },
-      { label: "Reports", href: "/reports", icon: BarChart3 },
+      { label: "Manager Tasks", href: "/tasks", icon: ClipboardList, permission: "staff.manage" },
+      { label: "Compliance Centre", href: "/compliance", icon: ShieldCheck, permission: "properties.view" },
+      { label: "Inspections", href: "/inspections", icon: ClipboardCheck, permission: "properties.view" },
+      { label: "Maintenance", href: "/maintenance", icon: Wrench, permission: "maintenance.view" },
+      { label: "Reports", href: "/reports", icon: BarChart3, permission: "reports.occupancy" },
     ],
   },
   {
@@ -97,10 +99,11 @@ interface SidebarProps {
 export function Sidebar({ userType = "provider" }: SidebarProps) {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { hasPermission, isLoading: rbacLoading, getProviderRoleLabel } = useRBAC();
   const [providerStatus, setProviderStatus] = useState<AccommodationProvider | null>(null);
   const [loadingProvider, setLoadingProvider] = useState(true);
 
-  // Check if user has a provider application
+  // Check if user has a provider application or is staff linked to a provider
   useEffect(() => {
     const checkProviderStatus = async () => {
       const uid = user?.userId || user?.uid;
@@ -109,7 +112,16 @@ export function Sidebar({ userType = "provider" }: SidebarProps) {
         return;
       }
       try {
-        const provider = await getProviderByUserId(uid);
+        let provider: AccommodationProvider | null = null;
+        
+        // First check if user is staff with providerId
+        if ((user as any)?.providerId) {
+          provider = await getProviderById((user as any).providerId);
+        } else {
+          // Check if user is a provider owner
+          provider = await getProviderByUserId(uid);
+        }
+        
         setProviderStatus(provider);
       } catch (err) {
         console.error("Error checking provider status:", err);
@@ -118,17 +130,24 @@ export function Sidebar({ userType = "provider" }: SidebarProps) {
       }
     };
     checkProviderStatus();
-  }, [user?.userId, user?.uid, userType]);
+  }, [user?.userId, user?.uid, userType, (user as any)?.providerId]);
 
-  // Determine which sections to show based on provider status
-  const getSections = () => {
+  // Determine which sections to show based on provider status and permissions
+  const getSections = (): SidebarSection[] => {
     if (userType !== "provider") {
       return studentSections;
     }
 
-    // If provider is approved, show full provider sections
+    // If provider is approved, show full provider sections (filtered by permission)
     if (providerStatus?.approvalStatus === "Approved") {
-      return providerSections;
+      // Filter items based on permission
+      return providerSections.map(section => ({
+        ...section,
+        items: section.items.filter(item => 
+          // Show if no permission required OR user has the permission
+          !item.permission || hasPermission(item.permission)
+        ),
+      })).filter(section => section.items.length > 0); // Remove empty sections
     }
 
     // If no provider or pending/rejected, show limited sections

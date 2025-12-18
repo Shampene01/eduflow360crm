@@ -113,6 +113,17 @@ export async function getAllUsers(): Promise<User[]> {
   return snap.docs.map(d => d.data() as User);
 }
 
+export async function getStaffByProviderId(providerId: string): Promise<User[]> {
+  if (!db) return [];
+  const q = query(
+    collection(db, COLLECTIONS.USERS),
+    where("providerId", "==", providerId),
+    orderBy("createdAt", "desc")
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data() as User);
+}
+
 // Minimum roleCode required for admin operations
 const MIN_ADMIN_ROLE_CODE = 3;
 
@@ -673,8 +684,8 @@ export async function getStudentsByProvider(providerId: string): Promise<Student
   
   // Get all assignments for these properties
   const studentIds = new Set<string>();
-  for (const propertyId of propertyIds) {
-    const assignments = await getPropertyAssignments(propertyId);
+  for (const propId of propertyIds) {
+    const assignments = await getPropertyAssignments(propId, undefined, providerId);
     assignments.forEach(a => studentIds.add(a.studentId));
   }
   
@@ -761,12 +772,21 @@ export async function getStudentAssignments(studentId: string): Promise<StudentP
   return snap.docs.map(d => d.data() as StudentPropertyAssignment);
 }
 
-export async function getPropertyAssignments(propertyId: string, status?: string): Promise<StudentPropertyAssignment[]> {
+export async function getPropertyAssignments(propertyId: string, status?: string, providerId?: string): Promise<StudentPropertyAssignment[]> {
   if (!db) return [];
-  let q = query(
-    collection(db, COLLECTIONS.STUDENT_PROPERTY_ASSIGNMENTS),
-    where("propertyId", "==", propertyId)
-  );
+  
+  // If providerId is provided, include it in query for security rules compliance
+  let q = providerId 
+    ? query(
+        collection(db, COLLECTIONS.STUDENT_PROPERTY_ASSIGNMENTS),
+        where("providerId", "==", providerId),
+        where("propertyId", "==", propertyId)
+      )
+    : query(
+        collection(db, COLLECTIONS.STUDENT_PROPERTY_ASSIGNMENTS),
+        where("propertyId", "==", propertyId)
+      );
+  
   if (status) {
     q = query(q, where("status", "==", status));
   }
@@ -992,7 +1012,7 @@ export async function getProviderDashboardStats(providerId: string) {
       const propertyIds = (await getPropertiesByProvider(providerId)).map(p => p.propertyId);
       if (propertyIds.length === 0) return [];
       
-      const assignmentPromises = propertyIds.map(pid => getPropertyAssignments(pid, "Active"));
+      const assignmentPromises = propertyIds.map(pid => getPropertyAssignments(pid, "Active", providerId));
       const results = await Promise.all(assignmentPromises);
       return results.flat();
     }),

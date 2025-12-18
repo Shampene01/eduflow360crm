@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       idNumber,
       dateOfBirth,
       gender,
-      role,
+      providerRole, // RBAC Layer 2 role (property_manager, intake_officer, etc.)
       isActive,
       marketingConsent,
       // Address fields
@@ -62,15 +62,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Determine roleCode based on role
-    const roleCodeMap: Record<string, number> = {
-      providerStaff: 1,
-      manager: 1,
-      receptionist: 1,
-      maintenance: 1,
-      provider: 2,
-    };
-    const roleCode = roleCodeMap[role] || 1;
+    // All provider staff get roleCode 1 (Layer 1)
+    // Their specific permissions come from providerRole (Layer 2)
+    const roleCode = 1; // providerStaff
 
     const now = new Date().toISOString();
 
@@ -84,7 +78,8 @@ export async function POST(request: NextRequest) {
         idNumber: { stringValue: idNumber || "" },
         dateOfBirth: { stringValue: dateOfBirth || "" },
         gender: { stringValue: gender || "" },
-        role: { stringValue: role },
+        role: { stringValue: "providerStaff" }, // Platform role (Layer 1)
+        providerRole: { stringValue: providerRole || "support_staff" }, // RBAC role (Layer 2)
         roleCode: { integerValue: roleCode },
         isActive: { booleanValue: isActive !== false },
         emailVerified: { booleanValue: false },

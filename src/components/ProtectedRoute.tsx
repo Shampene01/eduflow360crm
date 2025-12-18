@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getProviderByUserId } from "@/lib/db";
+import { getProviderByUserId, getProviderById } from "@/lib/db";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -15,14 +15,28 @@ interface ProtectedRouteProps {
 }
 
 // Helper to get user's effective type (supports both legacy and new schema)
-function getUserType(user: { userType?: string; roles?: string[] } | null): string | undefined {
+function getUserType(user: { userType?: string; roles?: string[]; role?: string; providerId?: string } | null): string | undefined {
   if (!user) return undefined;
-  // New schema: check roles array
+  
+  // Check single role field first (new schema)
+  if (user.role) {
+    // Provider staff and manager roles should be treated as provider-type users
+    if (user.role === "providerStaff" || user.role === "manager") return "provider";
+    if (user.role === "provider") return "provider";
+    if (user.role === "admin") return "admin";
+    if (user.role === "student") return "student";
+  }
+  
+  // Check roles array (legacy)
   if (user.roles && user.roles.length > 0) {
-    if (user.roles.includes("provider")) return "provider";
+    if (user.roles.includes("provider") || user.roles.includes("providerStaff") || user.roles.includes("manager")) return "provider";
     if (user.roles.includes("admin")) return "admin";
     if (user.roles.includes("student")) return "student";
   }
+  
+  // If user has providerId, they're associated with a provider
+  if (user.providerId) return "provider";
+  
   // Legacy: use userType
   return user.userType;
 }
@@ -78,9 +92,17 @@ export function ProtectedRoute({
         let isApprovedProvider = false;
         if (user) {
           try {
-            const provider = await getProviderByUserId(user.userId || (user as any).uid);
-            if (!isMounted) return; // Prevent state updates after unmount
-            isApprovedProvider = provider?.approvalStatus === "Approved";
+            // First check if user is staff with providerId
+            if ((user as any).providerId) {
+              const provider = await getProviderById((user as any).providerId);
+              if (!isMounted) return;
+              isApprovedProvider = provider?.approvalStatus === "Approved";
+            } else {
+              // Check if user is a provider owner
+              const provider = await getProviderByUserId(user.userId || (user as any).uid);
+              if (!isMounted) return;
+              isApprovedProvider = provider?.approvalStatus === "Approved";
+            }
           } catch (err) {
             console.error("Error checking provider status:", err);
           }

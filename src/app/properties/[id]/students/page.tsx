@@ -52,16 +52,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import {
-  getProviderByUserId,
-  getPropertyById,
-  getPropertyAssignments,
-  getStudentById,
-  createStudent,
-  createStudentAssignment,
-  getStudentByIdNumber,
-  getRoomConfiguration,
-} from "@/lib/db";
+import { getProviderByUserId, getProviderById, getPropertiesByProvider, getPropertyById, getPropertyAssignments, getStudentById, createStudent, createStudentAssignment, getStudentByIdNumber, getRoomConfiguration, updateStudentAssignment, updateStudent, closeStudentAssignment } from "@/lib/db";
 import { RoomConfiguration } from "@/lib/schema";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -161,7 +152,12 @@ function ManageStudentsContent() {
       if (!id || !uid) return;
 
       try {
-        const provider = await getProviderByUserId(uid);
+        let provider = null;
+        if ((user as any)?.providerId) {
+          provider = await getProviderById((user as any).providerId);
+        } else {
+          provider = await getProviderByUserId(uid);
+        }
         if (!provider) {
           toast.error("No provider found");
           setLoading(false);
@@ -184,7 +180,7 @@ function ManageStudentsContent() {
         }
 
         // Fetch student assignments for this property
-        const assignments = await getPropertyAssignments(id as string);
+        const assignments = await getPropertyAssignments(id as string, undefined, provider.providerId);
         
         // Fetch student details for each assignment
         const studentsWithAssignments: StudentWithAssignment[] = [];
@@ -419,6 +415,7 @@ function ManageStudentsContent() {
       const assignment = await createStudentAssignment({
         studentId: student.studentId,
         propertyId: property.propertyId,
+        providerId: property.providerId,
         startDate: studentForm.startDate || new Date().toISOString().split("T")[0],
         roomType: studentForm.roomType as import("@/lib/schema").RoomType,
         roomNumber: studentForm.roomNumber || undefined,

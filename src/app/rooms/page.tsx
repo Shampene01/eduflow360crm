@@ -65,8 +65,7 @@ import {
   StudentPropertyAssignment,
   RoomConfiguration,
 } from "@/lib/schema";
-import {
-  getProviderByUserId,
+import { getProviderByUserId, getProviderById,
   getPropertiesByProvider,
   getPropertyAssignments,
   getRoomConfiguration,
@@ -119,7 +118,12 @@ function OccupancyContent() {
       if (!uid) return;
 
       try {
-        const provider = await getProviderByUserId(uid);
+        let provider = null;
+        if ((user as any)?.providerId) {
+          provider = await getProviderById((user as any).providerId);
+        } else {
+          provider = await getProviderByUserId(uid);
+        }
         if (!provider) {
           toast.error("No provider found");
           setLoading(false);
@@ -161,7 +165,7 @@ function OccupancyContent() {
       setRoomConfig(config);
 
       // Fetch allocations
-      const assignments = await getPropertyAssignments(propertyId);
+      const assignments = await getPropertyAssignments(propertyId, undefined, pid);
       
       // Fetch student details for each allocation
       const allocsWithStudents: AllocationWithStudent[] = [];
@@ -202,6 +206,7 @@ function OccupancyContent() {
       await createStudentAssignment({
         studentId: newAllocation.studentId,
         propertyId: selectedPropertyId,
+        providerId: providerId,
         startDate: newAllocation.startDate,
         monthlyRate: newAllocation.monthlyRate || undefined,
         createdBy: user?.userId || user?.uid || "",

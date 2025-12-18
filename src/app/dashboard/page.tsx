@@ -31,7 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { getProviderByUserId } from "@/lib/db";
+import { getProviderByUserId, getProviderById } from "@/lib/db";
 import { AccommodationProvider } from "@/lib/schema";
 import { subscribeToPresence, UserPresence } from "@/lib/presence";
 
@@ -74,7 +74,7 @@ function DashboardContent() {
     }
   };
 
-  // Check if user has a provider application
+  // Check if user has a provider application or is staff
   useEffect(() => {
     const checkProviderStatus = async () => {
       const uid = user?.userId || user?.uid;
@@ -83,7 +83,21 @@ function DashboardContent() {
         return;
       }
       try {
-        const provider = await getProviderByUserId(uid);
+        let provider: AccommodationProvider | null = null;
+        
+        // First check if user is staff with providerId
+        if ((user as any)?.providerId) {
+          provider = await getProviderById((user as any).providerId);
+          // If staff is linked to an approved provider, redirect to provider dashboard
+          if (provider?.approvalStatus === "Approved") {
+            router.push("/provider-dashboard");
+            return;
+          }
+        } else {
+          // Check if user is a provider owner
+          provider = await getProviderByUserId(uid);
+        }
+        
         setProviderStatus(provider);
       } catch (err) {
         console.error("Error checking provider status:", err);
@@ -92,7 +106,7 @@ function DashboardContent() {
       }
     };
     checkProviderStatus();
-  }, [user?.userId, user?.uid]);
+  }, [user?.userId, user?.uid, router]);
 
   // Subscribe to presence data from Realtime Database
   useEffect(() => {

@@ -25,7 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { getProviderByUserId, getPropertiesByProvider, getAddressById, getRoomConfiguration, getActiveStudentCountsForProperties } from "@/lib/db";
+import { getProviderByUserId, getProviderById, getPropertiesByProvider, getAddressById, getRoomConfiguration, getActiveStudentCountsForProperties } from "@/lib/db";
 import { Address, RoomConfiguration } from "@/lib/schema";
 
 // Extended property type with address and room config data for display
@@ -50,8 +50,13 @@ function PropertiesContent() {
       }
 
       try {
-        // First get the provider for this user
-        const provider = await getProviderByUserId(uid);
+        // First get the provider for this user (check staff's providerId first)
+        let provider = null;
+        if ((user as any)?.providerId) {
+          provider = await getProviderById((user as any).providerId);
+        } else {
+          provider = await getProviderByUserId(uid);
+        }
         if (!provider) {
           setProperties([]);
           setLoading(false);

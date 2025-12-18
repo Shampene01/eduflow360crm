@@ -21,8 +21,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { UserPlus, Loader2 } from "lucide-react";
+import { UserPlus, Loader2, Info } from "lucide-react";
 import { toast } from "sonner";
+import type { ProviderRoleKey } from "@/lib/schema";
 
 interface StaffOnboardingModalProps {
   providerId: string;
@@ -38,7 +39,7 @@ interface StaffFormData {
   idNumber: string;
   dateOfBirth: string;
   gender: string;
-  role: string;
+  providerRole: ProviderRoleKey; // RBAC Layer 2 role
   isActive: boolean;
   marketingConsent: boolean;
   // Address
@@ -50,11 +51,28 @@ interface StaffFormData {
   country: string;
 }
 
-const STAFF_ROLES = [
-  { value: "providerStaff", label: "Provider Staff", roleCode: 1 },
-  { value: "manager", label: "Manager", roleCode: 1 },
-  { value: "receptionist", label: "Receptionist", roleCode: 1 },
-  { value: "maintenance", label: "Maintenance", roleCode: 1 },
+// Provider roles from RBAC system (Layer 2)
+const PROVIDER_ROLES: { value: ProviderRoleKey; label: string; description: string }[] = [
+  { 
+    value: "property_manager", 
+    label: "Property Manager", 
+    description: "Manages properties, rooms, and maintenance. Cannot access financials." 
+  },
+  { 
+    value: "intake_officer", 
+    label: "Intake Officer", 
+    description: "Manages student applications, placements, and documents." 
+  },
+  { 
+    value: "finance_viewer", 
+    label: "Finance Viewer", 
+    description: "View-only access to financial data and payments." 
+  },
+  { 
+    value: "support_staff", 
+    label: "Support Staff", 
+    description: "Basic viewing and maintenance logging for front-desk personnel." 
+  },
 ];
 
 const SA_PROVINCES = [
@@ -85,7 +103,7 @@ export function StaffOnboardingModal({
     idNumber: "",
     dateOfBirth: "",
     gender: "",
-    role: "providerStaff",
+    providerRole: "intake_officer",
     isActive: true,
     marketingConsent: false,
     street: "",
@@ -105,7 +123,7 @@ export function StaffOnboardingModal({
       idNumber: "",
       dateOfBirth: "",
       gender: "",
-      role: "providerStaff",
+      providerRole: "intake_officer",
       isActive: true,
       marketingConsent: false,
       street: "",
@@ -278,18 +296,21 @@ export function StaffOnboardingModal({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="role">Staff Role *</Label>
+                <Label htmlFor="providerRole">Staff Role *</Label>
                 <Select
-                  value={formData.role}
-                  onValueChange={(value) => setFormData({ ...formData, role: value })}
+                  value={formData.providerRole}
+                  onValueChange={(value) => setFormData({ ...formData, providerRole: value as ProviderRoleKey })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
-                    {STAFF_ROLES.map((role) => (
+                    {PROVIDER_ROLES.map((role) => (
                       <SelectItem key={role.value} value={role.value}>
-                        {role.label}
+                        <div className="flex flex-col">
+                          <span className="font-medium">{role.label}</span>
+                          <span className="text-xs text-gray-500">{role.description}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>

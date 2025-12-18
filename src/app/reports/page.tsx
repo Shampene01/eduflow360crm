@@ -433,7 +433,7 @@ function ReportsContent() {
         const allAssignments: StudentPropertyAssignment[] = [];
         
         for (const prop of props) {
-          const assignments = await getPropertyAssignments(prop.propertyId, "Active");
+          const assignments = await getPropertyAssignments(prop.propertyId, "Active", provider.providerId);
           for (const assignment of assignments) {
             allAssignments.push(assignment);
             const student = await getStudentById(assignment.studentId);
