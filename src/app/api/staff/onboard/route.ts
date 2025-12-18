@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { collection, addDoc, query, where, getDocs, Timestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { COLLECTIONS } from "@/lib/schema";
+
+// Power Automate webhook URL for staff onboarding
+const POWER_AUTOMATE_WEBHOOK_URL = process.env.POWER_AUTOMATE_STAFF_WEBHOOK_URL;
 
 /**
  * POST /api/staff/onboard
- * Create a pending user record for staff onboarding
- * 
- * This creates a document in the "pendingUsers" collection which Power Automate
- * will pick up to create the actual Firebase Auth user and sync back.
+ * Send staff onboarding data directly to Power Automate webhook
+ * Power Automate will handle creating the Firebase Auth user and Firestore profile
  */
 export async function POST(request: NextRequest) {
   try {
@@ -55,32 +53,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already exists in users collection
-    const existingUserQuery = query(
-      collection(db, COLLECTIONS.USERS),
-      where("email", "==", email.toLowerCase())
-    );
-    const existingUserSnap = await getDocs(existingUserQuery);
-
-    if (!existingUserSnap.empty) {
+    // Check webhook is configured
+    if (!POWER_AUTOMATE_WEBHOOK_URL) {
+      console.error("POWER_AUTOMATE_STAFF_WEBHOOK_URL not configured");
       return NextResponse.json(
-        { success: false, error: "A user with this email already exists" },
-        { status: 409 }
-      );
-    }
-
-    // Check if already pending
-    const pendingQuery = query(
-      collection(db, "pendingUsers"),
-      where("email", "==", email.toLowerCase()),
-      where("status", "==", "pending")
-    );
-    const pendingSnap = await getDocs(pendingQuery);
-
-    if (!pendingSnap.empty) {
-      return NextResponse.json(
-        { success: false, error: "A pending user registration already exists for this email" },
-        { status: 409 }
+        { success: false, error: "Staff onboarding service not configured" },
+        { status: 500 }
       );
     }
 
@@ -94,130 +72,79 @@ export async function POST(request: NextRequest) {
     };
     const roleCode = roleCodeMap[role] || 1;
 
-    // Build address object
-    const address = {
-      street: street || "",
-      suburb: suburb || "",
-      townCity: townCity || "",
-      province: province || "",
-      postalCode: postalCode || "",
-      country: country || "South Africa",
-    };
-
-    // Create pending user document
-    // This format matches what Power Automate expects
     const now = new Date().toISOString();
-    const pendingUser = {
-      // Personal Info
-      firstNames,
-      surname,
-      email: email.toLowerCase(),
-      phoneNumber: phoneNumber || "",
-      idNumber: idNumber || "",
-      dateOfBirth: dateOfBirth || "",
-      gender: gender || "",
-      
-      // Role & Status
-      role,
-      roleCode,
-      isActive: isActive !== false,
-      emailVerified: false,
-      marketingConsent: marketingConsent || false,
-      
-      // Provider Association
-      providerId,
-      providerName: providerName || "",
-      
-      // Address
-      address,
-      addressId: "",
-      
-      // Empty fields for Firebase Auth sync
-      userId: "", // Will be filled by Power Automate after Auth user creation
-      profilePhotoUrl: "",
-      idDocumentUrl: "",
-      
-      // Status tracking
-      status: "pending", // pending | processing | completed | failed
-      errorMessage: "",
-      
-      // Audit
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-      createdBy: createdBy || "",
-      createdByName: createdByName || "",
-      
-      // Timestamps for Power Automate (ISO format)
-      createdAtISO: now,
-      updatedAtISO: now,
+
+    // Format payload for Power Automate (Firestore REST API format)
+    const powerAutomatePayload = {
+      fields: {
+        firstNames: { stringValue: firstNames },
+        surname: { stringValue: surname },
+        email: { stringValue: email.toLowerCase() },
+        phoneNumber: { stringValue: phoneNumber || "" },
+        idNumber: { stringValue: idNumber || "" },
+        dateOfBirth: { stringValue: dateOfBirth || "" },
+        gender: { stringValue: gender || "" },
+        role: { stringValue: role },
+        roleCode: { integerValue: roleCode },
+        isActive: { booleanValue: isActive !== false },
+        emailVerified: { booleanValue: false },
+        marketingConsent: { booleanValue: marketingConsent || false },
+        providerId: { stringValue: providerId },
+        providerName: { stringValue: providerName || "" },
+        userId: { stringValue: "" }, // Will be filled by Power Automate
+        profilePhotoUrl: { stringValue: "" },
+        idDocumentUrl: { stringValue: "" },
+        addressId: { stringValue: "" },
+        address: {
+          mapValue: {
+            fields: {
+              street: { stringValue: street || "" },
+              suburb: { stringValue: suburb || "" },
+              townCity: { stringValue: townCity || "" },
+              province: { stringValue: province || "" },
+              postalCode: { stringValue: postalCode || "" },
+              country: { stringValue: country || "South Africa" },
+            },
+          },
+        },
+        createdAt: { timestampValue: now },
+        updatedAt: { timestampValue: now },
+        lastLoginAt: { timestampValue: now },
+        lastLogoutAt: { timestampValue: now },
+        createdBy: { stringValue: createdBy || "" },
+        createdByName: { stringValue: createdByName || "" },
+      },
     };
 
-    // Add to pendingUsers collection
-    const docRef = await addDoc(collection(db, "pendingUsers"), pendingUser);
+    // Send to Power Automate webhook
+    const webhookResponse = await fetch(POWER_AUTOMATE_WEBHOOK_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(powerAutomatePayload),
+    });
+
+    if (!webhookResponse.ok) {
+      const errorText = await webhookResponse.text();
+      console.error("Power Automate webhook failed:", webhookResponse.status, errorText);
+      return NextResponse.json(
+        { success: false, error: "Failed to submit staff registration" },
+        { status: 500 }
+      );
+    }
+
+    console.log("Power Automate webhook triggered successfully for:", email);
 
     return NextResponse.json({
       success: true,
-      pendingUserId: docRef.id,
       message: "Staff user registration submitted. Account will be created shortly.",
     });
 
   } catch (error: any) {
-    console.error("Error creating pending user:", error);
+    console.error("Error submitting staff onboarding:", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "Failed to create pending user" },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * GET /api/staff/onboard
- * List pending users for a provider
- */
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const providerId = searchParams.get("providerId");
-
-    if (!providerId) {
-      return NextResponse.json(
-        { success: false, error: "providerId is required" },
-        { status: 400 }
-      );
-    }
-
-    const pendingQuery = query(
-      collection(db, "pendingUsers"),
-      where("providerId", "==", providerId)
-    );
-    const snapshot = await getDocs(pendingQuery);
-
-    const pendingUsers = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAtISO || null,
-        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAtISO || null,
-      };
-    });
-
-    // Sort by createdAt descending
-    pendingUsers.sort((a, b) => {
-      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return dateB - dateA;
-    });
-
-    return NextResponse.json({
-      success: true,
-      pendingUsers,
-    });
-
-  } catch (error: any) {
-    console.error("Error fetching pending users:", error);
-    return NextResponse.json(
-      { success: false, error: error?.message || "Failed to fetch pending users" },
+      { success: false, error: error?.message || "Failed to submit staff registration" },
       { status: 500 }
     );
   }
