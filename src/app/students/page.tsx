@@ -63,6 +63,7 @@ import * as XLSX from "xlsx";
 import { getProviderByUserId, getProviderById, getPropertiesByProvider, getPropertyAssignments, getStudentById, getStudentByIdNumber, createStudent, createStudentAssignment, getRoomConfiguration, updateStudent, getAllProviders } from "@/lib/db";
 import { AccommodationProvider } from "@/lib/schema";
 import { RoomConfiguration } from "@/lib/schema";
+import { useRBAC } from "@/hooks/useRBAC";
 
 interface StudentWithProperty {
   student: Student;
@@ -72,6 +73,7 @@ interface StudentWithProperty {
 
 function StudentsContent() {
   const { user } = useAuth();
+  const { hasPermission } = useRBAC();
   const [studentsWithProperties, setStudentsWithProperties] = useState<StudentWithProperty[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
@@ -726,21 +728,23 @@ function StudentsContent() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                    <CreditCard className="w-5 h-5 text-purple-600" />
+            {hasPermission("payments.view") && (
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                      <CreditCard className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-gray-900">
+                        R{totalMonthlyRevenue.toLocaleString()}
+                      </p>
+                      <p className="text-sm text-gray-500">Monthly Revenue</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-gray-900">
-                      R{totalMonthlyRevenue.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-gray-500">Monthly Revenue</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Search and Filter */}

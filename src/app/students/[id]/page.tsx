@@ -67,6 +67,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { syncStudentToCRM } from "@/lib/crmSync";
+import { useRBAC } from "@/hooks/useRBAC";
 
 interface AssignmentWithProperty {
   assignment: StudentPropertyAssignment;
@@ -77,6 +78,7 @@ function StudentDetailContent() {
   const { id } = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const { hasPermission } = useRBAC();
   const [student, setStudent] = useState<Student | null>(null);
   const [assignments, setAssignments] = useState<AssignmentWithProperty[]>([]);
   const [loading, setLoading] = useState(true);
@@ -655,7 +657,7 @@ function StudentDetailContent() {
 
           {/* Tabs at the top */}
           <Tabs defaultValue="details" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsList className={`grid w-full mb-6 ${hasPermission("payments.view") ? "grid-cols-4" : "grid-cols-3"}`}>
               <TabsTrigger value="details" className="flex items-center gap-2">
                 <User className="w-4 h-4" />
                 Student Details
@@ -664,10 +666,12 @@ function StudentDetailContent() {
                 <BedDouble className="w-4 h-4" />
                 Room Allocation
               </TabsTrigger>
-              <TabsTrigger value="payments" className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4" />
-                Payment History
-              </TabsTrigger>
+              {hasPermission("payments.view") && (
+                <TabsTrigger value="payments" className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  Payment History
+                </TabsTrigger>
+              )}
               <TabsTrigger value="documents" className="flex items-center gap-2">
                 Documents
               </TabsTrigger>
@@ -950,11 +954,12 @@ function StudentDetailContent() {
             </TabsContent>
 
             {/* Payment History Tab */}
-            <TabsContent value="payments">
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Payment History</CardTitle>
+            {hasPermission("payments.view") && (
+              <TabsContent value="payments">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">Payment History</CardTitle>
                     <div className="flex items-center gap-4 text-sm">
                       <div className="text-right">
                         <span className="text-gray-500">Total Received: </span>
@@ -1024,9 +1029,10 @@ function StudentDetailContent() {
                       </Table>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
 
             {/* Room Allocation Tab */}
             <TabsContent value="room-allocation">
