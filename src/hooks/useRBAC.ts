@@ -70,7 +70,7 @@ export function useRBAC(): RBACHook {
       // Fetch staff document if user is providerStaff
       let staffData: StaffDocument | null = null;
       if (isProviderStaff && providerId && userId) {
-        const staffDocRef = doc(db, `providers/${providerId}/staff/${userId}`);
+        const staffDocRef = doc(db, `accommodationProviders/${providerId}/staff/${userId}`);
         const staffDocSnap = await getDoc(staffDocRef);
         if (staffDocSnap.exists()) {
           staffData = staffDocSnap.data() as StaffDocument;
