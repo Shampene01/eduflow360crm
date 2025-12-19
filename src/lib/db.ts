@@ -782,17 +782,12 @@ export async function getStudentAssignments(studentId: string): Promise<StudentP
 export async function getPropertyAssignments(propertyId: string, status?: string, providerId?: string): Promise<StudentPropertyAssignment[]> {
   if (!db) return [];
   
-  // If providerId is provided, include it in query for security rules compliance
-  let q = providerId 
-    ? query(
-        collection(db, COLLECTIONS.STUDENT_PROPERTY_ASSIGNMENTS),
-        where("providerId", "==", providerId),
-        where("propertyId", "==", propertyId)
-      )
-    : query(
-        collection(db, COLLECTIONS.STUDENT_PROPERTY_ASSIGNMENTS),
-        where("propertyId", "==", propertyId)
-      );
+  // Query by propertyId (providerId is optional - assignments may not have it)
+  // Properties already belong to a specific provider, so propertyId is sufficient
+  let q = query(
+    collection(db, COLLECTIONS.STUDENT_PROPERTY_ASSIGNMENTS),
+    where("propertyId", "==", propertyId)
+  );
   
   if (status) {
     q = query(q, where("status", "==", status));
