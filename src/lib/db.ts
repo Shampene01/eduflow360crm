@@ -226,6 +226,13 @@ export async function getProviderByUserId(userId: string): Promise<Accommodation
   return snap.empty ? null : (snap.docs[0].data() as AccommodationProvider);
 }
 
+// Get all providers (for Admin users)
+export async function getAllProviders(): Promise<AccommodationProvider[]> {
+  if (!db) return [];
+  const snap = await getDocs(collection(db, COLLECTIONS.ACCOMMODATION_PROVIDERS));
+  return snap.docs.map(d => d.data() as AccommodationProvider);
+}
+
 export async function updateProvider(providerId: string, data: Partial<AccommodationProvider>): Promise<void> {
   if (!db) throw new Error("Database not initialized");
   await updateDoc(doc(db, COLLECTIONS.ACCOMMODATION_PROVIDERS, providerId), { 

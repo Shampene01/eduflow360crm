@@ -60,7 +60,8 @@ import { toast } from "sonner";
 import { BulkImportDialog } from "@/components/students/BulkImportDialog";
 import { Student, StudentPropertyAssignment, Property } from "@/lib/schema";
 import * as XLSX from "xlsx";
-import { getProviderByUserId, getProviderById, getPropertiesByProvider, getPropertyAssignments, getStudentById, getStudentByIdNumber, createStudent, createStudentAssignment, getRoomConfiguration, updateStudent } from "@/lib/db";
+import { getProviderByUserId, getProviderById, getPropertiesByProvider, getPropertyAssignments, getStudentById, getStudentByIdNumber, createStudent, createStudentAssignment, getRoomConfiguration, updateStudent, getAllProviders } from "@/lib/db";
+import { AccommodationProvider } from "@/lib/schema";
 import { RoomConfiguration } from "@/lib/schema";
 
 interface StudentWithProperty {
@@ -77,6 +78,11 @@ function StudentsContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [providerId, setProviderId] = useState<string>("");
+  
+  // Admin-specific state
+  const [allProviders, setAllProviders] = useState<AccommodationProvider[]>([]);
+  const [selectedAdminProvider, setSelectedAdminProvider] = useState<string>("");
+  const isAdmin = (user?.roleCode ?? 0) >= 3;
 
   // Student status options with meanings
   const STUDENT_STATUSES = [
@@ -432,7 +438,7 @@ function StudentsContent() {
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = async (targetProviderId?: string) => {
     const uid = user?.userId || user?.uid;
     if (!uid) {
       setLoading(false);
@@ -440,9 +446,26 @@ function StudentsContent() {
     }
 
     try {
-      // Get provider (check staff's providerId first)
+      // For Admin users, load all providers first
+      if (isAdmin && allProviders.length === 0) {
+        const providers = await getAllProviders();
+        setAllProviders(providers);
+        
+        // If no provider selected yet, select first one or return
+        if (!targetProviderId && providers.length > 0) {
+          setSelectedAdminProvider(providers[0].providerId);
+          targetProviderId = providers[0].providerId;
+        } else if (!targetProviderId) {
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Get provider (Admin uses selected, others use their own)
       let provider = null;
-      if ((user as any)?.providerId) {
+      if (isAdmin && targetProviderId) {
+        provider = await getProviderById(targetProviderId);
+      } else if ((user as any)?.providerId) {
         provider = await getProviderById((user as any).providerId);
       } else {
         provider = await getProviderByUserId(uid);
@@ -488,6 +511,13 @@ function StudentsContent() {
   useEffect(() => {
     fetchData();
   }, [user?.userId, user?.uid]);
+
+  // Handle Admin provider selection change
+  const handleAdminProviderChange = (newProviderId: string) => {
+    setSelectedAdminProvider(newProviderId);
+    setLoading(true);
+    fetchData(newProviderId);
+  };
 
   const filteredStudents = studentsWithProperties.filter(
     ({ student, property }) =>
@@ -592,6 +622,27 @@ function StudentsContent() {
         <Sidebar userType="provider" />
 
         <main className="flex-1 p-8 overflow-y-auto">
+          {/* Admin Provider Selector */}
+          {isAdmin && allProviders.length > 0 && (
+            <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="flex items-center gap-4">
+                <Label className="text-purple-700 font-medium whitespace-nowrap">Viewing Provider:</Label>
+                <Select value={selectedAdminProvider} onValueChange={handleAdminProviderChange}>
+                  <SelectTrigger className="w-80 bg-white">
+                    <SelectValue placeholder="Select a provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allProviders.map((p) => (
+                      <SelectItem key={p.providerId} value={p.providerId}>
+                        {p.tradingName || p.companyName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div>
