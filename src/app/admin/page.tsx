@@ -633,13 +633,13 @@ function AdminPortalContent() {
                 </Card>
               </div>
 
-              {/* System Settings - SuperAdmin Only */}
-              {(user?.roleCode ?? 0) >= 4 && (
+              {/* System Settings - Admin+ Only */}
+              {(user?.roleCode ?? 0) >= 3 && (
                 <Card className="border-purple-200 bg-purple-50/50">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Shield className="w-5 h-5 text-purple-600" />
-                      System Settings (SuperAdmin)
+                      System Settings
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
