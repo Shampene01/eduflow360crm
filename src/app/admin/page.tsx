@@ -90,6 +90,104 @@ const ROLES = [
   { code: 6, name: "Administrator", label: "Administrator" },
 ];
 
+// Cloud Functions base URL
+const CLOUD_FUNCTIONS_URL = process.env.NEXT_PUBLIC_CLOUD_FUNCTIONS_URL || "https://us-central1-eduflow360-crm.cloudfunctions.net";
+
+/**
+ * RBAC Seeder Component - Seeds the /system/rbac document
+ */
+function RBACSeeder() {
+  const [seeding, setSeeding] = useState(false);
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+
+  const handleSeedRBAC = async () => {
+    setSeeding(true);
+    setStatus("idle");
+
+    try {
+      // Get current user's ID token
+      const { getAuth } = await import("firebase/auth");
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (!user) {
+        toast.error("You must be logged in to seed RBAC");
+        setStatus("error");
+        return;
+      }
+
+      const token = await user.getIdToken();
+
+      // Call the seedRBAC Cloud Function
+      const response = await fetch(`${CLOUD_FUNCTIONS_URL}/seedRBAC`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to seed RBAC");
+      }
+
+      toast.success(`RBAC seeded successfully! Version: ${data.version}`);
+      setStatus("success");
+    } catch (error: any) {
+      console.error("Error seeding RBAC:", error);
+      toast.error(error.message || "Failed to seed RBAC configuration");
+      setStatus("error");
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  return (
+    <div className="p-4 bg-white rounded-lg border border-purple-200 space-y-3">
+      <div className="flex items-start gap-3">
+        <div className="p-2 bg-purple-100 rounded-lg">
+          <Shield className="w-5 h-5 text-purple-600" />
+        </div>
+        <div className="flex-1">
+          <h4 className="font-medium text-gray-900">Seed RBAC Configuration</h4>
+          <p className="text-sm text-gray-500 mt-1">
+            Initialize or update the role-based access control configuration in Firestore.
+          </p>
+        </div>
+      </div>
+      <Button
+        onClick={handleSeedRBAC}
+        disabled={seeding}
+        className={`w-full ${status === "success" ? "bg-green-600 hover:bg-green-700" : status === "error" ? "bg-red-600 hover:bg-red-700" : "bg-purple-600 hover:bg-purple-700"}`}
+      >
+        {seeding ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Seeding...
+          </>
+        ) : status === "success" ? (
+          <>
+            <CheckCircle className="w-4 h-4 mr-2" />
+            RBAC Seeded
+          </>
+        ) : status === "error" ? (
+          <>
+            <XCircle className="w-4 h-4 mr-2" />
+            Retry Seed
+          </>
+        ) : (
+          <>
+            <Shield className="w-4 h-4 mr-2" />
+            Seed RBAC
+          </>
+        )}
+      </Button>
+    </div>
+  );
+}
+
 function AdminPortalContent() {
   const router = useRouter();
   const { user } = useAuth();
@@ -534,6 +632,23 @@ function AdminPortalContent() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* System Settings - SuperAdmin Only */}
+              {(user?.roleCode ?? 0) >= 4 && (
+                <Card className="border-purple-200 bg-purple-50/50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Shield className="w-5 h-5 text-purple-600" />
+                      System Settings (SuperAdmin)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <RBACSeeder />
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             {/* Tickets Tab */}
