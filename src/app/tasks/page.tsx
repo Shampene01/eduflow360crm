@@ -80,7 +80,9 @@ import {
   getStudentsByProvider,
   updateStudent,
   getStaffByProviderId,
+  getAllProviders,
 } from "@/lib/db";
+import { AccommodationProvider } from "@/lib/schema";
 import { StaffOnboardingModal } from "@/components/staff";
 
 // Unified task item type that can be either a manual task or auto-generated from entities
@@ -296,6 +298,11 @@ function TasksContent() {
   const [activeTab, setActiveTab] = useState("pending");
   const [providerName, setProviderName] = useState("");
   
+  // Admin-specific state
+  const [allProviders, setAllProviders] = useState<AccommodationProvider[]>([]);
+  const [selectedAdminProvider, setSelectedAdminProvider] = useState<string>("");
+  const isAdmin = (user?.roleCode ?? 0) >= 3;
+  
   // Summary stats
   const [summary, setSummary] = useState({
     pending: 0,
@@ -331,14 +338,30 @@ function TasksContent() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [processingStudent, setProcessingStudent] = useState(false);
 
-  const fetchData = async () => {
+  const fetchData = async (targetProviderId?: string) => {
     const uid = user?.userId || user?.uid;
     if (!uid) return;
 
     try {
-      // Check if user is staff with providerId, or a provider owner
+      // For Admin users, load all providers first
+      if (isAdmin && allProviders.length === 0) {
+        const providers = await getAllProviders();
+        setAllProviders(providers);
+        
+        if (!targetProviderId && providers.length > 0) {
+          setSelectedAdminProvider(providers[0].providerId);
+          targetProviderId = providers[0].providerId;
+        } else if (!targetProviderId) {
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Get provider (Admin uses selected, others use their own)
       let provider = null;
-      if ((user as any)?.providerId) {
+      if (isAdmin && targetProviderId) {
+        provider = await getProviderById(targetProviderId);
+      } else if ((user as any)?.providerId) {
         provider = await getProviderById((user as any).providerId);
       } else {
         provider = await getProviderByUserId(uid);
@@ -375,6 +398,13 @@ function TasksContent() {
   useEffect(() => {
     fetchData();
   }, [user]);
+
+  // Handle Admin provider selection change
+  const handleAdminProviderChange = (newProviderId: string) => {
+    setSelectedAdminProvider(newProviderId);
+    setLoading(true);
+    fetchData(newProviderId);
+  };
 
   // Filter tasks based on search and filters
   const filteredTasks = tasks.filter(task => {
@@ -622,6 +652,27 @@ function TasksContent() {
       <div className="flex">
         <Sidebar />
         <main className="flex-1 p-8">
+          {/* Admin Provider Selector */}
+          {isAdmin && allProviders.length > 0 && (
+            <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="flex items-center gap-4">
+                <Label className="text-purple-700 font-medium whitespace-nowrap">Viewing Provider:</Label>
+                <Select value={selectedAdminProvider} onValueChange={handleAdminProviderChange}>
+                  <SelectTrigger className="w-80 bg-white">
+                    <SelectValue placeholder="Select a provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allProviders.map((p) => (
+                      <SelectItem key={p.providerId} value={p.providerId}>
+                        {p.tradingName || p.companyName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
           {/* Page Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="space-y-1">

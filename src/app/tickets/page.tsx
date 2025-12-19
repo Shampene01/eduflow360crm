@@ -39,7 +39,10 @@ import {
   getTicketsByUser,
   updateTicketDataverseId,
   generateId,
+  getAllProviders,
+  getAllTickets,
 } from "@/lib/db";
+import { AccommodationProvider } from "@/lib/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,6 +96,11 @@ function TicketsContent() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   
+  // Admin-specific state
+  const [allProviders, setAllProviders] = useState<AccommodationProvider[]>([]);
+  const [selectedAdminProvider, setSelectedAdminProvider] = useState<string>("all");
+  const isAdmin = (user?.roleCode ?? 0) >= 3;
+  
   // Create ticket dialog state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -106,7 +114,7 @@ function TicketsContent() {
   const [attachments, setAttachments] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchTickets = async (showLoading = true) => {
+  const fetchTickets = async (showLoading = true, targetProviderId?: string) => {
     const uid = user?.userId || user?.uid;
     if (!uid) {
       setLoading(false);
@@ -116,10 +124,27 @@ function TicketsContent() {
     if (showLoading) setLoading(true);
     
     try {
-      // Fetch tickets for this user
-      const ticketsData = await getTicketsByUser(uid);
-      console.log("Fetched tickets:", ticketsData.length, ticketsData);
-      setTickets(ticketsData);
+      // For Admin users, load all providers first and fetch all tickets
+      if (isAdmin) {
+        if (allProviders.length === 0) {
+          const providers = await getAllProviders();
+          setAllProviders(providers);
+        }
+        
+        // Fetch all tickets for admin
+        const allTicketsData = await getAllTickets();
+        
+        // Filter by provider if selected
+        if (targetProviderId && targetProviderId !== "all") {
+          setTickets(allTicketsData.filter(t => t.providerId === targetProviderId));
+        } else {
+          setTickets(allTicketsData);
+        }
+      } else {
+        // Regular users see only their own tickets
+        const ticketsData = await getTicketsByUser(uid);
+        setTickets(ticketsData);
+      }
     } catch (error) {
       console.error("Error fetching tickets:", error);
       setTickets([]);
@@ -132,6 +157,13 @@ function TicketsContent() {
     fetchTickets();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.userId, user?.uid]);
+
+  // Handle Admin provider selection change
+  const handleAdminProviderChange = (newProviderId: string) => {
+    setSelectedAdminProvider(newProviderId);
+    setLoading(true);
+    fetchTickets(true, newProviderId);
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -332,11 +364,33 @@ function TicketsContent() {
         <Sidebar userType="provider" />
 
         <main className="flex-1 p-8 overflow-y-auto">
+          {/* Admin Provider Selector */}
+          {isAdmin && allProviders.length > 0 && (
+            <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="flex items-center gap-4">
+                <Label className="text-purple-700 font-medium whitespace-nowrap">Filter by Provider:</Label>
+                <Select value={selectedAdminProvider} onValueChange={handleAdminProviderChange}>
+                  <SelectTrigger className="w-80 bg-white">
+                    <SelectValue placeholder="All Providers" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Providers</SelectItem>
+                    {allProviders.map((p) => (
+                      <SelectItem key={p.providerId} value={p.providerId}>
+                        {p.tradingName || p.companyName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Support Tickets</h1>
-              <p className="text-gray-500">Get help and track your support requests</p>
+              <p className="text-gray-500">{isAdmin ? "View and manage all support requests" : "Get help and track your support requests"}</p>
             </div>
             <Button 
               onClick={() => setIsCreateDialogOpen(true)}

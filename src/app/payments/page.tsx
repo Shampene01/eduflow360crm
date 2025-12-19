@@ -81,7 +81,8 @@ import {
   Student,
   StudentPropertyAssignment,
 } from "@/lib/schema";
-import { getProviderByUserId, getProviderById, getPropertiesByProvider, getPaymentsByProvider, getPaymentSummary, getPaymentSummaryFromAggregation, createPayment, approvePayment, rejectPayment, deletePayment, getStudentById, getPropertyAssignments } from "@/lib/db";
+import { getProviderByUserId, getProviderById, getPropertiesByProvider, getPaymentsByProvider, getPaymentSummary, getPaymentSummaryFromAggregation, createPayment, approvePayment, rejectPayment, deletePayment, getStudentById, getPropertyAssignments, getAllProviders } from "@/lib/db";
+import { AccommodationProvider } from "@/lib/schema";
 
 interface PaymentWithStudent extends Payment {
   student?: Student;
@@ -95,6 +96,10 @@ function PaymentsContent() {
   const [payments, setPayments] = useState<PaymentWithStudent[]>([]);
   const [providerId, setProviderId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Admin-specific state
+  const [allProviders, setAllProviders] = useState<AccommodationProvider[]>([]);
+  const [selectedAdminProvider, setSelectedAdminProvider] = useState<string>("");
 
   // Filters
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("all");
@@ -145,45 +150,69 @@ function PaymentsContent() {
   const canDelete = isSuperAdmin;
 
   // Fetch data
-  useEffect(() => {
-    const fetchData = async () => {
-      const uid = user?.userId || user?.uid;
-      if (!uid) return;
+  const fetchData = async (targetProviderId?: string) => {
+    const uid = user?.userId || user?.uid;
+    if (!uid) return;
 
-      try {
-        let provider = null;
-        if ((user as any)?.providerId) {
-          provider = await getProviderById((user as any).providerId);
-        } else {
-          provider = await getProviderByUserId(uid);
-        }
-        if (!provider) {
-          toast.error("No provider found");
+    try {
+      // For Admin users, load all providers first
+      if (isAdmin && allProviders.length === 0) {
+        const providers = await getAllProviders();
+        setAllProviders(providers);
+        
+        if (!targetProviderId && providers.length > 0) {
+          setSelectedAdminProvider(providers[0].providerId);
+          targetProviderId = providers[0].providerId;
+        } else if (!targetProviderId) {
           setLoading(false);
           return;
         }
-        setProviderId(provider.providerId);
-
-        // Fetch properties
-        const props = await getPropertiesByProvider(provider.providerId);
-        setProperties(props);
-
-        // Fetch payments
-        await fetchPayments(provider.providerId);
-
-        // Fetch assigned students for add payment modal
-        await fetchAssignedStudents(provider.providerId, props);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        toast.error("Failed to load data");
-      } finally {
-        setLoading(false);
       }
-    };
 
+      // Get provider (Admin uses selected, others use their own)
+      let provider = null;
+      if (isAdmin && targetProviderId) {
+        provider = await getProviderById(targetProviderId);
+      } else if ((user as any)?.providerId) {
+        provider = await getProviderById((user as any).providerId);
+      } else {
+        provider = await getProviderByUserId(uid);
+      }
+      if (!provider) {
+        toast.error("No provider found");
+        setLoading(false);
+        return;
+      }
+      setProviderId(provider.providerId);
+
+      // Fetch properties
+      const props = await getPropertiesByProvider(provider.providerId);
+      setProperties(props);
+
+      // Fetch payments
+      await fetchPayments(provider.providerId);
+
+      // Fetch assigned students for add payment modal
+      await fetchAssignedStudents(provider.providerId, props);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      toast.error("Failed to load data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.userId, user?.uid]);
+
+  // Handle Admin provider selection change
+  const handleAdminProviderChange = (newProviderId: string) => {
+    setSelectedAdminProvider(newProviderId);
+    setLoading(true);
+    fetchData(newProviderId);
+  };
 
   const fetchPayments = async (provId: string) => {
     try {
@@ -445,6 +474,27 @@ function PaymentsContent() {
       <div className="flex flex-1">
         <Sidebar userType="provider" />
         <main className="flex-1 p-8 overflow-y-auto">
+          {/* Admin Provider Selector */}
+          {isAdmin && allProviders.length > 0 && (
+            <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="flex items-center gap-4">
+                <Label className="text-purple-700 font-medium whitespace-nowrap">Viewing Provider:</Label>
+                <Select value={selectedAdminProvider} onValueChange={handleAdminProviderChange}>
+                  <SelectTrigger className="w-80 bg-white">
+                    <SelectValue placeholder="Select a provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allProviders.map((p) => (
+                      <SelectItem key={p.providerId} value={p.providerId}>
+                        {p.tradingName || p.companyName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
