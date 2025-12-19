@@ -635,6 +635,17 @@ export const syncUserClaims = onDocumentWritten(
 // SEED RBAC CONFIGURATION
 // ------------------------------------------------------------------
 export const seedRBAC = onRequest(async (req, res) => {
+  // Handle CORS
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  // Handle preflight OPTIONS request
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
   try {
     // Only allow POST
     if (req.method !== "POST") {
@@ -642,7 +653,7 @@ export const seedRBAC = onRequest(async (req, res) => {
       return;
     }
 
-    // Verify caller is superAdmin (roleCode >= 4)
+    // Verify caller is admin+ (roleCode >= 3)
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
       res.status(401).json({ success: false, error: "Missing Authorization header" });
@@ -652,8 +663,8 @@ export const seedRBAC = onRequest(async (req, res) => {
     const token = authHeader.replace("Bearer ", "");
     const decodedToken = await admin.auth().verifyIdToken(token);
     
-    if ((decodedToken.roleCode || 0) < 4) {
-      res.status(403).json({ success: false, error: "Only superAdmin can seed RBAC" });
+    if ((decodedToken.roleCode || 0) < 3) {
+      res.status(403).json({ success: false, error: "Only admin+ can seed RBAC" });
       return;
     }
 
