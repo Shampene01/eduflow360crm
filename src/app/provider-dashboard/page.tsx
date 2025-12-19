@@ -50,7 +50,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getProviderByUserId, getProviderById, getAddressById, getProviderContacts, getProviderDocuments, getPropertiesByProvider, getPropertyAssignments, updateProviderContact } from "@/lib/db";
+import { getProviderByUserId, getProviderById, getAddressById, getProviderContacts, getProviderDocuments, getPropertiesByProvider, getPropertyAssignments, updateProviderContact, getAllProviders } from "@/lib/db";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { syncProviderToCRM } from "@/lib/crmSync";
 import { toast } from "sonner";
 import { AccommodationProvider, Address, ProviderContactPerson, ProviderDocument, Property, Student, StudentPropertyAssignment } from "@/lib/schema";
@@ -81,6 +88,11 @@ function ProviderDashboardContent() {
   const [providerContacts, setProviderContacts] = useState<ProviderContactPerson[]>([]);
   const [providerDocuments, setProviderDocuments] = useState<ProviderDocument[]>([]);
   const [loadingProvider, setLoadingProvider] = useState(true);
+  
+  // Admin-specific state
+  const [allProviders, setAllProviders] = useState<AccommodationProvider[]>([]);
+  const [selectedAdminProvider, setSelectedAdminProvider] = useState<string>("");
+  const isAdmin = (user?.roleCode ?? 0) >= 3;
   const [stats, setStats] = useState<DashboardStats>({
     totalProperties: 0,
     totalStudents: 0,
@@ -188,32 +200,45 @@ function ProviderDashboardContent() {
   };
 
   // Check if user has approved provider status and fetch related data
-  useEffect(() => {
-    const checkProviderStatus = async () => {
-      const uid = user?.userId || user?.uid;
-      if (!uid) {
-        setLoadingProvider(false);
+  const checkProviderStatus = async (targetProviderId?: string) => {
+    const uid = user?.userId || user?.uid;
+    if (!uid) {
+      setLoadingProvider(false);
+      return;
+    }
+    try {
+      let provider: AccommodationProvider | null = null;
+      
+      // For Admin users, load all providers first
+      if (isAdmin && allProviders.length === 0) {
+        const providers = await getAllProviders();
+        const approvedProviders = providers.filter(p => p.approvalStatus === "Approved");
+        setAllProviders(approvedProviders);
+        
+        if (!targetProviderId && approvedProviders.length > 0) {
+          setSelectedAdminProvider(approvedProviders[0].providerId);
+          targetProviderId = approvedProviders[0].providerId;
+        }
+      }
+
+      // Get provider (Admin uses selected, others use their own)
+      if (isAdmin && targetProviderId) {
+        provider = await getProviderById(targetProviderId);
+      } else if ((user as any)?.providerId) {
+        provider = await getProviderById((user as any).providerId);
+      } else {
+        provider = await getProviderByUserId(uid);
+      }
+      
+      setProviderStatus(provider);
+
+      // Redirect to dashboard if no provider or not approved (skip for Admin)
+      if (!isAdmin && (!provider || provider.approvalStatus !== "Approved")) {
+        router.push("/dashboard");
         return;
       }
-      try {
-        let provider: AccommodationProvider | null = null;
-        
-        // First check if user is staff with providerId
-        if ((user as any)?.providerId) {
-          provider = await getProviderById((user as any).providerId);
-        } else {
-          // Check if user is a provider owner
-          provider = await getProviderByUserId(uid);
-        }
-        
-        setProviderStatus(provider);
 
-        // Redirect to dashboard if no provider or not approved
-        if (!provider || provider.approvalStatus !== "Approved") {
-          router.push("/dashboard");
-          return;
-        }
-
+      if (provider) {
         // Fetch address if available
         if (provider.physicalAddressId) {
           const address = await getAddressById(provider.physicalAddressId);
@@ -223,15 +248,28 @@ function ProviderDashboardContent() {
         // Fetch contacts
         const contacts = await getProviderContacts(provider.providerId);
         setProviderContacts(contacts);
-      } catch (err) {
-        console.error("Error checking provider status:", err);
-        router.push("/dashboard");
-      } finally {
-        setLoadingProvider(false);
       }
-    };
+    } catch (err) {
+      console.error("Error checking provider status:", err);
+      if (!isAdmin) {
+        router.push("/dashboard");
+      }
+    } finally {
+      setLoadingProvider(false);
+    }
+  };
+
+  useEffect(() => {
     checkProviderStatus();
   }, [user?.userId, user?.uid, router]);
+
+  // Handle Admin provider selection change
+  const handleAdminProviderChange = (newProviderId: string) => {
+    setSelectedAdminProvider(newProviderId);
+    setLoadingProvider(true);
+    setLoading(true);
+    checkProviderStatus(newProviderId);
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -392,6 +430,27 @@ function ProviderDashboardContent() {
         <Sidebar userType="provider" />
 
         <main className="flex-1 p-8 overflow-y-auto">
+          {/* Admin Provider Selector */}
+          {isAdmin && allProviders.length > 0 && (
+            <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="flex items-center gap-4">
+                <Label className="text-purple-700 font-medium whitespace-nowrap">Viewing Provider:</Label>
+                <Select value={selectedAdminProvider} onValueChange={handleAdminProviderChange}>
+                  <SelectTrigger className="w-80 bg-white">
+                    <SelectValue placeholder="Select a provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allProviders.map((p) => (
+                      <SelectItem key={p.providerId} value={p.providerId}>
+                        {p.tradingName || p.companyName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
           {/* Provider Header Card */}
           <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-sm p-8 mb-8 relative overflow-hidden">
             <div className="absolute -top-1/2 -right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
